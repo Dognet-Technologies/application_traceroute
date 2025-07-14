@@ -15,8 +15,6 @@ Features:
 - Behavioral Context Analysis
 - Multi-type Authentication Support
 - Comprehensive JSON output for exploit orchestration
-- Enhanced 405 Method Switching
-- Improved Reflection Detection
 """
 
 import requests
@@ -40,7 +38,6 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import concurrent.futures
 import os
-import html
 
 # Disabilita SSL warnings per security testing
 import urllib3
@@ -815,7 +812,7 @@ class ParameterAnalyzer:
             if context:
                 vulnerabilities.append({
                     'type': 'xss',
-                    'confidence': 'high' if context in ['html', 'attribute'] else 'medium',
+                    'confidence': 85 if context in ['html', 'attribute'] else 60,
                     'context': context,
                     'evidence': 'Parameter value reflected in response'
                 })
@@ -824,7 +821,7 @@ class ParameterAnalyzer:
         if param_name_lower in self.sql_params or re.search(r'(id|ID|Id)$', param_name):
             vulnerabilities.append({
                 'type': 'sqli',
-                'confidence': 'medium',
+                'confidence': 60,
                 'context': 'database_parameter',
                 'evidence': f'Parameter name suggests database query: {param_name}'
             })
@@ -833,7 +830,7 @@ class ParameterAnalyzer:
         if param_name_lower in self.file_params:
             vulnerabilities.append({
                 'type': 'lfi',
-                'confidence': 'medium',
+                'confidence': 60,
                 'context': 'file_parameter',
                 'evidence': f'Parameter name suggests file operation: {param_name}'
             })
@@ -842,7 +839,7 @@ class ParameterAnalyzer:
         if param_name_lower in self.cmd_params:
             vulnerabilities.append({
                 'type': 'rce',
-                'confidence': 'medium',
+                'confidence': 60,
                 'context': 'command_parameter',
                 'evidence': f'Parameter name suggests command execution: {param_name}'
             })
@@ -851,7 +848,7 @@ class ParameterAnalyzer:
         if param_name_lower in self.xxe_params or 'xml' in content_type.lower():
             vulnerabilities.append({
                 'type': 'xxe',
-                'confidence': 'medium',
+                'confidence': 60,
                 'context': 'xml_parameter',
                 'evidence': f'Parameter appears to accept XML data: {param_name}'
             })
@@ -860,7 +857,7 @@ class ParameterAnalyzer:
         if param_name_lower in ['template', 'name', 'view', 'page'] and '{{' not in str(param_value):
             vulnerabilities.append({
                 'type': 'ssti',
-                'confidence': 'low',
+                'confidence': 35,
                 'context': 'template_parameter',
                 'evidence': f'Parameter name suggests template usage: {param_name}'
             })
@@ -869,7 +866,7 @@ class ParameterAnalyzer:
         if param_name_lower in ['url', 'link', 'redirect', 'return', 'next', 'callback', 'goto']:
             vulnerabilities.append({
                 'type': 'open_redirect',
-                'confidence': 'medium',
+                'confidence': 60,
                 'context': 'redirect_parameter',
                 'evidence': f'Parameter name suggests redirection: {param_name}'
             })
@@ -878,7 +875,7 @@ class ParameterAnalyzer:
         if param_name_lower in ['username', 'user', 'name', 'uid', 'cn', 'dn']:
             vulnerabilities.append({
                 'type': 'ldapi',
-                'confidence': 'low',
+                'confidence': 35,
                 'context': 'authentication_parameter',
                 'evidence': f'Parameter used for authentication: {param_name}'
             })
@@ -1049,6 +1046,238 @@ class WordlistMapper:
             'css_injection': {
                 'payloads': [
                     'XSS Injection/Intruders/CSS-Injection.txt'
+                ]
+            },
+            'nosqli': {
+                'fuzzdb': [
+                    'attack/no-sql-injection/mongodb.txt'
+                ],
+                'payloads': [
+                    'NoSQL Injection/Intruder/MongoDB.txt',
+                    'NoSQL Injection/Intruder/NoSQL.txt'
+                ],
+                'seclists': [
+                    'Fuzzing/Databases/NoSQL.txt'
+                ]
+            },
+            'crlf': {
+                'fuzzdb': [
+                    'attack/http-protocol/crlf-injection.txt'
+                ],
+                'payloads': [
+                    'CRLF Injection/Files/crlfinjection.txt'
+                ]
+            },
+            'cors': {
+                'payloads': [
+                    'CORS Misconfiguration/README.md'
+                ]
+            },
+            'csv_injection': {
+                'payloads': [
+                    'CSV Injection/README.md'
+                ]
+            },
+            'deserialization': {
+                'payloads': [
+                    'Insecure Deserialization/Files/',
+                    'Insecure Deserialization/PHP.md',
+                    'Insecure Deserialization/Java.md',
+                    'Insecure Deserialization/Python.md'
+                ]
+            },
+            'graphql': {
+                'payloads': [
+                    'GraphQL Injection/README.md'
+                ]
+            },
+            'smuggling': {
+                'payloads': [
+                    'Request Smuggling/README.md'
+                ]
+            },
+            'race_condition': {
+                'payloads': [
+                    'Race Condition/README.md'
+                ]
+            },
+            'saml': {
+                'payloads': [
+                    'SAML Injection/README.md'
+                ]
+            },
+            'ssi': {
+                'fuzzdb': [
+                    'attack/server-side-include/server-side-includes-generic.txt'
+                ],
+                'payloads': [
+                    'Server Side Include Injection/Files/ssi_esi.txt'
+                ],
+                'seclists': [
+                    'Fuzzing/SSI-Injection-Jhaddix.txt'
+                ]
+            },
+            'xpath': {
+                'fuzzdb': [
+                    'attack/xpath/xpath-injection.txt'
+                ],
+                'payloads': [
+                    'XPATH Injection/README.md'
+                ]
+            },
+            'xslt': {
+                'payloads': [
+                    'XSLT Injection/Files/'
+                ]
+            },
+            'cache_deception': {
+                'payloads': [
+                    'Web Cache Deception/README.md'
+                ]
+            },
+            'websocket': {
+                'payloads': [
+                    'Web Sockets/Files/ws-harness.py'
+                ]
+            },
+            'jwt': {
+                'payloads': [
+                    'JSON Web Token/README.md'
+                ]
+            },
+            'prototype_pollution': {
+                'payloads': [
+                    'Prototype Pollution/README.md'
+                ]
+            },
+            'dom_clobbering': {
+                'payloads': [
+                    'DOM Clobbering/README.md'
+                ]
+            },
+            'mass_assignment': {
+                'payloads': [
+                    'Mass Assignment/README.md'
+                ]
+            },
+            'type_juggling': {
+                'payloads': [
+                    'Type Juggling/README.md'
+                ]
+            },
+            'latex': {
+                'payloads': [
+                    'LaTeX Injection/README.md'
+                ]
+            },
+            'oauth': {
+                'payloads': [
+                    'OAuth Misconfiguration/README.md'
+                ]
+            },
+            'orm': {
+                'payloads': [
+                    'ORM Leak/README.md'
+                ]
+            },
+            'prompt_injection': {
+                'payloads': [
+                    'Prompt Injection/README.md'
+                ]
+            },
+            'regex': {
+                'payloads': [
+                    'Regular Expression/README.md'
+                ]
+            },
+            'hpp': {
+                'fuzzdb': [
+                    'attack/http-protocol/hpp.txt'
+                ],
+                'payloads': [
+                    'HTTP Parameter Pollution/README.md'
+                ]
+            },
+            'tabnabbing': {
+                'payloads': [
+                    'Tabnabbing/README.md'
+                ]
+            },
+            'zip_slip': {
+                'payloads': [
+                    'Zip Slip/README.md'
+                ]
+            },
+            'unicode': {
+                'fuzzdb': [
+                    'attack/unicode/'
+                ],
+                'seclists': [
+                    'Fuzzing/Unicode.txt'
+                ]
+            },
+            'format_string': {
+                'fuzzdb': [
+                    'attack/format-strings/format-strings.txt'
+                ],
+                'seclists': [
+                    'Fuzzing/FormatString-Jhaddix.txt'
+                ]
+            },
+            'integer_overflow': {
+                'fuzzdb': [
+                    'attack/integer-overflow/integer-overflows.txt'
+                ]
+            },
+            'control_chars': {
+                'fuzzdb': [
+                    'attack/control-chars/'
+                ],
+                'seclists': [
+                    'Fuzzing/special-chars.txt'
+                ]
+            },
+            'business_logic': {
+                'fuzzdb': [
+                    'attack/business-logic/'
+                ],
+                'payloads': [
+                    'Business Logic Errors/README.md'
+                ]
+            },
+            'json': {
+                'fuzzdb': [
+                    'attack/json/JSON_Fuzzing.txt'
+                ],
+                'seclists': [
+                    'Fuzzing/JSON.Fuzzing.txt'
+                ]
+            },
+            'polyglot': {
+                'seclists': [
+                    'Fuzzing/Polyglots/SQLi-Polyglots.txt',
+                    'Fuzzing/Polyglots/XSS-Polyglots.txt',
+                    'Fuzzing/Polyglots/XSS-Polyglot-Ultimate-0xsobky.txt'
+                ]
+            },
+            'dos': {
+                'payloads': [
+                    'Denial of Service/README.md'
+                ]
+            },
+            'dns': {
+                'payloads': [
+                    'DNS Rebinding/README.md'
+                ]
+            },
+            'hidden_params': {
+                'payloads': [
+                    'Hidden Parameters/README.md'
+                ]
+            },
+            'iosec': {
+                'payloads': [
+                    'Insecure Direct Object References/README.md'
                 ]
             }
         }
@@ -1788,7 +2017,7 @@ class SmartCrawler:
             if param_value.isdigit():
                 vulns.append({
                     'type': 'idor',
-                    'confidence': 'medium', 
+                    'confidence': 60, 
                     'context': 'spa_id_param',
                     'evidence': f'ID-like parameter in SPA route: {param_value}'
                 })
@@ -1797,7 +2026,7 @@ class SmartCrawler:
             if any(keyword in param_value.lower() for keyword in ['admin', 'user', 'account', 'profile']):
                 vulns.append({
                     'type': 'access_control',
-                    'confidence': 'low',
+                    'confidence': 35,
                     'context': 'spa_route_access',
                     'evidence': f'Sensitive route parameter: {param_value}'
                 })
@@ -1969,13 +2198,13 @@ class SmartCrawler:
                     traditional_vulns.extend([
                         {
                             'type': 'sqli',
-                            'confidence': 'medium',
+                            'confidence': 60,
                             'context': 'path_numeric_id',
                             'evidence': f'Numeric ID in path: {segment_info["value"]}'
                         },
                         {
                             'type': 'idor',
-                            'confidence': 'high',
+                            'confidence': 85,
                             'context': 'path_id_access',
                             'evidence': f'Direct object reference in path: {segment_info["value"]}'
                         }
@@ -1985,13 +2214,13 @@ class SmartCrawler:
                     traditional_vulns.extend([
                         {
                             'type': 'idor',
-                            'confidence': 'medium',
+                            'confidence': 60,
                             'context': 'path_token_access',
                             'evidence': f'Token-like parameter in path: {segment_info["value"][:20]}...'
                         },
                         {
                             'type': 'auth_bypass',
-                            'confidence': 'low',
+                            'confidence': 35,
                             'context': 'path_session_token',
                             'evidence': f'Potential session token in path'
                         }
@@ -2104,7 +2333,7 @@ class SmartCrawler:
             if param_info['source'] == 'spa_routing':
                 vulns.append({
                     'type': 'xss',
-                    'confidence': 'medium',
+                    'confidence': 60,
                     'context': 'spa_dom_xss',
                     'evidence': f'SPA routing parameter susceptible to DOM XSS: {param_info["name"]}'
                 })
@@ -2192,7 +2421,7 @@ class SmartCrawler:
                 if input_data['type'] == 'file':
                     vulns.append({
                         'type': 'file_upload',
-                        'confidence': 'high',
+                        'confidence': 85,
                         'context': 'file_upload_form',
                         'evidence': f'File upload input: {input_data["name"]}'
                     })
@@ -2200,7 +2429,7 @@ class SmartCrawler:
                 if input_data['type'] == 'hidden':
                     vulns.append({
                         'type': 'hidden_param_manipulation',
-                        'confidence': 'medium',
+                        'confidence': 60,
                         'context': 'hidden_form_field',
                         'evidence': f'Hidden field manipulation: {input_data["name"]}'
                     })
@@ -2255,61 +2484,71 @@ class SmartCrawler:
     
     def test_with_wordlists(self, endpoint, param, vuln_type, wordlists):
         """Test vulnerability using wordlists and bypasses"""
-        tested_payloads = 0
+        tested_payloads = set()  # Per evitare duplicati
         max_payloads_per_list = 10  # Limit for immediate testing
         
-        for wordlist in wordlists[:2]:  # Limit to first 2 wordlists
+        # Collect all payloads first (cat)
+        all_payloads = []
+        for wordlist in wordlists[:3]:  # Limit to first 3 wordlists
             if not os.path.exists(wordlist['path']):
                 continue
             
             try:
                 with open(wordlist['path'], 'r', encoding='utf-8', errors='ignore') as f:
                     payloads = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+                    all_payloads.extend(payloads[:max_payloads_per_list])
                 
                 if self.verbose:
-                    print(f"    📚 Using wordlist: {wordlist['source']}/{wordlist['relative_path']} ({len(payloads)} payloads)")
-                
-                # Test limited number of payloads
-                for payload in payloads[:max_payloads_per_list]:
-                    if tested_payloads >= max_payloads_per_list * 2:  # Total limit
-                        break
-                    
-                    # Test without bypass first
-                    success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
-                    
-                    if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                        # Test with each validated bypass
-                        for bypass in self.bypass_manager.validated_bypasses:
-                            if self.verbose:
-                                print(f"      🔧 Applying bypass: {bypass['type']}")
-                            
-                            success = self.test_single_payload(endpoint, param, payload, vuln_type, bypass)
-                            if success:
-                                break  # Stop trying bypasses once one works
-                    
-                    tested_payloads += 1
-                    
-                    # Small delay between requests
-                    time.sleep(0.1)
+                    print(f"    📚 Loading from: {wordlist['source']}/{wordlist['relative_path']} ({len(payloads)} payloads)")
                 
             except Exception as e:
                 if self.verbose:
                     print(f"    ❌ Error reading wordlist {wordlist['path']}: {e}")
                 continue
         
+        # Sort and unique (sort | uniq)
+        unique_payloads = sorted(list(set(all_payloads)))
+        
         if self.verbose:
-            print(f"    ✅ Tested {tested_payloads} payloads for {vuln_type}")
+            print(f"    📊 Total unique payloads: {len(unique_payloads)} (from {len(all_payloads)} total)")
+        
+        # Test unique payloads
+        tested_count = 0
+        for payload in unique_payloads[:max_payloads_per_list * 2]:  # Total limit
+            if tested_count >= max_payloads_per_list * 2:
+                break
+            
+            # Test without bypass first
+            success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
+            
+            if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
+                # Test with each validated bypass
+                for bypass in self.bypass_manager.validated_bypasses:
+                    if self.verbose:
+                        print(f"      🔧 Applying bypass: {bypass['type']}")
+                    
+                    success = self.test_single_payload(endpoint, param, payload, vuln_type, bypass)
+                    if success:
+                        break  # Stop trying bypasses once one works
+            
+            tested_count += 1
+            tested_payloads.add(payload)
+            
+            # Small delay between requests
+            time.sleep(0.1)
+        
+        if self.verbose:
+            print(f"    ✅ Tested {tested_count} unique payloads for {vuln_type}")
     
     def test_single_payload(self, endpoint, param, payload, vuln_type, bypass=None):
-        """Test a single payload against an endpoint with enhanced 405 handling"""
+        """Test a single payload against an endpoint"""
         try:
             # Build test URL
             base_url = endpoint['url']
             param_name = param['name']
-            original_method = endpoint.get('method', 'GET').upper()
             
             # Determine how to inject payload
-            if original_method == 'GET':
+            if endpoint.get('method', 'GET').upper() == 'GET':
                 # GET request - add to URL parameters
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
@@ -2320,14 +2559,14 @@ class SmartCrawler:
             # Apply bypass if provided
             if bypass:
                 request_params = self.bypass_manager.apply_bypass_to_request(
-                    test_url, bypass, payload, original_method
+                    test_url, bypass, payload, endpoint.get('method', 'GET')
                 )
                 if not request_params:
                     return False
             else:
                 request_params = {
                     'url': test_url,
-                    'method': original_method,
+                    'method': endpoint.get('method', 'GET'),
                     'timeout': 5,
                     'verify': False,
                     'allow_redirects': True
@@ -2352,102 +2591,6 @@ class SmartCrawler:
                     allow_redirects=request_params['allow_redirects']
                 )
             
-            # Handle 405 Method Not Allowed
-            if response.status_code == 405:
-                if self.verbose:
-                    print(f"      ⚠️ 405 Method Not Allowed - trying different methods...")
-                
-                # Get allowed methods from Allow header
-                allowed_methods = []
-                allow_header = response.headers.get('Allow', '')
-                if allow_header:
-                    allowed_methods = [m.strip() for m in allow_header.split(',')]
-                    if self.verbose:
-                        print(f"        Allowed methods: {', '.join(allowed_methods)}")
-                
-                # If no Allow header, try common methods
-                if not allowed_methods:
-                    allowed_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
-                
-                # Try each allowed method
-                for method in allowed_methods:
-                    if method == original_method:
-                        continue  # Skip the method we already tried
-                    
-                    if self.verbose:
-                        print(f"        🔄 Trying {method}...")
-                    
-                    try:
-                        # Adjust request for different method
-                        if method in ['GET', 'DELETE', 'OPTIONS']:
-                            # Methods without body
-                            method_response = self.session.request(
-                                method,
-                                request_params['url'],
-                                headers=request_params.get('headers'),
-                                timeout=request_params['timeout'],
-                                verify=request_params['verify'],
-                                allow_redirects=request_params['allow_redirects']
-                            )
-                        else:
-                            # Methods with body (POST, PUT, PATCH)
-                            # Convert GET params to body
-                            if '?' in request_params['url']:
-                                url_parts = request_params['url'].split('?', 1)
-                                clean_url = url_parts[0]
-                                params_str = url_parts[1]
-                                
-                                # Parse params
-                                body_data = {}
-                                for param_pair in params_str.split('&'):
-                                    if '=' in param_pair:
-                                        key, value = param_pair.split('=', 1)
-                                        body_data[key] = urllib.parse.unquote(value)
-                                
-                                method_response = self.session.request(
-                                    method,
-                                    clean_url,
-                                    headers=request_params.get('headers'),
-                                    data=body_data,
-                                    timeout=request_params['timeout'],
-                                    verify=request_params['verify'],
-                                    allow_redirects=request_params['allow_redirects']
-                                )
-                            else:
-                                method_response = self.session.request(
-                                    method,
-                                    request_params['url'],
-                                    headers=request_params.get('headers'),
-                                    data={param_name: payload},
-                                    timeout=request_params['timeout'],
-                                    verify=request_params['verify'],
-                                    allow_redirects=request_params['allow_redirects']
-                                )
-                        
-                        # Check if method switch was successful
-                        if method_response.status_code != 405:
-                            if self.verbose:
-                                print(f"        ✅ {method} worked! Status: {method_response.status_code}")
-                            
-                            # Use this response for vulnerability analysis
-                            response = method_response
-                            
-                            # Record that we used a different method
-                            test_result_method = method
-                            break
-                            
-                    except Exception as e:
-                        if self.verbose:
-                            print(f"        ❌ {method} failed: {e}")
-                        continue
-                else:
-                    # No method worked
-                    if self.verbose:
-                        print(f"        ❌ All methods failed")
-                    return False
-            else:
-                test_result_method = original_method
-            
             # Analyze response for vulnerability indicators
             vulnerability_detected = self.analyze_response_for_vulnerability(
                 response, payload, vuln_type, bypass
@@ -2464,17 +2607,14 @@ class SmartCrawler:
                     'response_status': response.status_code,
                     'response_length': len(response.content),
                     'timestamp': time.strftime('%H:%M:%S'),
-                    'confidence': 'high' if bypass else 'medium',
-                    'method_used': test_result_method,
-                    'method_switch': test_result_method != original_method
+                    'confidence': 85 if bypass else 75
                 }
                 
                 self.results['vulnerability_test_results'].append(test_result)
                 
                 if self.verbose:
                     bypass_info = f" with {bypass['type']}" if bypass else ""
-                    method_info = f" (switched to {test_result_method})" if test_result_method != original_method else ""
-                    print(f"      🚨 VULNERABILITY DETECTED{bypass_info}{method_info}!")
+                    print(f"      🚨 VULNERABILITY DETECTED{bypass_info}!")
                     print(f"         Payload: {payload[:50]}{'...' if len(payload) > 50 else ''}")
                     print(f"         Status: {response.status_code}, Length: {len(response.content)}")
                 
@@ -2492,51 +2632,13 @@ class SmartCrawler:
             return False
     
     def analyze_response_for_vulnerability(self, response, payload, vuln_type, bypass):
-        """Enhanced response analysis with improved reflection detection"""
+        """Enhanced response analysis with behavioral verification"""
         status_code = response.status_code
         response_text = response.text.lower() if response.text else ""
-        response_text_original = response.text if response.text else ""
         payload_lower = payload.lower()
         
-        # Enhanced reflection detection with encoding variations
-        reflection_detected = False
-        
-        # Check direct reflection
-        if payload in response_text_original or payload_lower in response_text:
-            reflection_detected = True
-        
-        # Check URL encoded reflection
-        if not reflection_detected and urllib.parse.quote(payload) in response_text_original:
-            reflection_detected = True
-        
-        # Check HTML entity encoded reflection
-        if not reflection_detected:
-            html_encoded = html.escape(payload)
-            if html_encoded in response_text_original:
-                reflection_detected = True
-        
-        # Check partial reflection (at least 50% of payload)
-        if not reflection_detected and len(payload) > 10:
-            payload_parts = payload.split()
-            if payload_parts:
-                parts_found = sum(1 for part in payload_parts if part in response_text_original)
-                if parts_found >= len(payload_parts) / 2:
-                    reflection_detected = True
-        
-        # Check in response headers
-        for header, value in response.headers.items():
-            if payload in value or payload_lower in value.lower():
-                reflection_detected = True
-                break
-        
-        # Check in cookies
-        for cookie in response.cookies:
-            if payload in str(cookie.value) or payload_lower in str(cookie.value).lower():
-                reflection_detected = True
-                break
-        
-        # If no reflection detected and it's not a blind vulnerability, return false
-        if not reflection_detected and vuln_type not in ['sqli', 'xxe', 'ssti', 'rce']:
+        # First check: is payload even in response?
+        if payload_lower not in response_text and payload not in response.text:
             # Special case for blind vulnerabilities
             if vuln_type in ['sqli', 'xxe', 'ssti'] and status_code in [500, 503]:
                 # Server error might indicate vulnerability
@@ -2723,10 +2825,6 @@ class SmartCrawler:
             if len(response.content) > 100:  # Not just an error page
                 return True
         
-        # Final check: if reflection was detected and status is not a clear block
-        if reflection_detected and status_code not in [403, 406, 418, 429]:
-            return True
-        
         return False
     
     def discover_hidden_endpoints(self, max_paths=1000):
@@ -2819,7 +2917,7 @@ class SmartCrawler:
         return wordlists
     
     def check_endpoint(self, path):
-        """Check if an endpoint exists, with bypass support and 405 handling"""
+        """Check if an endpoint exists, with bypass support"""
         # Clean path
         if not path.startswith('/'):
             path = '/' + path
@@ -2838,12 +2936,6 @@ class SmartCrawler:
             response = self.session.head(url, timeout=5, allow_redirects=False, verify=False)
             status = response.status_code
             
-            # Handle 405 Method Not Allowed
-            if status == 405:
-                # HEAD not allowed, try GET
-                response = self.session.get(url, timeout=5, allow_redirects=False, verify=False)
-                status = response.status_code
-            
             # If blocked and we have bypasses, try them
             if status in [401, 403] and self.bypass_manager and self.bypass_manager.validated_bypasses:
                 for bypass in self.bypass_manager.validated_bypasses:
@@ -2857,16 +2949,6 @@ class SmartCrawler:
                                 allow_redirects=False,
                                 verify=False
                             )
-                            if bypass_response.status_code == 405:
-                                # Try GET if HEAD returns 405
-                                bypass_response = self.session.get(
-                                    bypass_params['url'],
-                                    headers=bypass_params.get('headers'),
-                                    timeout=5,
-                                    allow_redirects=False,
-                                    verify=False
-                                )
-                            
                             if bypass_response.status_code not in [401, 403]:
                                 status = bypass_response.status_code
                                 response = bypass_response
@@ -2878,10 +2960,7 @@ class SmartCrawler:
             
             # If interesting status, try GET for more info
             if status in [200, 201, 301, 302, 401, 403, 405]:
-                if status == 405:  # Method not allowed, already tried GET above
-                    pass
-                elif response.request.method == 'HEAD':
-                    # Get full response for analysis
+                if status == 405:  # Method not allowed, try GET
                     response = self.session.get(url, timeout=5, allow_redirects=False, verify=False)
                     status = response.status_code
                 
@@ -2926,9 +3005,9 @@ class SmartCrawler:
         # High confidence vulnerabilities
         for param in endpoint.get('parameters', []):
             for vuln in param.get('predicted_vulns', []):
-                if vuln['confidence'] == 'high':
+                if vuln['confidence'] >= 85:
                     score += 8
-                elif vuln['confidence'] == 'medium':
+                elif vuln['confidence'] >= 60:
                     score += 5
                 else:
                     score += 2
@@ -3142,38 +3221,10 @@ def main():
         
         for vuln_type, vuln_results in vuln_by_type.items():
             print(f"\n{vuln_type.upper()} ({len(vuln_results)} found):")
-            
-            # Show up to 5 examples, prioritizing method switches
-            method_switch_results = [r for r in vuln_results if r.get('method_switch', False)]
-            normal_results = [r for r in vuln_results if not r.get('method_switch', False)]
-            
-            # Show method switch results first
-            for result in method_switch_results[:3]:
-                bypass_info = f" (via {result['bypass_used']})" if result['bypass_used'] else ""
-                method_info = f" [METHOD SWITCH: {result.get('method_used', 'GET')}]" if result.get('method_switch') else ""
-                print(f"  📍 {result['endpoint']} → {result['parameter']}{bypass_info}{method_info}")
-                print(f"     Payload: {result['payload'][:50]}{'...' if len(result['payload']) > 50 else ''}")
-            
-            # Show normal results
-            remaining = 5 - len(method_switch_results[:3])
-            for result in normal_results[:remaining]:
+            for result in vuln_results[:3]:  # Show first 3 of each type
                 bypass_info = f" (via {result['bypass_used']})" if result['bypass_used'] else ""
                 print(f"  📍 {result['endpoint']} → {result['parameter']}{bypass_info}")
                 print(f"     Payload: {result['payload'][:50]}{'...' if len(result['payload']) > 50 else ''}")
-            
-            # Summary if there are more
-            if len(vuln_results) > 5:
-                print(f"  ... and {len(vuln_results) - 5} more")
-    
-    # Method switch summary
-    method_switches = [r for r in results.get('vulnerability_test_results', []) if r.get('method_switch', False)]
-    if method_switches:
-        print(f"\n🔄 METHOD SWITCHES: {len(method_switches)} vulnerabilities found via method switching")
-        method_counts = defaultdict(int)
-        for result in method_switches:
-            method_counts[result.get('method_used', 'Unknown')] += 1
-        for method, count in method_counts.items():
-            print(f"  - {method}: {count} vulnerabilities")
     
     # Technology summary
     print("\nDETECTED TECHNOLOGIES:")
