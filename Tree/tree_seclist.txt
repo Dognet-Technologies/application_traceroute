@@ -1,0 +1,497 @@
+simone@parrot  ~/GIT/3_List  tree SecLists            
+SecLists
+├── Ai
+│   └── LLM_Testing
+│       ├── Bias_Testing
+│       │   ├── gender_bias.txt
+│       │   ├── nationality_geographic_bias.txt
+│       │   └── race_ethnicity_bias.txt
+│       ├── Data_Leakage
+│       │   ├── metadata.txt
+│       │   └── personal_data.txt
+│       ├── Divergence_attack
+│       │   ├── escape_out_of_allignment_training.txt
+│       │   └── pre-training_data.txt
+│       ├── Memory_Recall_Testing
+│       │   └── session_recall.txt
+│       └── README.md
+├── CONTRIBUTING.md
+├── CONTRIBUTORS.md
+├── Discovery
+│   ├── DNS
+│   │   ├── bitquark-subdomains-top100000.txt
+│   │   ├── bug-bounty-program-subdomains-trickest-inventory.txt
+│   │   ├── combined_subdomains.txt
+│   │   ├── deepmagic.com-prefixes-top50000.txt
+│   │   ├── deepmagic.com-prefixes-top500.txt
+│   │   ├── dns-Jhaddix.txt
+│   │   ├── fierce-hostlist.txt
+│   │   ├── italian-subdomains.txt
+│   │   ├── n0kovo_subdomains.txt
+│   │   ├── namelist.txt
+│   │   ├── README.md
+│   │   ├── shubs-stackoverflow.txt
+│   │   ├── shubs-subdomains.txt
+│   │   ├── sortedcombined-knock-dnsrecon-fierce-reconng.txt
+│   │   ├── subdomains-spanish.txt
+│   │   ├── subdomains-top1million-110000.txt
+│   │   ├── subdomains-top1million-20000.txt
+│   │   ├── subdomains-top1million-5000.txt
+│   │   └── tlds.txt
+│   ├── File-System
+│   │   ├── OBEX_common.txt
+│   │   └── OBEX_rare.txt
+│   ├── Infrastructure
+│   │   ├── All-Ipv4-ClassA-10.10.txt
+│   │   ├── All-Ipv4-ClassC-192.168.txt
+│   │   ├── common-http-ports.txt
+│   │   ├── common-router-ips.txt
+│   │   ├── IPGenerator.sh
+│   │   └── nmap-ports-top1000.txt
+│   ├── Mainframe
+│   │   └── default_cics_transactions.txt
+│   ├── SNMP
+│   │   ├── common-snmp-community-strings-onesixtyone.txt
+│   │   ├── common-snmp-community-strings.txt
+│   │   ├── snmp-onesixtyone.txt
+│   │   └── snmp.txt
+│   ├── Variables
+│   │   ├── awesome-environment-variable-names.txt
+│   │   └── secret-keywords.txt
+│   └── Web-Content
+│       ├── AdobeCQ-AEM.txt
+│       ├── AdobeXML.fuzz.txt
+│       ├── aem2.txt
+│       ├── Apache.fuzz.txt
+│       ├── ApacheTomcat.fuzz.txt
+│       ├── apache.txt
+│       ├── api
+│       │   ├── actions-lowercase.txt
+│       │   ├── actions.txt
+│       │   ├── actions-uppercase.txt
+│       │   ├── api-endpoints-res.txt
+│       │   ├── api-endpoints.txt
+│       │   ├── api-seen-in-wild.txt
+│       │   ├── ispsystem_billmanager_api.txt
+│       │   ├── objects-lowercase.txt
+│       │   ├── objects.txt
+│       │   ├── objects-uppercase.txt
+│       │   ├── README.md
+│       │   └── salesforce-aura-objects.txt
+│       ├── axis.txt
+│       ├── big.txt
+│       ├── burp-parameter-names.txt
+│       ├── BurpSuite-ParamMiner
+│       │   ├── lowercase-headers
+│       │   └── uppercase-headers
+│       ├── CGI-HTTP-POST.fuzz.txt
+│       ├── CGI-HTTP-POST-Windows.fuzz.txt
+│       ├── CGI-Microsoft.fuzz.txt
+│       ├── CGIs.txt
+│       ├── CGI-XPlatform.fuzz.txt
+│       ├── CMS
+│       │   ├── caobox-cms.txt
+│       │   ├── cms-configuration-files.txt
+│       │   ├── ColdFusion.fuzz.txt
+│       │   ├── Django.txt
+│       │   ├── dotnetnuke.txt
+│       │   ├── drupal-themes.fuzz.txt
+│       │   ├── Drupal.txt
+│       │   ├── flyspray-1.0RC4.txt
+│       │   ├── joomla-plugins.fuzz.txt
+│       │   ├── joomla-themes.fuzz.txt
+│       │   ├── kentico-cms-modules-themes.txt
+│       │   ├── liferay_dxp_default_portlets.txt
+│       │   ├── modx-revolution-plugins
+│       │   ├── php-nuke.fuzz.txt
+│       │   ├── piwik-3.0.4.txt
+│       │   ├── SAP.fuzz.txt
+│       │   ├── Sharepoint.fuzz.txt
+│       │   ├── sharepoint.txt
+│       │   ├── shopware.txt
+│       │   ├── sitecore
+│       │   ├── Sitefinity-fuzz.txt
+│       │   ├── sitemap-magento.txt
+│       │   ├── SiteMinder.fuzz.txt
+│       │   ├── symfony-315-demo.txt
+│       │   ├── symphony-267-xslt-cms.txt
+│       │   ├── trickest-cms-wordlist
+│       │   │   ├── aimeos-all-levels.txt
+│       │   │   ├── aimeos.txt
+│       │   │   ├── bagisto-all-levels.txt
+│       │   │   ├── bagisto.txt
+│       │   │   ├── bolt-all-levels.txt
+│       │   │   ├── bolt.txt
+│       │   │   ├── craftcms-all-levels.txt
+│       │   │   ├── craftcms.txt
+│       │   │   ├── crater-all-levels.txt
+│       │   │   ├── crater.txt
+│       │   │   ├── directus-all-levels.txt
+│       │   │   ├── directus.txt
+│       │   │   ├── django-cms-all-levels.txt
+│       │   │   ├── django-cms.txt
+│       │   │   ├── dolibarr-all-levels.txt
+│       │   │   ├── dolibarr.txt
+│       │   │   ├── drupal-all-levels.txt
+│       │   │   ├── drupal.txt
+│       │   │   ├── erpnext-all-levels.txt
+│       │   │   ├── erpnext.txt
+│       │   │   ├── espocrm-all-levels.txt
+│       │   │   ├── espocrm.txt
+│       │   │   ├── fatfreecrm-all-levels.txt
+│       │   │   ├── fatfreecrm.txt
+│       │   │   ├── flarum-all-levels.txt
+│       │   │   ├── flarum.txt
+│       │   │   ├── forkcms-all-levels.txt
+│       │   │   ├── forkcms.txt
+│       │   │   ├── ghost-all-levels.txt
+│       │   │   ├── ghost.txt
+│       │   │   ├── grav-all-levels.txt
+│       │   │   ├── grav.txt
+│       │   │   ├── joomla-all-levels.txt
+│       │   │   ├── joomla.txt
+│       │   │   ├── keystonejs-all-levels.txt
+│       │   │   ├── keystonejs.txt
+│       │   │   ├── laravel-all-levels.txt
+│       │   │   ├── laravel.txt
+│       │   │   ├── magento-all-levels.txt
+│       │   │   ├── magento.txt
+│       │   │   ├── mautic-all-levels.txt
+│       │   │   ├── mautic.txt
+│       │   │   ├── modx-all-levels.txt
+│       │   │   ├── modx.txt
+│       │   │   ├── nopcommerce-all-levels.txt
+│       │   │   ├── nopcommerce.txt
+│       │   │   ├── octobercms-all-levels.txt
+│       │   │   ├── octobercms.txt
+│       │   │   ├── opencart-all-levels.txt
+│       │   │   ├── opencart.txt
+│       │   │   ├── opensourcepos-all-levels.txt
+│       │   │   ├── opensourcepos.txt
+│       │   │   ├── pagekit-all-levels.txt
+│       │   │   ├── pagekit.txt
+│       │   │   ├── phpbb-all-levels.txt
+│       │   │   ├── phpbb.txt
+│       │   │   ├── pico-all-levels.txt
+│       │   │   ├── pico.txt
+│       │   │   ├── prestashop-all-levels.txt
+│       │   │   ├── prestashop.txt
+│       │   │   ├── pyrocms-all-levels.txt
+│       │   │   ├── pyrocms.txt
+│       │   │   ├── shopware-all-levels.txt
+│       │   │   ├── shopware.txt
+│       │   │   ├── snipe-it-all-levels.txt
+│       │   │   ├── snipe-it.txt
+│       │   │   ├── statamic-all-levels.txt
+│       │   │   ├── statamic.txt
+│       │   │   ├── strapi-all-levels.txt
+│       │   │   ├── strapi.txt
+│       │   │   ├── suitecrm-all-levels.txt
+│       │   │   ├── suitecrm.txt
+│       │   │   ├── sylius-all-levels.txt
+│       │   │   ├── sylius.txt
+│       │   │   ├── tomcat-all-levels.txt
+│       │   │   ├── tomcat.txt
+│       │   │   ├── umbraco-cms-all-levels.txt
+│       │   │   ├── umbraco-cms.txt
+│       │   │   ├── vanilla-all-levels.txt
+│       │   │   ├── vanilla.txt
+│       │   │   ├── woocommerce-all-levels.txt
+│       │   │   ├── woocommerce.txt
+│       │   │   ├── wordpress-all-levels.txt
+│       │   │   ├── wordpress.txt
+│       │   │   ├── yetiforcecrm-all-levels.txt
+│       │   │   ├── yetiforcecrm.txt
+│       │   │   ├── zammad-all-levels.txt
+│       │   │   └── zammad.txt
+│       │   ├── Umbraco.fuzz.txt
+│       │   ├── Umbraco.txt
+│       │   ├── wordpress.fuzz.txt
+│       │   ├── wp-plugins.fuzz.txt
+│       │   └── wp-themes.fuzz.txt
+│       ├── coldfusion.txt
+│       ├── combined_directories.txt
+│       ├── combined_words.txt
+│       ├── common-and-dutch.txt
+│       ├── common-and-french.txt
+│       ├── common-and-italian.txt
+│       ├── common-and-portuguese.txt
+│       ├── common-and-spanish.txt
+│       ├── common-api-endpoints-mazen160.txt
+│       ├── CommonBackdoors-ASP.fuzz.txt
+│       ├── CommonBackdoors-JSP.fuzz.txt
+│       ├── CommonBackdoors-PHP.fuzz.txt
+│       ├── CommonBackdoors-PL.fuzz.txt
+│       ├── Common-DB-Backups.txt
+│       ├── Common-PHP-Filenames.txt
+│       ├── common.txt
+│       ├── confluence-administration.txt
+│       ├── default-web-root-directory-linux.txt
+│       ├── default-web-root-directory-windows.txt
+│       ├── directory-list-1.0.txt
+│       ├── directory-list-2.3-big.txt
+│       ├── directory-list-2.3-medium.txt
+│       ├── directory-list-2.3-small.txt
+│       ├── directory-list-lowercase-2.3-big.txt
+│       ├── directory-list-lowercase-2.3-medium.txt
+│       ├── directory-list-lowercase-2.3-small.txt
+│       ├── dirsearch.txt
+│       ├── domino-dirs-coldfusion39.txt
+│       ├── domino-endpoints-coldfusion39.txt
+│       ├── Domino-Hunter
+│       │   ├── Commands-Documents.txt
+│       │   ├── Commands-NSF.txt
+│       │   ├── Commands-Views.txt
+│       │   ├── dh.pl
+│       │   ├── Domino-Files.txt
+│       │   └── LICENCE
+│       ├── elmah.txt
+│       ├── FatwireCMS.fuzz.txt
+│       ├── fnf-fuzz.txt
+│       ├── forefront-identity-management.txt
+│       ├── Frontpage.fuzz.txt
+│       ├── frontpage.txt
+│       ├── golang.txt
+│       ├── graphql.txt
+│       ├── hashicorp-consul-api.txt
+│       ├── hashicorp-vault.txt
+│       ├── hpsmh.txt
+│       ├── HTTP-POST-Microsoft.fuzz.txt
+│       ├── Hyperion.fuzz.txt
+│       ├── hyperion.txt
+│       ├── IIS.fuzz.txt
+│       ├── iis-systemweb.txt
+│       ├── iplanet.txt
+│       ├── JavaScript-Miners.txt
+│       ├── JavaServlets-Common.fuzz.txt
+│       ├── jboss.txt
+│       ├── Jenkins-Hudson.txt
+│       ├── JRun.fuzz.txt
+│       ├── jrun.txt
+│       ├── keycloak.txt
+│       ├── KitchensinkDirectories.fuzz.txt
+│       ├── LinuxFileList.txt
+│       ├── local-ports.txt
+│       ├── Logins.fuzz.txt
+│       ├── LotusNotes.fuzz.txt
+│       ├── netware.txt
+│       ├── nginx.txt
+│       ├── ntlm-directories.txt
+│       ├── oauth-oidc-scopes.txt
+│       ├── Oracle9i.fuzz.txt
+│       ├── OracleAppServer.fuzz.txt
+│       ├── Oracle-EBS-wordlist.txt
+│       ├── oracle.txt
+│       ├── Passwords.fuzz.txt
+│       ├── PHP.fuzz.txt
+│       ├── proxy-conf.fuzz.txt
+│       ├── Public-Source-Repo-Issues.json
+│       ├── pulsesecure.txt
+│       ├── quickhits.txt
+│       ├── raft-large-directories-lowercase.txt
+│       ├── raft-large-directories.txt
+│       ├── raft-large-extensions-lowercase.txt
+│       ├── raft-large-extensions.txt
+│       ├── raft-large-files-lowercase.txt
+│       ├── raft-large-files.txt
+│       ├── raft-large-words-lowercase.txt
+│       ├── raft-large-words.txt
+│       ├── raft-medium-directories-lowercase.txt
+│       ├── raft-medium-directories.txt
+│       ├── raft-medium-extensions-lowercase.txt
+│       ├── raft-medium-extensions.txt
+│       ├── raft-medium-files-lowercase.txt
+│       ├── raft-medium-files.txt
+│       ├── raft-medium-words-lowercase.txt
+│       ├── raft-medium-words.txt
+│       ├── raft-small-directories-lowercase.txt
+│       ├── raft-small-directories.txt
+│       ├── raft-small-extensions-lowercase.txt
+│       ├── raft-small-extensions.txt
+│       ├── raft-small-files-lowercase.txt
+│       ├── raft-small-files.txt
+│       ├── raft-small-words-lowercase.txt
+│       ├── raft-small-words.txt
+│       ├── Randomfiles.fuzz.txt
+│       ├── README.md
+│       ├── reverse-proxy-inconsistencies.txt
+│       ├── ror.txt
+│       ├── Roundcube-123.txt
+│       ├── sap-analytics-cloud.txt
+│       ├── sap.txt
+│       ├── sharepoint-ennumeration.txt
+│       ├── spring-boot.txt
+│       ├── SunAppServerGlassfish.fuzz.txt
+│       ├── sunas.txt
+│       ├── SuniPlanet.fuzz.txt
+│       ├── SVNDigger
+│       ├── swagger.txt
+│       ├── tests.txt
+│       ├── tftp.fuzz.txt
+│       ├── tomcat.txt
+│       ├── trickest-robots-disallowed-wordlists
+│       │   ├── top-10000.txt
+│       │   ├── top-1000.txt
+│       │   └── top-100.txt
+│       ├── UnixDotfiles.fuzz.txt
+│       ├── uri-from-top-55-most-popular-apps.txt
+│       ├── url-params_from-top-55-most-popular-apps.txt
+│       ├── URLs
+│       │   ├── README.md
+│       │   ├── urls-Drupal-7.20.txt
+│       │   ├── urls-joomla-3.0.3.txt
+│       │   ├── urls-SAP.txt
+│       │   └── urls-wordpress-3.3.1.txt
+│       ├── versioning_metafiles.txt
+│       ├── Vignette.fuzz.txt
+│       ├── vulnerability-scan_j2ee-websites_WEB-INF.txt
+│       ├── web-all-content-types.txt
+│       ├── web-extensions-big.txt
+│       ├── web-extensions.txt
+│       ├── weblogic.txt
+│       ├── web-mutations.txt
+│       ├── Web-Services
+│       │   ├── README.md
+│       │   └── SOAP-functions.txt
+│       ├── websphere.txt
+│       └── wso2-enterprise-integrator.txt
+├── Fuzzing
+│   ├── 0-999999-hashgen.py
+│   ├── 1-4_all_letters_a-z.txt
+│   ├── 3-digits-000-999.txt
+│   ├── 403
+│   │   └── 403.md
+│   ├── 4-digits-0000-9999.txt
+│   ├── 5-digits-00000-99999.txt
+│   ├── 6-digits-000000-999999.txt
+│   ├── alphanum-case-extra.txt
+│   ├── alphanum-case.txt
+│   ├── Amounts
+│   │   ├── all.txt
+│   │   ├── hundred_thousand.txt
+│   │   ├── hundred.txt
+│   │   ├── milion.txt
+│   │   ├── one.txt
+│   │   ├── README.md
+│   │   ├── ten_thousand.txt
+│   │   ├── ten.txt
+│   │   ├── thousand.txt
+│   │   ├── zero_point_one.txt
+│   │   └── zero.txt
+│   ├── big-list-of-naughty-strings.txt
+│   ├── char.txt
+│   ├── command-injection-commix.txt
+│   ├── country-codes-lower-case.txt
+│   ├── country-codes.txt
+│   ├── country-codes-upper-case.txt
+│   ├── Databases
+│   │   ├── db2enumeration.fuzzdb.txt
+│   │   ├── MSSQL-Enumeration.fuzzdb.txt
+│   │   ├── MSSQL.fuzzdb.txt
+│   │   ├── MySQL.fuzzdb.txt
+│   │   ├── MySQL-Read-Local-Files.fuzzdb.txt
+│   │   ├── MySQL-SQLi-Login-Bypass.fuzzdb.txt
+│   │   ├── NoSQL.txt
+│   │   ├── OracleDB-SID.txt
+│   │   ├── Oracle.fuzzdb.txt
+│   │   ├── Postgres-Enumeration.fuzzdb.txt
+│   │   └── sqli.auth.bypass.txt
+│   ├── doble-uri-hex.txt
+│   ├── email-top-100-domains.txt
+│   ├── environment-identifiers.txt
+│   ├── extensions-Bo0oM.txt
+│   ├── extensions-compressed.fuzz.txt
+│   ├── extensions-most-common.fuzz.txt
+│   ├── extensions-skipfish.fuzz.txt
+│   ├── extension-test.txt
+│   ├── file-extensions-all-cases.txt
+│   ├── file-extensions-lower-case.txt
+│   ├── file-extensions.txt
+│   ├── file-extensions-upper-case.txt
+│   ├── FormatString-Jhaddix.txt
+│   ├── fuzz-Bo0oM-friendly.txt
+│   ├── fuzz-Bo0oM.txt
+│   ├── FuzzingStrings-SkullSecurity.org.txt
+│   ├── HTML5sec-Injections-Jhaddix.txt
+│   ├── http-request-methods.txt
+│   ├── IBMMQSeries-channels.txt
+│   ├── JSON.Fuzzing.txt
+│   ├── LDAP-active-directory-attributes.txt
+│   ├── LDAP-active-directory-classes.txt
+│   ├── LDAP.Fuzzing.txt
+│   ├── LDAP-openldap-attributes.txt
+│   ├── LDAP-openldap-classes.txt
+│   ├── LFI
+│   │   ├── LFI-etc-files-of-all-linux-packages.txt
+│   │   ├── LFI-gracefulsecurity-linux.txt
+│   │   ├── LFI-gracefulsecurity-windows.txt
+│   │   ├── LFI-Jhaddix.txt
+│   │   ├── LFI-LFISuite-pathtotest-huge.txt
+│   │   ├── LFI-LFISuite-pathtotest.txt
+│   │   ├── LFI-linux-and-windows_by-1N3@CrowdShield.txt
+│   │   ├── LFI-Windows-adeadfed.txt
+│   │   └── OMI-Agent-Linux.txt
+│   ├── Metacharacters.fuzzdb.txt
+│   ├── numeric-fields-only.txt
+│   ├── os-names-mutated.txt
+│   ├── os-names.txt
+│   ├── php-magic-methods.txt
+│   ├── Polyglots
+│   │   ├── SQLi-Polyglots.txt
+│   │   ├── XSS-innerht-ml.txt
+│   │   ├── XSS-Polyglots-Dmiessler.txt
+│   │   ├── XSS-Polyglots.txt
+│   │   └── XSS-Polyglot-Ultimate-0xsobky.txt
+│   ├── README.md
+│   ├── special-chars.txt
+│   ├── SQLi
+│   │   ├── Generic-BlindSQLi.fuzzdb.txt
+│   │   ├── Generic-SQLi.txt
+│   │   └── quick-SQLi.txt
+│   ├── SSI-Injection-Jhaddix.txt
+│   ├── template-engines-expression.txt
+│   ├── template-engines-special-vars.txt
+│   ├── Unicode.txt
+│   ├── UnixAttacks.fuzzdb.txt
+│   ├── URI-hex.txt
+│   ├── URI-XSS.fuzzdb.txt
+
+│   ├── XML-FUZZ.txt
+│   ├── XSS
+│   │   ├── human-friendly
+│   │   │   ├── README.md
+│   │   │   ├── XSS-BruteLogic.txt
+│   │   │   ├── XSS-Bypass-Strings-BruteLogic.txt
+│   │   │   ├── XSS-Cheat-Sheet-PortSwigger.txt
+│   │   │   ├── XSS-EnDe-evation.txt
+│   │   │   ├── XSS-EnDe-h4k.xml
+│   │   │   ├── XSS-EnDe-mario.xml
+│   │   │   ├── XSS-EnDe-xssAttacks.xml
+│   │   │   ├── XSS-Jhaddix.txt
+│   │   │   ├── XSS-OFJAAAH.txt
+│   │   │   ├── XSS-payloadbox.txt
+│   │   │   ├── XSS-RSNAKE.txt
+│   │   │   ├── XSS-Somdev.txt
+│   │   │   ├── XSS-Vectors-Mario.txt
+│   │   │   ├── XSS-With-Context-Jhaddix.txt
+│   │   │   └── xss-without-parentheses-semi-colons-portswigger.txt
+│   │   ├── README.md
+│   │   └── robot-friendly
+│   │       ├── README.md
+│   │       ├── XSS-BruteLogic.txt
+│   │       ├── XSS-Bypass-Strings-BruteLogic.txt
+│   │       ├── XSS-Cheat-Sheet-PortSwigger.txt
+│   │       ├── XSS-EnDe-evation.txt
+│   │       ├── XSS-EnDe-h4k.txt
+│   │       ├── XSS-EnDe-mario.txt
+│   │       ├── XSS-EnDe-xssAttacks.txt
+│   │       ├── XSS-Jhaddix.txt
+│   │       ├── XSS-OFJAAAH.txt
+│   │       ├── XSS-payloadbox.txt
+│   │       ├── XSS-RSNAKE.txt
+│   │       ├── XSS-Somdev.txt
+│   │       ├── XSS-Vectors-Mario.txt
+│   │       └── xss-without-parentheses-semi-colons-portswigger.txt
+│   ├── XSS-Fuzzing
+│   └── XXE-Fuzzing.txt
+

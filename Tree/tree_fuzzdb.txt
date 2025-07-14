@@ -1,0 +1,487 @@
+fuzzdb
+├── attack
+│   ├── all-attacks
+│   │   ├── all-attacks-unix.txt
+│   │   ├── all-attacks-win.txt
+│   │   └── all-attacks-xplatform.txt
+│   ├── authentication
+│   │   ├── php_magic_hashes.fuzz.txt
+│   │   └── README.md
+│   ├── business-logic
+│   │   ├── CommonDebugParamNames.txt
+│   │   ├── CommonMethodNames.txt
+│   │   └── DebugParams.Json.fuzz.txt
+│   ├── control-chars
+│   │   ├── HexValsAllBytes.txt
+│   │   ├── imessage.txt
+│   │   ├── NullByteRepresentations.txt
+│   │   ├── terminal-escape-codes.txt
+│   │   └── true.txt
+│   ├── disclosure-directory
+│   │   └── directory-indexing-generic.txt
+│   ├── disclosure-localpaths
+│   │   └── unix
+│   │       └── common-unix-httpd-log-locations.txt
+│   ├── disclosure-source
+│   │   ├── README.md
+│   │   ├── source-disc-cmd-exec-traversal.txt
+│   │   ├── source-disclosure-generic.txt
+│   │   └── source-disclosure-microsoft.txt
+│   ├── email
+│   │   ├── invalid-email-addresses.txt
+│   │   └── valid-email-addresses.txt
+│   ├── file-upload
+│   │   ├── alt-extensions-asp.txt
+│   │   ├── alt-extensions-coldfusion.txt
+│   │   ├── alt-extensions-jsp.txt
+│   │   ├── alt-extensions-perl.txt
+│   │   ├── alt-extensions-php.txt
+│   │   ├── file-ul-filter-bypass-commonly-writable-directories.txt
+│   │   ├── file-ul-filter-bypass-microsoft-asp-filetype-bf.txt
+│   │   ├── file-ul-filter-bypass-microsoft-asp.txt
+│   │   ├── file-ul-filter-bypass-ms-php.txt
+│   │   ├── file-ul-filter-bypass-x-platform-generic.txt
+│   │   ├── file-ul-filter-bypass-x-platform-php.txt
+│   │   ├── invalid-filenames-linux.txt
+│   │   ├── invalid-filenames-microsoft.txt
+│   │   ├── invalid-filesystem-chars-microsoft.txt
+│   │   ├── invalid-filesystem-chars-osx.txt
+│   │   ├── malicious-images
+│   │   │   ├── eicar.com.txt
+│   │   │   ├── lottapixel.jpg
+│   │   │   ├── POC_img_phpinfo-CR.gif
+│   │   │   ├── POC_img_phpinfo-LF-CR.gif
+│   │   │   ├── POC_phpinfo-metadata.gif
+│   │   │   ├── POC_phpinfo-metadata.jpg
+│   │   │   ├── README.md
+│   │   │   ├── uber.gif
+│   │   │   └── xssproject.swf
+│   │   └── README.md
+│   ├── format-strings
+│   │   └── format-strings.txt
+│   ├── html_js_fuzz
+│   │   ├── HTML5sec_Injections.txt
+│   │   ├── html_attributes.txt
+│   │   ├── html_tags.txt
+│   │   ├── javascript_events.txt
+│   │   ├── js_inject.txt
+│   │   └── quotationmarks.txt
+│   ├── http-protocol
+│   │   ├── crlf-injection.txt
+│   │   ├── docs.http-method-defs.html
+│   │   ├── hpp.txt
+│   │   ├── http-header-cache-poison.txt
+│   │   ├── http-protocol-methods.txt
+│   │   ├── http-request-header-field-names.txt
+│   │   ├── http-response-header-field-names.txt
+│   │   ├── known-uri-types.txt
+│   │   ├── README.md
+│   │   └── user-agents.txt
+│   ├── integer-overflow
+│   │   └── integer-overflows.txt
+│   ├── ip
+│   │   └── localhost.txt
+│   ├── json
+│   │   └── JSON_Fuzzing.txt
+│   ├── ldap
+│   │   ├── ldap-injection.txt
+│   │   └── README.md
+│   ├── lfi
+│   │   ├── common-ms-httpd-log-locations.txt
+│   │   ├── common-unix-httpd-log-locations.txt
+│   │   ├── JHADDIX_LFI.txt
+│   │   └── README.md
+│   ├── mimetypes
+│   │   └── MimeTypes.txt
+│   ├── no-sql-injection
+│   │   ├── mongodb.txt
+│   │   └── Readme.md
+│   ├── os-cmd-execution
+│   │   ├── command-execution-unix.txt
+│   │   ├── command-injection-template.txt
+│   │   ├── Commands-Linux.txt
+│   │   ├── Commands-OSX.txt
+│   │   ├── Commands-WindowsPowershell.txt
+│   │   ├── Commands-Windows.txt
+│   │   ├── OSCommandInject.Windows.txt
+│   │   ├── README.md
+│   │   ├── shell-delimiters.txt
+│   │   ├── shell-operators.txt
+│   │   ├── source-disc-cmd-exec-traversal.txt
+│   │   ├── useful-commands-unix.txt
+│   │   └── useful-commands-windows.txt
+│   ├── os-dir-indexing
+│   │   └── directory-indexing.txt
+│   ├── path-traversal
+│   │   ├── path-traversal-windows.txt
+│   │   ├── README.md
+│   │   └── traversals-8-deep-exotic-encoding.txt
+│   ├── README.md
+│   ├── redirect
+│   │   ├── README.md
+│   │   ├── redirect-injection-template.txt
+│   │   └── redirect-urls-template.txt
+│   ├── rfi
+│   │   ├── README.md
+│   │   └── rfi.txt
+│   ├── server-side-include
+│   │   └── server-side-includes-generic.txt
+│   ├── sql-injection
+│   │   ├── detect
+│   │   │   ├── GenericBlind.txt
+│   │   │   ├── Generic_SQLI.txt
+│   │   │   ├── MSSQL_blind.txt
+│   │   │   ├── MSSQL.txt
+│   │   │   ├── MySQL_MSSQL.txt
+│   │   │   ├── MySQL.txt
+│   │   │   ├── oracle.txt
+│   │   │   ├── README.md
+│   │   │   └── xplatform.txt
+│   │   ├── exploit
+│   │   │   ├── db2-enumeration.txt
+│   │   │   ├── ms-sql-enumeration.txt
+│   │   │   ├── mysql-injection-login-bypass.txt
+│   │   │   ├── mysql-read-local-files.txt
+│   │   │   ├── postgres-enumeration.txt
+│   │   │   └── README.md
+│   │   └── payloads-sql-blind
+│   │       ├── payloads-sql-blind-MSSQL-INSERT.txt
+│   │       ├── payloads-sql-blind-MSSQL-WHERE.txt
+│   │       ├── payloads-sql-blind-MySQL-INSERT.txt
+│   │       ├── payloads-sql-blind-MySQL-ORDER_BY.txt
+│   │       ├── payloads-sql-blind-MySQL-WHERE.txt
+│   │       └── README.md
+│   ├── string-expansion
+│   │   └── shell-expansion.txt
+│   ├── unicode
+│   │   ├── corrupted.txt
+│   │   ├── emoji.txt
+│   │   ├── japanese-emoticon.txt
+│   │   ├── naughty-unicode.txt
+│   │   ├── README.md
+│   │   ├── regionalindicators.txt
+│   │   ├── right-to-left.txt
+│   │   ├── specialchars.txt
+│   │   ├── two-byte-chars.txt
+│   │   └── upsidedown.txt
+│   ├── xml
+│   │   └── xml-attacks.txt
+│   ├── xpath
+│   │   ├── README.md
+│   │   └── xpath-injection.txt
+│   └── xss
+│       ├── all-encodings-of-lt.txt
+│       ├── default-javascript-event-attributes.txt
+│       ├── html-event-attributes.txt
+│       ├── JHADDIX_XSS_WITH_CONTEXT.doc.txt
+│       ├── README.md
+│       ├── test.xxe
+│       ├── xss-other.txt
+│       ├── XSSPolyglot.txt
+│       ├── xss-rsnake.txt
+│       └── xss-uri.txt
+├── _copyright.txt
+├── discovery
+│   ├── common-methods
+│   │   └── common-methods.txt
+│   ├── dns
+│   │   ├── alexaTop1mAXFRcommonSubdomains.txt
+│   │   ├── CcTLD.txt
+│   │   ├── dnsmapCommonSubdomains.txt
+│   │   └── gTLD.txt
+│   ├── predictable-filepaths
+│   │   ├── backdoors
+│   │   │   ├── ASP_CommonBackdoors.txt
+│   │   │   ├── bot_control_panels.txt
+│   │   │   └── shells.txt
+│   │   ├── cgi
+│   │   │   ├── CGI_HTTP_POST.txt
+│   │   │   ├── CGI_HTTP_POST_Windows.txt
+│   │   │   ├── CGI_Microsoft.txt
+│   │   │   └── CGI_XPlatform.txt
+│   │   ├── cms
+│   │   │   ├── drupal_plugins.txt
+│   │   │   ├── drupal_themes.txt
+│   │   │   ├── joomla_plugins.txt
+│   │   │   ├── joomla_themes.txt
+│   │   │   ├── php-nuke.txt
+│   │   │   ├── README.md
+│   │   │   ├── wordpress.txt
+│   │   │   ├── wp_common_theme_files.txt
+│   │   │   ├── wp_plugins_full.txt
+│   │   │   ├── wp_plugins_top225.txt
+│   │   │   ├── wp_plugins.txt
+│   │   │   ├── wp_themes.readme
+│   │   │   └── wp_themes.txt
+│   │   ├── filename-dirname-bruteforce
+│   │   │   ├── 3CharExtBrute.txt
+│   │   │   ├── CommonWebExtensions.txt
+│   │   │   ├── copy_of.txt
+│   │   │   ├── Extensions.Backup.txt
+│   │   │   ├── Extensions.Common.txt
+│   │   │   ├── Extensions.Compressed.txt
+│   │   │   ├── Extensions.Mostcommon.txt
+│   │   │   ├── Extensions.Skipfish.txt
+│   │   │   ├── raft-large-directories-lowercase.txt
+│   │   │   ├── raft-large-directories.txt
+│   │   │   ├── raft-large-extensions-lowercase.txt
+│   │   │   ├── raft-large-extensions.txt
+│   │   │   ├── raft-large-files-lowercase.txt
+│   │   │   ├── raft-large-files.txt
+│   │   │   ├── raft-large-words-lowercase.txt
+│   │   │   ├── raft-large-words.txt
+│   │   │   ├── raft-medium-directories-lowercase.txt
+│   │   │   ├── raft-medium-directories.txt
+│   │   │   ├── raft-medium-extensions-lowercase.txt
+│   │   │   ├── raft-medium-extensions.txt
+│   │   │   ├── raft-medium-files-lowercase.txt
+│   │   │   ├── raft-medium-files.txt
+│   │   │   ├── raft-medium-words-lowercase.txt
+│   │   │   ├── raft-medium-words.txt
+│   │   │   ├── raft-small-directories-lowercase.txt
+│   │   │   ├── raft-small-directories.txt
+│   │   │   ├── raft-small-extensions-lowercase.txt
+│   │   │   ├── raft-small-extensions.txt
+│   │   │   ├── raft-small-files-lowercase.txt
+│   │   │   ├── raft-small-files.txt
+│   │   │   ├── raft-small-words-lowercase.txt
+│   │   │   ├── raft-small-words.txt
+│   │   │   ├── spanish.txt
+│   │   │   ├── test_demo.txt
+│   │   │   ├── upload_variants.txt
+│   │   │   └── WordlistSkipfish.txt
+│   │   ├── KitchensinkDirectories.txt
+│   │   ├── login-file-locations
+│   │   │   ├── cfm.txt
+│   │   │   ├── html.txt
+│   │   │   ├── jsp.txt
+│   │   │   ├── Logins.txt
+│   │   │   ├── php.txt
+│   │   │   ├── windows-asp.txt
+│   │   │   └── windows-aspx.txt
+│   │   ├── password-file-locations
+│   │   │   └── Passwords.txt
+│   │   ├── php
+│   │   │   ├── PHP_CommonBackdoors.txt
+│   │   │   └── PHP.txt
+│   │   ├── proxy-conf.txt
+│   │   ├── Randomfiles.txt
+│   │   ├── tftp.txt
+│   │   ├── UnixDotfiles.txt
+│   │   ├── webservers-appservers
+│   │   │   ├── ADFS.txt
+│   │   │   ├── AdobeXML.txt
+│   │   │   ├── Apache_Axis.txt
+│   │   │   ├── ApacheTomcat.txt
+│   │   │   ├── Apache.txt
+│   │   │   ├── ColdFusion.txt
+│   │   │   ├── FatwireCMS.txt
+│   │   │   ├── Frontpage.txt
+│   │   │   ├── HP_System_Mgmt_Homepage.txt
+│   │   │   ├── HTTP_POST_Microsoft.txt
+│   │   │   ├── Hyperion.txt
+│   │   │   ├── IIS.txt
+│   │   │   ├── JavaServlets_Common.txt
+│   │   │   ├── JBoss.txt
+│   │   │   ├── Joomla_exploitable.txt
+│   │   │   ├── JRun.txt
+│   │   │   ├── LotusNotes.txt
+│   │   │   ├── Netware.txt
+│   │   │   ├── Oracle9i.txt
+│   │   │   ├── OracleAppServer.txt
+│   │   │   ├── README.md
+│   │   │   ├── Ruby_Rails.txt
+│   │   │   ├── SAP.txt
+│   │   │   ├── Sharepoint.txt
+│   │   │   ├── SiteMinder.txt
+│   │   │   ├── SunAppServerGlassfish.txt
+│   │   │   ├── SuniPlanet.txt
+│   │   │   ├── Vignette.txt
+│   │   │   ├── Weblogic.txt
+│   │   │   └── Websphere.txt
+│   │   └── wellknown-rfc5785.txt
+│   ├── URI_SCHEMES
+│   │   └── IANA_registerd_URI_schemes.txt
+│   ├── UserAgent
+│   │   ├── UserAgentListCommon.txt
+│   │   ├── UserAgentListLarge.txt
+│   │   └── UserAgents.txt
+│   └── WebSocket
+│       └── WebSocket-subprotocols.txt
+├── docs
+│   ├── attack-docs
+│   │   ├── remote-cmd-exfiltration
+│   │   │   ├── netcat_cheat_sheet_v1.pdf
+│   │   │   ├── Web-Shells-rev2.pdf
+│   │   │   └── windows_command_line_sheet_v1.pdf
+│   │   ├── rfi-cheatsheet.html
+│   │   ├── source-directory-file-indexing-cheatsheet.html
+│   │   ├── sqli
+│   │   │   ├── docs.oracle_cheat.pdf
+│   │   │   └── docs.sql_injection_cheatsheet.html
+│   │   ├── waf-bypass
+│   │   │   └── regexp-security-cheatsheet.md
+│   │   └── xss
+│   │       └── docs.wasc-scriptmapping
+│   │           ├── images
+│   │           │   ├── ff2.png
+│   │           │   ├── ie7.png
+│   │           │   └── safari3.png
+│   │           ├── license.txt
+│   │           └── ScriptMapping_Release_26Nov2007.html
+│   └── misc
+│       ├── htmlcodes-cheatsheet.htm
+│       ├── KL0209LIT_fffap.html
+│       ├── Web-Shells-rev2.pdf
+│       └── Wireshark_Display_Filters.pdf
+├── fuzzdb-icon.png
+├── fuzzdb.png
+├── README.md
+├── regex
+│   ├── amazon.txt
+│   ├── breakpoint-ignores.txt
+│   ├── errors.txt
+│   ├── nsa-wordlist.txt
+│   ├── pii.readme.txt
+│   ├── pii.txt
+│   ├── README.md
+│   └── sessionid.txt
+├── web-backdoors
+│   ├── asp
+│   │   ├── cmd.asmx
+│   │   ├── cmd.asp
+│   │   ├── cmd-asp-5.1.asp
+│   │   ├── cmdasp.asp
+│   │   ├── cmdasp.aspx
+│   │   ├── cmd.aspx
+│   │   ├── dns.asp
+│   │   ├── file.asp
+│   │   ├── list.asp
+│   │   ├── list.txt
+│   │   ├── ntdaddy.asp
+│   │   ├── proxy.asp
+│   │   ├── shell.asp
+│   │   ├── shell.aspx
+│   │   └── up.asp
+│   ├── c
+│   │   └── cmd.c
+│   ├── cfm
+│   │   ├── cfExec.cfm
+│   │   ├── cfSQL.cfm
+│   │   ├── cmd.cfm
+│   │   └── shell.cfm
+│   ├── exe
+│   │   └── nc.exe
+│   ├── jsp
+│   │   ├── browser.jsp
+│   │   ├── cmd.jsp
+│   │   ├── cmdjsp.jsp
+│   │   ├── CmdServlet.class
+│   │   ├── CmdServlet.java
+│   │   ├── jsp-reverse.jsp
+│   │   ├── laudanum
+│   │   │   ├── cmd.war
+│   │   │   ├── makewar.sh
+│   │   │   └── warfiles
+│   │   │       ├── cmd.jsp
+│   │   │       ├── META-INF
+│   │   │       │   └── MANIFEST.MF
+│   │   │       └── WEB-INF
+│   │   │           └── web.xml
+│   │   ├── list.jsp
+│   │   ├── ListServlet.class
+│   │   ├── ListServlet.java
+│   │   ├── simple.jsp
+│   │   ├── up.jsp
+│   │   ├── UpServlet.class
+│   │   ├── UpServlet.java
+│   │   └── win32
+│   │       ├── cmd_win32.jsp
+│   │       └── up_win32.jsp
+│   ├── php
+│   │   ├── cmd.php
+│   │   ├── dns.php
+│   │   ├── file.php
+│   │   ├── host.php
+│   │   ├── killnc.php
+│   │   ├── list.php
+│   │   ├── php-backdoor.php
+│   │   ├── php-reverse-shell.php
+│   │   ├── proxy.php
+│   │   ├── shell.php
+│   │   ├── simple-backdoor.php
+│   │   ├── tiny.php
+│   │   └── up.php
+│   ├── pl-cgi
+│   │   ├── cmd.pl
+│   │   ├── list.pl
+│   │   ├── perlcmd.cgi
+│   │   └── up.pl
+│   ├── README.md
+│   ├── servlet
+│   │   ├── CmdServlet.java
+│   │   ├── ListServlet.java
+│   │   └── UpServlet.java
+│   ├── sh
+│   │   ├── cmd.sh
+│   │   ├── list.sh
+│   │   └── up.sh
+│   └── wordpress
+│       ├── laudanum.php
+│       └── templates
+│           ├── dns.php
+│           ├── file.php
+│           ├── host.php
+│           ├── ipcheck.php
+│           ├── killnc.php
+│           ├── php-reverse-shell.php
+│           ├── proxy.php
+│           ├── README.md
+│           ├── settings.php
+│           └── shell.php
+├── wordlists-misc
+│   ├── accidental_profanity.txt
+│   ├── common-http-ports.txt
+│   ├── numeric.txt
+│   ├── resolvers.txt
+│   ├── us_cities.txt
+│   ├── wordlist-alphanumeric-case.txt
+│   ├── wordlist-common-snmp-community-strings.txt
+│   └── wordlist-dna.txt
+└── wordlists-user-passwd
+    ├── db2
+    │   ├── db2_default_pass.txt
+    │   ├── db2_default_userpass.txt
+    │   └── db2_default_user.txt
+    ├── faithwriters.txt
+    ├── generic-listpairs
+    │   ├── http_default_pass.txt
+    │   ├── http_default_userpass.txt
+    │   └── http_default_users.txt
+    ├── names
+    │   └── namelist.txt
+    ├── oracle
+    │   ├── _hci_oracle_passwords.txt
+    │   ├── _oracle_default_passwords.txt
+    │   ├── oracle_login_password.txt
+    │   ├── oracle_logins.txt
+    │   └── oracle_passwords.txt
+    ├── passwds
+    │   ├── john.txt
+    │   ├── phpbb.txt
+    │   ├── twitter.txt
+    │   └── weaksauce.txt
+    ├── postgres
+    │   ├── postgres_default_pass.txt
+    │   ├── postgres_default_userpass.txt
+    │   └── postgres_default_user.txt
+    ├── readme.txt
+    ├── tomcat
+    │   ├── tomcat_mgr_default_pass.txt
+    │   ├── tomcat_mgr_default_userpass.txt
+    │   └── tomcat_mgr_default_users.txt
+    └── unix-os
+        ├── unix_passwords.txt
+        └── unix_users.txt
+
+90 directories, 395 files
