@@ -1,6 +1,8 @@
 __pycache__/application_traceroute.cpython-311.pyc
 __pycache__/smart_vuln_crawler.cpython-311.pyc
 *.json
+app_traceroute_*
+bypasses_*
 smart_vuln_crawler.py
 unified_*
 .env.local
