@@ -1694,6 +1694,8 @@ class SmartCrawler:
         
         self.visited_urls.add(normalized_url)
         logger.info(f"Crawling: {url} (depth: {depth})")
+        if self.verbose:
+            print(f"\n🕷️ Crawling page: {url} (depth: {depth}, visited: {len(self.visited_urls)})")
         
         try:
             # Rotate user agent before each request
@@ -1906,6 +1908,8 @@ class SmartCrawler:
         
         if endpoint['parameters']:
             self.endpoints.append(endpoint)
+            if self.verbose:
+                print(f"    ✅ Added endpoint with {len(endpoint['parameters'])} parameters")
     
     def merge_vulnerability_predictions(self, behavioral_vulns, traditional_vulns, behavioral_results):
         """Intelligently merge behavioral and traditional predictions"""
@@ -2830,6 +2834,8 @@ class SmartCrawler:
     def discover_hidden_endpoints(self, max_paths=1000):
         """Smart endpoint discovery using technology-specific wordlists"""
         print("  🔍 Smart Endpoint Discovery...")
+        if self.verbose:
+            print(f"  📊 Already visited: {len(self.visited_urls)} URLs")
         logger.info("Starting smart endpoint discovery with wordlists")
         
         # Get appropriate wordlists based on detected tech
@@ -2875,13 +2881,12 @@ class SmartCrawler:
                     result = future.result()
                     if result:
                         discovered_count += 1
-                        if result['status'] == 200:
-                            # Add to crawl queue if accessible
-                            self.url_queue.put((result['url'], 0))
                 except Exception as e:
                     logger.error(f"Error checking {path}: {e}")
         
         logger.info(f"Discovered {discovered_count} new endpoints")
+        if self.verbose:
+            print(f"  📊 Queue size after discovery: {self.url_queue.qsize()} URLs to process")
     
     def get_discovery_wordlists(self):
         """Select wordlists based on detected technologies"""
@@ -2977,6 +2982,82 @@ class SmartCrawler:
                 # Add to interesting files based on status
                 self.results['interesting_files'].append(result)
                 
+                # Se è un redirect, prova a seguirlo per vedere se porta a una pagina valida
+                if status in [301, 302]:
+                    try:
+                        if self.verbose:
+                            print(f"  ↪️ Following redirect from {path}...")
+                            # AGGIUNGI: mostra l'header Location
+                            location = response.headers.get('Location', 'No Location header')
+                            print(f"    📍 Location header: {location}")
+                        
+                        # Segui il redirect
+                        redirect_response = self.session.get(url, timeout=10, allow_redirects=True, verify=False)
+                        final_url = redirect_response.url
+                        final_status = redirect_response.status_code
+                        
+                        # AGGIUNGI: mostra sempre dove porta (non solo se status 200)
+                        if self.verbose:
+                            print(f"    → Final destination: {final_url} (Status: {final_status})")
+                        
+                        # If blocked at destination and we have bypasses, try them
+                        if final_status in [401, 403] and self.bypass_manager and self.bypass_manager.validated_bypasses:
+                            if self.verbose:
+                                print(f"    🚫 Destination blocked ({final_status}), trying bypasses...")
+                            
+                            for bypass in self.bypass_manager.validated_bypasses:
+                                bypass_params = self.bypass_manager.apply_bypass_to_request(final_url, bypass)
+                                if bypass_params:
+                                    try:
+                                        bypass_redirect_response = self.session.get(
+                                            bypass_params['url'],
+                                            headers=bypass_params.get('headers'),
+                                            timeout=10,
+                                            verify=False,
+                                            allow_redirects=True
+                                        )
+                                        
+                                        if bypass_redirect_response.status_code not in [401, 403]:
+                                            if self.verbose:
+                                                print(f"      🔧 Bypass {bypass['type']} successful! Status: {bypass_redirect_response.status_code}")
+                                            final_status = bypass_redirect_response.status_code
+                                            final_url = bypass_redirect_response.url
+                                            redirect_response = bypass_redirect_response
+                                            break
+                                        elif self.verbose:
+                                            print(f"      ❌ Still blocked with {bypass['type']}: {bypass_redirect_response.status_code}")
+                                    except Exception as e:
+                                        if self.verbose:
+                                            print(f"      ❌ Bypass error: {e}")
+                                        continue
+                        
+                        if final_status == 200:
+                            logger.info(f"Redirect {path} → {final_url} (Status: {final_status})")
+                            
+                            # Aggiungi la destinazione finale alla coda se non è già stata visitata
+                            if self.normalize_url(final_url) not in self.visited_urls:
+                                self.url_queue.put((final_url, 0))
+                                
+                                if self.verbose:
+                                    print(f"    ✅ Added redirect destination to crawl queue: {final_url}")
+                            else:
+                                # AGGIUNGI: mostra se già visitato
+                                if self.verbose:
+                                    print(f"    ⚠️ Already visited: {final_url}")
+                            
+                            # Aggiorna il risultato con info sul redirect
+                            result['redirect_to'] = final_url
+                            result['redirect_status'] = final_status
+                        else:
+                            # AGGIUNGI: mostra perché non viene aggiunto
+                            if self.verbose:
+                                print(f"    ❌ Not added to queue (status: {final_status})")
+                    except Exception as e:
+                        logger.debug(f"Error following redirect from {path}: {e}")
+                        # AGGIUNGI: mostra errori se verbose
+                        if self.verbose:
+                            print(f"    ❌ Error: {e}")
+                
                 return result
                 
         except requests.exceptions.Timeout:
@@ -3052,6 +3133,8 @@ class SmartCrawler:
         # Continue crawling
         while not self.url_queue.empty() and len(self.visited_urls) < self.max_pages:
             url, depth = self.url_queue.get()
+            if self.verbose:
+                print(f"\n📄 Processing from queue: {url} (depth: {depth})")
             self.crawl_page(url, depth)
             
             # Small delay between requests
