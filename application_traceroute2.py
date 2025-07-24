@@ -280,11 +280,13 @@ class ApplicationTraceroute:
             'sucuri': ['sucuri', 'access denied.*sucuri'],
             'barracuda': ['barracuda', 'bnsv'],
             'f5': ['f5', 'bigip', 'x-wa-info'],
-            'fortinet': ['fortigate', 'fortiweb']
+            'fortinet': ['fortigate', 'fortiweb'],
+            'ispconfig': ['ispconfig', 'blocked by security policy', 'request rejected', 'web application firewall']
         }
         
         detected_waf = None
         
+        # Test standard GET parameters
         for payload in waf_payloads['payloads']:
             try:
                 response = self.session.get(
@@ -309,6 +311,30 @@ class ApplicationTraceroute:
                     
             except Exception as e:
                 continue
+        
+        # Test path injection for ISPConfig detection
+        if not detected_waf:
+            try:
+                markers = self.generate_unique_markers()
+                path_injection_payload = f"/test{markers['uuid']}%3cscript%3ealert(1)%3c/script%3e/"
+                
+                response = self.session.get(
+                    f"{self.target_url}{path_injection_payload}",
+                    headers=waf_payloads['headers'],
+                    timeout=10
+                )
+                
+                # Check specifically for ISPConfig path injection blocking
+                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
+                
+                if response.status_code == 403:
+                    for signature in waf_signatures['ispconfig']:
+                        if re.search(signature, full_response):
+                            detected_waf = 'ispconfig'
+                            break
+                            
+            except Exception as e:
+                pass
         
         if detected_waf:
             self.log_discovery("WAF", "Detection", detected_waf)
