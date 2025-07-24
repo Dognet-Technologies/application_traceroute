@@ -85,10 +85,27 @@ class ApplicationTraceroute:
         """Find an endpoint that returns 403/401 for bypass testing"""
         print("\n🔍 Phase 0: Finding Forbidden Endpoint for Testing")
         
+        # Browser-like headers per evitare detection WAF/anti-bot
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+        
         # If specified by user, verify it's actually forbidden
         if self.forbidden_endpoint:
             try:
-                response = self.session.get(self.forbidden_endpoint, timeout=5)
+                # Per cross-domain, aggiungere Referer
+                test_headers = browser_headers.copy()
+                forbidden_parsed = urlparse(self.forbidden_endpoint)
+                if forbidden_parsed.netloc != self.parsed_url.netloc:
+                    test_headers['Referer'] = self.target_url
+                
+                response = self.session.get(self.forbidden_endpoint, headers=test_headers, timeout=10)
                 if response.status_code in [401, 403]:
                     self.discovered_forbidden_endpoint = self.forbidden_endpoint
                     self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
@@ -109,7 +126,7 @@ class ApplicationTraceroute:
         for endpoint in common_protected:
             try:
                 url = self.target_url + endpoint
-                response = self.session.get(url, timeout=5, allow_redirects=False)
+                response = self.session.get(url, headers=browser_headers, timeout=10, allow_redirects=False)
                 if response.status_code in [401, 403]:
                     self.discovered_forbidden_endpoint = url
                     self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
