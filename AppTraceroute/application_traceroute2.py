@@ -41,14 +41,33 @@ from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse, urljoin
 from typing import Dict, Optional, List, Set
+import urllib3
+import warnings
+
+
+# Suppress SSL warnings for security testing
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+
 
 class ServiceDiscoveryEnhanced:
     def __init__(self):
         self.discovered_services = set()
         self.service_tree = {}
         self.max_depth = 10
+        
+        # Configure session with security testing optimizations
         self.session = requests.Session()
         self.session.timeout = 10
+        self.session.verify = False  # For security testing purposes
+        
+        # Suppress SSL warnings during security testing
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # Set realistic headers to avoid detection
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
         
         # Advanced detection patterns
         self.service_signatures = {
@@ -1233,17 +1252,6 @@ class ApplicationTraceroute:
         }
 
         
-        # Browser-like headers per evitare detection WAF/anti-bot
-        browser_headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'it,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
-        }
-        
         # If specified by user, verify it's actually forbidden
         if self.forbidden_endpoint:
             try:
@@ -1252,13 +1260,8 @@ class ApplicationTraceroute:
                 forbidden_parsed = urlparse(self.forbidden_endpoint)
                 if forbidden_parsed.netloc != self.parsed_url.netloc:
                     test_headers['Referer'] = self.target_url
-<<<<<<< HEAD:application_traceroute2.py
-                
-                response = self.session.get(self.forbidden_endpoint, headers=test_headers, timeout=10)
-=======
 
                 response = self.session.get(self.forbidden_endpoint, timeout=5)
->>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
                 if response.status_code in [401, 403]:
                     self.discovered_forbidden_endpoint = self.forbidden_endpoint
                     self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
@@ -1280,11 +1283,7 @@ class ApplicationTraceroute:
         for endpoint in common_protected:
             try:
                 url = self.target_url + endpoint
-<<<<<<< HEAD:application_traceroute2.py
-                response = self.session.get(url, headers=browser_headers, timeout=10, allow_redirects=False)
-=======
                 response = self.session.get(url, headers=browser_headers, timeout=5, allow_redirects=False)
->>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
                 if response.status_code in [401, 403]:
                     self.discovered_forbidden_endpoint = url
                     self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
@@ -1456,7 +1455,6 @@ class ApplicationTraceroute:
         
         detected_waf = None
         
-        # Test standard GET parameters
         for payload in waf_payloads['payloads']:
             try:
                 response = self.session.get(
@@ -1481,53 +1479,31 @@ class ApplicationTraceroute:
                     
             except Exception as e:
                 continue
-<<<<<<< HEAD:application_traceroute2.py
-        
-=======
 
->>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
         # Test path injection for ISPConfig detection
         if not detected_waf:
             try:
                 markers = self.generate_unique_markers()
                 path_injection_payload = f"/test{markers['uuid']}%3cscript%3ealert(1)%3c/script%3e/"
-<<<<<<< HEAD:application_traceroute2.py
-                
-=======
 
->>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
                 response = self.session.get(
                     f"{self.target_url}{path_injection_payload}",
                     headers=waf_payloads['headers'],
                     timeout=10
                 )
-<<<<<<< HEAD:application_traceroute2.py
-                
-                # Check specifically for ISPConfig path injection blocking
-                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
-                
-=======
 
                 # Check specifically for ISPConfig path injection blocking
                 full_response = f"{response.status_code} {response.headers} {response.text}".lower()
 
->>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
                 if response.status_code == 403:
                     for signature in waf_signatures['ispconfig']:
                         if re.search(signature, full_response):
                             detected_waf = 'ispconfig'
                             break
-<<<<<<< HEAD:application_traceroute2.py
-                            
-            except Exception as e:
-                pass
-        
-=======
 
             except Exception as e:
                 pass
        
->>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
         if detected_waf:
             self.log_discovery("WAF", "Detection", detected_waf)
             self.chain_map['layers'].append(f"WAF-{detected_waf}")
