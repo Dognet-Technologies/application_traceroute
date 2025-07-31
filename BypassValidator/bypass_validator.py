@@ -6,7 +6,7 @@ Re-tests all bypasses from JSON to verify they still work
 Usage: python bypass_validator.py bypasses.json
 """
 
-import json
+import json 
 import sys
 import requests
 import time
@@ -17,6 +17,13 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import socket
 import ssl
+import urllib3
+import warnings
+
+
+# Suppress SSL warnings for security testing
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
 class BypassValidator:
     def __init__(self, json_file):
