@@ -54,13 +54,23 @@ class ServiceDiscoveryEnhanced:
     def __init__(self):
         self.discovered_services = set()
         self.service_tree = {}
-        self.max_depth = 10
+        self.behavioral_cache = {}
+        self.chain_graph = defaultdict(list)  # Multi-path routing
+        self.max_depth = 15
+        self.parallel_chains = []
         
-        # Configure session with security testing optimizations
+        # Configure session with advanced settings
         self.session = requests.Session()
         self.session.timeout = 10
-        self.session.verify = False  # For security testing purposes
+        self.session.verify = False
         
+        # ML-inspired service classification weights
+        self.ml_weights = {
+            'header_patterns': 0.3,
+            'response_patterns': 0.25,
+            'behavioral_patterns': 0.25,
+            'timing_patterns': 0.2
+        }
         # Suppress SSL warnings during security testing
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         
@@ -76,10 +86,87 @@ class ServiceDiscoveryEnhanced:
                 'paths': ['/health', '/actuator/health', '/metrics', '/status'],
                 'response_patterns': ['service.*running', 'microservice', 'api.*version']
             },
-            'api-gateway': {
-                'headers': ['x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul'],
-                'paths': ['/gateway', '/api/v1', '/graphql', '/.well-known/'],
-                'response_patterns': ['gateway', 'api.*gateway', 'routing']
+            'api-gateway':  {
+                'headers': ['x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul', 'x-ambassador'],
+                'behavioral': {
+                    'rate_limiting': {'x-ratelimit', 'x-rate-limit', 'retry-after'},
+                    'request_id_propagation': {'x-request-id', 'x-correlation-id', 'x-trace-id'},
+                    'cors_handling': {'access-control-allow-origin', 'access-control-allow-methods'},
+                    'auth_delegation': {'www-authenticate', 'authorization'},
+                    'response_transformation': True  # Analyze JSON structure changes
+                },
+                'paths': ['/gateway', '/api/v1', '/graphql', '/.well-known/', '/swagger', '/openapi'],
+                'response_patterns': [
+                    r'gateway.*version', r'api.*documentation', r'swagger.*ui',
+                    r'rate.*limit.*exceeded', r'upstream.*timeout'
+                ],
+                'timing_signatures': {
+                    'consistent_overhead': (50, 200),  # Gateway processing time ms
+                    'timeout_behavior': (5000, 30000)  # Gateway timeout ranges
+                }
+            },
+            'cdn_edge': {
+                'headers': [
+                    'cf-ray', 'cf-cache-status',  # Cloudflare
+                    'x-amz-cf-id', 'x-cache',     # CloudFront
+                    'x-served-by', 'x-cache-hits' # Fastly/Varnish
+                ],
+                'behavioral': {
+                    'cache_behavior': True,
+                    'geo_routing': True,
+                    'ddos_protection': True,
+                    'compression': True
+                },
+                'timing_signatures': {
+                    'cache_hit': (5, 50),
+                    'cache_miss': (100, 2000),
+                    'edge_processing': (10, 100)
+                }
+            },
+            'container_orchestration': {
+                'headers': [
+                    'x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace',
+                    'x-container-id', 'x-docker', 'x-ecs-task'
+                ],
+                'behavioral': {
+                    'health_checks': ['/health', '/healthz', '/ready', '/live'],
+                    'metrics_exposure': ['/metrics', '/prometheus', '/stats'],
+                    'service_discovery': True,  # DNS-based service discovery
+                    'rolling_updates': True,    # Analyze version changes
+                    'load_balancing': True      # Multi-pod response analysis
+                },
+                'dns_patterns': [
+                    r'.*\.svc\.cluster\.local',
+                    r'.*\.internal',
+                    r'.*\.mesh'
+                ],
+                'timing_signatures': {
+                    'startup_time': (1000, 30000),
+                    'shutdown_graceful': (1000, 30000)
+                }
+            },
+            'serverless_function': {
+                'headers': [
+                    'x-amzn-requestid', 'x-amzn-trace-id',  # AWS Lambda
+                    'function-execution-id', 'x-cloud-run',  # Google Cloud Run
+                    'x-azure-requestid', 'x-ms-request-id'   # Azure Functions
+                ],
+                'behavioral': {
+                    'cold_start_detection': True,  # Analyze timing variations
+                    'execution_time_patterns': True,  # Function execution timing
+                    'memory_constraints': True,  # Look for memory-related errors
+                    'concurrent_execution': True   # Test concurrent request handling
+                },
+                'paths': ['/api/', '/function/', '/.netlify/functions/', '/api/v1/'],
+                'response_patterns': [
+                    r'lambda.*timeout', r'function.*invocation', r'cold.*start',
+                    r'execution.*time', r'memory.*limit', r'concurrent.*execution'
+                ],
+                'timing_signatures': {
+                    'cold_start_penalty': (100, 3000),
+                    'warm_execution': (5, 100),
+                    'timeout_behavior': (15000, 900000)  # 15s to 15min
+                }
             },
             'load-balancer': {
                 'headers': ['x-load-balancer', 'x-forwarded-by', 'x-lb'],
@@ -87,9 +174,25 @@ class ServiceDiscoveryEnhanced:
                 'response_patterns': ['load.*balance', 'upstream', 'backend.*pool']
             },
             'service-mesh': {
-                'headers': ['x-envoy', 'x-istio', 'x-linkerd', 'server.*envoy'],
-                'paths': ['/stats', '/clusters', '/config_dump'],
-                'response_patterns': ['envoy', 'istio', 'linkerd', 'consul.*connect']
+                'headers': [
+                    'x-envoy', 'x-istio', 'x-linkerd', 'x-consul',
+                    'x-b3-traceid', 'x-b3-spanid', 'x-ot-span-context'
+                ],
+                'behavioral': {
+                    'mtls_termination': True,
+                    'circuit_breaking': True,
+                    'retry_policies': True,
+                    'canary_routing': True,
+                    'fault_injection': True
+                },
+                'admin_paths': [
+                    '/stats', '/clusters', '/config_dump', '/server_info',
+                    '/listeners', '/runtime', '/certs', '/memory'
+                ],
+                'timing_signatures': {
+                    'proxy_overhead': (1, 50),
+                    'circuit_breaker_trip': (100, 1000)
+                }
             },
             'database-proxy': {
                 'headers': ['x-db-proxy', 'x-pgbouncer', 'x-mysql-proxy'],
@@ -102,10 +205,19 @@ class ServiceDiscoveryEnhanced:
                 'response_patterns': ['redis', 'memcached', 'varnish', 'cache.*hit']
             },
             'message-queue': {
-                'headers': ['x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs'],
-                'paths': ['/queue-status', '/management', '/metrics'],
-                'response_patterns': ['rabbitmq', 'kafka', 'queue', 'message.*broker']
+                'headers': ['x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs', 'x-pubsub'],
+                'behavioral': {
+                    'async_processing': True,
+                    'message_ordering': True,
+                    'dead_letter_queues': True,
+                    'batch_processing': True
+                },
+                'timing_signatures': {
+                    'queue_processing': (10, 5000),
+                    'batch_delay': (100, 10000)
+                }
             }
+
         }
         
         # Container orchestration signatures
