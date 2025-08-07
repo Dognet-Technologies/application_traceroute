@@ -1204,12 +1204,25 @@ class CommandGenerator:
     def __init__(self, request_data: Dict):
         self.request_data = request_data
 
+    def _ensure_serializable(self, data):
+        if isinstance(data, bytes):
+            try:
+                return data.decode('utf-8')
+            except UnicodeDecodeError:
+                return base64.b64encode(data).decode('utf-8')
+        elif isinstance(data, dict):
+            return {k: self._ensure_serializable(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._ensure_serializable(item) for item in data]
+        return data
+
     def generate_curl(self) -> str:
         cmd = ['curl']
         for header, value in self.request_data.get('headers', {}).items():
             cmd.append(f'-H "{header}: {value}"')
         if 'payload' in self.request_data:
-            cmd.append(f"-d '{json.dumps(self.request_data['payload'])}'")
+            serializable_payload = self._ensure_serializable(self.request_data['payload'])
+            cmd.append(f"-d '{json.dumps(serializable_payload)}'")
         cmd.append(f"'{self.request_data['url']}'")
         return ' '.join(cmd)
 
