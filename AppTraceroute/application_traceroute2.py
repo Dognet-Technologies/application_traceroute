@@ -1235,7 +1235,9 @@ class CommandGenerator:
             f"headers = {json.dumps(self.request_data.get('headers', {}), indent=2)}",
         ]
         if 'payload' in self.request_data:
-            code.append(f"payload = {json.dumps(self.request_data['payload'], indent=2)}")
+            # Utilizziamo _ensure_serializable per gestire i dati binari
+            serializable_payload = self._ensure_serializable(self.request_data['payload'])
+            code.append(f"payload = {json.dumps(serializable_payload, indent=2)}")
             code.append('')
             code.append('response = requests.post(url, headers=headers, json=payload)')
         else:
