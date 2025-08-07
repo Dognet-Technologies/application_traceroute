@@ -59,6 +59,9 @@ class ServiceDiscoveryEnhanced:
         self.max_depth = 15
         self.parallel_chains = []
         
+        # Metodo per Header 
+        self._init_header_utils()
+
         # Configure session with advanced settings
         self.session = requests.Session()
         self.session.timeout = 10
@@ -71,16 +74,60 @@ class ServiceDiscoveryEnhanced:
             'behavioral_patterns': 0.25,
             'timing_patterns': 0.2
         }
+
         # Suppress SSL warnings during security testing
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+   
+    def _init_header_utils(self):
+        """Inizializza utilities per gestione header case-insensitive"""
+        self.header_special_cases = {
+        'cf-ray': 'CF-Ray',
+        'cf-cache-status': 'CF-Cache-Status', 
+        'x-amz-cf-id': 'X-Amz-CF-Id',
+        'x-served-by': 'X-Served-By',
+        'x-cache': 'X-Cache',
+        'x-forwarded-for': 'X-Forwarded-For',
+        'x-real-ip': 'X-Real-IP',
+        'content-type': 'Content-Type',
+        'user-agent': 'User-Agent',
+        'www-authenticate': 'WWW-Authenticate'
+        }
+
+    def _normalize_headers(self, headers: dict) -> dict:
+        """AGGIUNGI QUESTO: Normalizza header per matching case-insensitive"""
+        normalized = {}
+        for header_name, header_value in headers.items():
+            key_normalized = header_name.lower().strip()
+            normalized[key_normalized] = {
+                'value': header_value,
+                'original_header': header_name
+            }
+        return normalized
+
+    def _get_header_safe(self, headers: dict, header_name: str) -> str:
+        """AGGIUNGI QUESTO: Ottieni header value case-insensitive"""
+        # Cerca match esatto prima
+        if header_name in headers:
+            return headers[header_name]
         
+        # Cerca case-insensitive
+        header_lower = header_name.lower()
+        for key, value in headers.items():
+            if key.lower() == header_lower:
+                return value
+        return None
+
+
+
+
+
         # Set realistic headers to avoid detection
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
         
         # Advanced detection patterns
-# Miglioramenti per service_signatures mantenendo la struttura originale
+        # Miglioramenti per service_signatures mantenendo la struttura originale
 
         self.service_signatures = {
             'microservice': {
@@ -350,11 +397,11 @@ class ServiceDiscoveryEnhanced:
 
             'load-balancer': {
                 'headers': [
-                    'x-load-balancer', 'x-forwarded-by', 'x-lb', 'x-lb-name',
-                    'x-haproxy', 'x-nginx-lb', 'x-real-ip', 'x-forwarded-for',
-                    'x-forwarded-proto', 'x-forwarded-host', 'x-forwarded-port',
-                    'x-original-forwarded-for', 'x-cluster-client-ip',
-                    'x-aws-alb-target-group-arn', 'x-amzn-trace-id'
+                    'X-Load-Balancer', 'X-Forwarded-By', 'x-lb', 'x-lb-name',
+                    'X-haproxy', 'x-nginx-lb', 'X-real-ip', 'X-Forwarded-For',
+                    'X-Forwarded-Proto', 'X-Forwarded-Host', 'X-Forwarded-Port',
+                    'X-original-forwarded-for', 'X-cluster-client-ip',
+                    'X-aws-alb-target-group-arn', 'X-amzn-trace-id'
                 ],
                 'behavioral': {
                     'session_persistence': {
@@ -626,18 +673,33 @@ class ServiceDiscoveryEnhanced:
             if not response:
                 return 'unknown'
             
-            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
-            
+            headers_normalized = self._normalize_headers(response.headers)
+
             # Score each service type based on header signatures
             for service_type, signatures in self.service_signatures.items():
                 score = 0
                 
                 # Header analysis
                 for header_pattern in signatures['headers']:
-                    for header_name, header_value in headers.items():
-                        if header_pattern in header_name or header_pattern in header_value:
-                            score += 10
-                
+                    pattern_lower = header_pattern.lower()
+                    
+                    # Check exact match
+                    if pattern_lower in headers_normalized:
+                        score += 10
+                        continue
+                    
+                    # Check partial matches per header complessi
+                    for normalized_key, header_data in headers_normalized.items():
+                        header_value = header_data['value'].lower()
+                        
+                        # Pattern nel nome header
+                        if pattern_lower in normalized_key:
+                            score += 8
+                        
+                        # Pattern nel valore header
+                        elif pattern_lower in header_value:
+                            score += 6
+
                 # Response content analysis
                 response_text = response.text.lower()
                 for pattern in signatures['response_patterns']:
@@ -657,13 +719,21 @@ class ServiceDiscoveryEnhanced:
                     
                     if probe_response and probe_response.status_code == 200:
                         detection_scores[service_type] = detection_scores.get(service_type, 0) + 15
-                        
-                        # Deep content analysis of probe responses
-                        probe_text = probe_response.text.lower()
-                        for pattern in signatures['response_patterns']:
-                            if re.search(pattern, probe_text):
-                                detection_scores[service_type] += 10
+
+            if detection_scores:
+                return max(detection_scores.items(), key=lambda x: x[1])[0]
             
+            return 'unknown'
+            
+        except Exception as e:
+            return 'error'
+
+       #     Deep content analysis of probe responses
+            probe_text = probe_response.text.lower()
+            for pattern in signatures['response_patterns']:
+                if re.search(pattern, probe_text):
+                    detection_scores[service_type] += 10
+                    
             # Phase 3: Advanced behavior analysis
             # Check for REST API patterns
             if self._is_rest_api(endpoint):
@@ -702,20 +772,24 @@ class ServiceDiscoveryEnhanced:
             if not response:
                 return container_info
             
-            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
-            
+            headers_normalized = self._normalize_headers(response.headers)
+
             # Kubernetes detection with bypass intelligence
             k8s_score = 0
-            for header_name, header_value in headers.items():
-                # Direct Kubernetes headers
-                if any(k8s_header in header_name for k8s_header in ['x-kubernetes', 'x-k8s', 'x-pod-name']):
+            k8s_headers = ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace']
+            
+            for k8s_header in k8s_headers:
+                k8s_header_lower = k8s_header.lower()
+                
+                if k8s_header_lower in headers_normalized:
                     k8s_score += 10
                     container_info['orchestrator'] = 'kubernetes'
                     
-                    if 'x-pod-name' in header_name:
-                        container_info['container_id'] = header_value
-                    if 'x-namespace' in header_name:
-                        container_info['namespace'] = header_value
+                    header_data = headers_normalized[k8s_header_lower]
+                    if 'pod-name' in k8s_header_lower:
+                        container_info['container_id'] = header_data['value']
+                    elif 'namespace' in k8s_header_lower:
+                        container_info['namespace'] = header_data['value']
             
             # Advanced Kubernetes detection via service patterns
             parsed_url = urlparse(endpoint)
@@ -746,12 +820,14 @@ class ServiceDiscoveryEnhanced:
             
             # Docker detection
             docker_indicators = ['x-container-id', 'x-docker', 'docker-content-digest']
-            for header_name, header_value in headers.items():
-                if any(docker_header in header_name for docker_header in docker_indicators):
+            for docker_header in docker_indicators:
+                docker_header_lower = docker_header.lower()
+                
+                if docker_header_lower in headers_normalized:
                     container_info['orchestrator'] = 'docker'
-                    if 'container-id' in header_name:
-                        container_info['container_id'] = header_value
-            
+                    if 'container-id' in docker_header_lower:
+                        container_info['container_id'] = headers_normalized[docker_header_lower]['value']
+        
             # ECS/Fargate detection
             aws_indicators = ['x-amzn-trace-id', 'x-amzn-requestid', 'x-aws-']
             ecs_score = sum(1 for header_name in headers.keys() 
@@ -807,8 +883,8 @@ class ServiceDiscoveryEnhanced:
             if not response:
                 return mesh_info
             
-            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
-            
+            headers_normalized = self._normalize_headers(response.headers)
+
             # Envoy/Istio detection (most common)
             envoy_indicators = ['server', 'x-envoy-', 'x-request-id']
             envoy_score = 0
@@ -921,12 +997,14 @@ class ServiceDiscoveryEnhanced:
             if not response:
                 return None
             
-            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
-            
+            headers_normalized = self._normalize_headers(response.headers)
+
             # Method 1: Direct forwarding headers
             forwarding_headers = [
-                'x-forwarded-to', 'x-upstream-server', 'x-backend-server',
-                'x-real-backend', 'x-upstream-addr', 'x-forwarded-host'
+                'X-Forwarded-For', 'X-Upstream-Server', 'X-Backend-Server',
+                'X-Real-Backend', 'X-Upstream-Addr', 'X-Forwarded-Proto', 
+                'X-Forwarded-Host', 'Front-End-Https', 'Max-Forwards',
+                'X-Forwarded-Port', 'Forwarded', 'Via', 'Max-Forwards'
             ]
             
             for header_name, header_value in headers.items():
@@ -1079,11 +1157,61 @@ class ServiceDiscoveryEnhanced:
         return False
 
     def _validate_next_hop(self, candidate_url: str) -> bool:
-        """Validate if candidate URL is accessible and different service"""
+        """Advanced validation with service fingerprinting"""
         try:
-            response = self._safe_request('HEAD', candidate_url, timeout=3)
-            return response and response.status_code < 500
-        except:
+            # Test con HEAD prima
+            head_response = self._safe_request('HEAD', candidate_url, timeout=3)
+            
+            if head_response and head_response.status_code in [200, 301, 302, 401, 403]:
+                return True
+            
+            # Se HEAD fallisce, prova GET con path generico
+            get_response = self._safe_request('GET', candidate_url, timeout=3)
+            
+            if not get_response:
+                return False
+            
+            # Status codes che indicano servizio esistente
+            valid_status_codes = {
+                200, 201, 202, 204,  # 2xx Success
+                301, 302, 303, 307, 308,  # 3xx Redirect (servizio esiste)
+                401, 403, 405, 429  # 4xx selezionati (servizio esiste ma limitato)
+            }
+            
+            # Escludiamo questi status
+            invalid_status_codes = {
+                404, 410,  # Not found/Gone
+                500, 501, 502, 503, 504, 505  # 5xx Server errors
+            }
+
+            # Analisi più sofisticata
+            service_indicators = [
+                # Header che indicano un servizio attivo
+                'server', 'x-powered-by', 'x-service-name',
+                # Header di sicurezza (indica servizio configurato)
+                'x-frame-options', 'x-content-type-options',
+                # Header di caching/proxy (indica layer intermedio)
+                'cache-control', 'x-cache'
+            ]
+            
+            # Se troviamo header significativi, probabilmente è un servizio
+            if any(header in get_response.headers for header in service_indicators):
+                return True
+            
+            # Analisi del contenuto della risposta
+            if get_response.text:
+                content_indicators = [
+                    'api', 'service', 'server', 'application',
+                    'version', 'status', 'health'
+                ]
+                content_lower = get_response.text.lower()
+                if any(indicator in content_lower for indicator in content_indicators):
+                    return True
+            
+            # Fallback alla logica originale
+            return get_response.status_code < 500
+            
+        except Exception:
             return False
 
 class ServiceMeshDetector:
@@ -1582,84 +1710,642 @@ class CommandGenerator:
                 },
 
                 # Layer 8: Application Runtime Detection
+                # Layer 8: Application Runtime Detection (Enhanced)
                 'runtime_detection': {
                     'priority': 8,
                     'headers': {
                         'X-Runtime-Test': markers['uuid'],
-                        'X-Framework-Test': markers['sequence']
+                        'X-Framework-Test': markers['sequence'],
+                        'X-Language-Test': markers['timestamp'],
+                        'X-Version-Test': markers['random_id']
                     },
                     'runtime_tests': {
                         'language_detection': {
                             'java': [
                                 f'/actuator/health?test={markers["uuid"]}',
                                 f'/jolokia?test={markers["uuid"]}',
-                                f'/hawtio?test={markers["uuid"]}'
+                                f'/hawtio?test={markers["uuid"]}',
+                                f'/micrometer?test={markers["uuid"]}',
+                                f'/management/metrics?test={markers["uuid"]}',
+                                f'/jmx-console?test={markers["uuid"]}'
                             ],
                             'nodejs': [
                                 f'/debug?test={markers["uuid"]}',
-                                f'/status?test={markers["uuid"]}'
+                                f'/status?test={markers["uuid"]}',
+                                f'/healthcheck?test={markers["uuid"]}',
+                                f'/.well-known/health?test={markers["uuid"]}',
+                                f'/metrics?test={markers["uuid"]}'
                             ],
                             'python': [
                                 f'/debug?test={markers["uuid"]}',
-                                f'/__debug__?test={markers["uuid"]}'
+                                f'/__debug__?test={markers["uuid"]}',
+                                f'/health?test={markers["uuid"]}',
+                                f'/metrics?test={markers["uuid"]}',
+                                f'/status?test={markers["uuid"]}'
                             ],
                             'dotnet': [
                                 f'/health?test={markers["uuid"]}',
-                                f'/info?test={markers["uuid"]}'
+                                f'/info?test={markers["uuid"]}',
+                                f'/metrics?test={markers["uuid"]}',
+                                f'/swagger?test={markers["uuid"]}',
+                                f'/weatherforecast?test={markers["uuid"]}'  # Default ASP.NET template
                             ],
                             'php': [
                                 f'/phpinfo.php?test={markers["uuid"]}',
-                                f'/info.php?test={markers["uuid"]}'
+                                f'/info.php?test={markers["uuid"]}',
+                                f'/status.php?test={markers["uuid"]}',
+                                f'/health.php?test={markers["uuid"]}',
+                                f'/server-status?test={markers["uuid"]}'
+                            ],
+                            'go': [
+                                f'/debug/pprof?test={markers["uuid"]}',
+                                f'/health?test={markers["uuid"]}',
+                                f'/metrics?test={markers["uuid"]}',
+                                f'/debug/vars?test={markers["uuid"]}',
+                                f'/healthz?test={markers["uuid"]}'
+                            ],
+                            'rust': [
+                                f'/health?test={markers["uuid"]}',
+                                f'/metrics?test={markers["uuid"]}',
+                                f'/debug?test={markers["uuid"]}',
+                                f'/status?test={markers["uuid"]}'
+                            ],
+                            'ruby': [
+                                f'/health?test={markers["uuid"]}',
+                                f'/status?test={markers["uuid"]}',
+                                f'/debug?test={markers["uuid"]}',
+                                f'/rails/info/routes?test={markers["uuid"]}'
+                            ],
+                            'scala': [
+                                f'/actuator/health?test={markers["uuid"]}',
+                                f'/healthcheck?test={markers["uuid"]}',
+                                f'/metrics?test={markers["uuid"]}',
+                                f'/management/health?test={markers["uuid"]}'
+                            ],
+                            'kotlin': [
+                                f'/actuator/health?test={markers["uuid"]}',
+                                f'/health?test={markers["uuid"]}',
+                                f'/metrics?test={markers["uuid"]}'
                             ]
                         },
                         'framework_detection': {
-                            'spring_boot': ['/actuator/', '/management/'],
-                            'express_js': ['/api/', '/debug/'],
-                            'django': ['/__debug__/', '/admin/'],
-                            'flask': ['/debug/', '/status/'],
-                            'laravel': ['/telescope/', '/horizon/']
+                            # Java Frameworks
+                            'spring_boot': [
+                                '/actuator/', '/management/', '/beans', '/configprops',
+                                '/actuator/env', '/actuator/metrics', '/actuator/loggers'
+                            ],
+                            'quarkus': [
+                                '/q/health/', '/q/metrics/', '/q/openapi/',
+                                '/q/health/live', '/q/health/ready', '/q/dev/'
+                            ],
+                            'micronaut': [
+                                '/health/', '/beans/', '/routes/', '/info/',
+                                '/metrics/', '/loggers/'
+                            ],
+                            'vertx': [
+                                '/eventbus/', '/health/', '/metrics/',
+                                '/sockjs/', '/vertx/'
+                            ],
+                            'dropwizard': [
+                                '/healthcheck', '/metrics', '/ping',
+                                '/threads', '/tasks'
+                            ],
+                            
+                            # JavaScript/Node.js Frameworks
+                            'express_js': [
+                                '/api/', '/debug/', '/status/',
+                                '/health/', '/metrics/'
+                            ],
+                            'nestjs': [
+                                '/health/', '/swagger/', '/metrics/',
+                                '/docs/', '/api/', '/graphql'
+                            ],
+                            'koa': ['/health/', '/status/', '/api/'],
+                            'fastify': [
+                                '/health/', '/metrics/', '/documentation/',
+                                '/swagger/', '/api/'
+                            ],
+                            'next_js': [
+                                '/_next/', '/api/', '/__next/',
+                                '/api/health', '/_next/static/'
+                            ],
+                            'nuxt': [
+                                '/_nuxt/', '/api/', '/.nuxt/',
+                                '/api/health'
+                            ],
+                            'meteor': [
+                                '/sockjs/', '/__meteor__/', '/api/',
+                                '/health/'
+                            ],
+                            
+                            # Python Frameworks
+                            'django': [
+                                '/__debug__/', '/admin/', '/api/',
+                                '/debug/', '/health/', '/static/admin/'
+                            ],
+                            'flask': [
+                                '/debug/', '/status/', '/health/',
+                                '/api/', '/metrics/'
+                            ],
+                            'fastapi': [
+                                '/docs/', '/openapi.json', '/health/',
+                                '/redoc/', '/api/', '/metrics/'
+                            ],
+                            'tornado': ['/health/', '/status/', '/api/'],
+                            'pyramid': ['/debug/', '/health/', '/api/'],
+                            'bottle': ['/debug/', '/status/', '/api/'],
+                            'cherrypy': ['/status/', '/health/', '/api/'],
+                            
+                            # .NET Frameworks
+                            'aspnet_core': [
+                                '/health/', '/swagger/', '/api/',
+                                '/weatherforecast', '/hubs/', '/metrics/'
+                            ],
+                            'aspnet_mvc': [
+                                '/health/', '/api/', '/trace.axd',
+                                '/elmah.axd'
+                            ],
+                            'blazor': [
+                                '/_blazor/', '/api/', '/health/',
+                                '/_framework/'
+                            ],
+                            
+                            # PHP Frameworks
+                            'laravel': [
+                                '/telescope/', '/horizon/', '/health/',
+                                '/api/', '/docs/', '/nova/'
+                            ],
+                            'symfony': [
+                                '/debug/', '/_wdt/', '/_profiler/',
+                                '/api/', '/health/', '/_error/'
+                            ],
+                            'codeigniter': [
+                                '/debug/', '/system/', '/api/',
+                                '/index.php/welcome/'
+                            ],
+                            'zend': ['/debug/', '/status/', '/api/'],
+                            'cakephp': [
+                                '/debug/', '/api/', '/health/',
+                                '/debug_kit/'
+                            ],
+                            
+                            # Go Frameworks
+                            'gin': [
+                                '/debug/pprof/', '/health/', '/metrics/',
+                                '/api/', '/ping'
+                            ],
+                            'echo': ['/health/', '/metrics/', '/api/'],
+                            'fiber': ['/health/', '/metrics/', '/api/'],
+                            'beego': [
+                                '/healthcheck/', '/task/', '/api/',
+                                '/swagger/'
+                            ],
+                            'buffalo': ['/health/', '/api/', '/debug/'],
+                            
+                            # Ruby Frameworks
+                            'rails': [
+                                '/rails/info/', '/health/', '/debug/',
+                                '/api/', '/cable/', '/rails/mailers/'
+                            ],
+                            'sinatra': ['/health/', '/status/', '/api/'],
+                            'grape': ['/api/', '/swagger/', '/health/'],
+                            
+                            # Rust Frameworks
+                            'actix_web': ['/health/', '/metrics/', '/api/'],
+                            'warp': ['/health/', '/metrics/', '/api/'],
+                            'rocket': ['/health/', '/metrics/', '/api/'],
+                            'axum': ['/health/', '/metrics/', '/api/'],
+                            
+                            # Scala Frameworks
+                            'play': [
+                                '/health/', '/metrics/', '/api/',
+                                '/assets/', '/docs/'
+                            ],
+                            'akka_http': [
+                                '/health/', '/metrics/', '/api/',
+                                '/system/'
+                            ]
+                        },
+                        'runtime_version_detection': {
+                            'version_endpoints': [
+                                '/version', '/v1/version', '/api/version',
+                                '/build-info', '/info', '/about',
+                                '/actuator/info', '/management/info',
+                                '/api/v1/version', '/.well-known/version'
+                            ],
+                            'build_info_endpoints': [
+                                '/build', '/build-info', '/actuator/info',
+                                '/api/build', '/version.json', '/manifest.json'
+                            ]
+                        },
+                        'runtime_specific_paths': {
+                            'java_specific': [
+                                '/WEB-INF/', '/META-INF/', '/classes/',
+                                '/lib/', '/resources/', '/static/'
+                            ],
+                            'nodejs_specific': [
+                                '/node_modules/', '/public/', '/dist/',
+                                '/build/', '/assets/'
+                            ],
+                            'python_specific': [
+                                '/__pycache__/', '/static/', '/media/',
+                                '/templates/', '/locale/'
+                            ],
+                            'php_specific': [
+                                '/vendor/', '/public/', '/storage/',
+                                '/bootstrap/', '/config/'
+                            ],
+                            'dotnet_specific': [
+                                '/bin/', '/obj/', '/wwwroot/',
+                                '/Views/', '/Controllers/'
+                            ]
+                        },
+                        'error_page_fingerprinting': {
+                            'test_paths': [
+                                '/nonexistent-page-404',
+                                '/error-test-500',
+                                '/forbidden-403',
+                                '/method-not-allowed-405'
+                            ],
+                            'framework_error_signatures': {
+                                'spring_boot': ['Whitelabel Error Page', 'Spring Boot', 'org.springframework'],
+                                'django': ['DisallowedHost', 'Django', 'django.core'],
+                                'flask': ['werkzeug', 'Flask', 'Werkzeug Debugger'],
+                                'express': ['Cannot GET', 'Express', 'express'],
+                                'laravel': ['Illuminate\\', 'Laravel', 'Whoops'],
+                                'asp_net': ['ASP.NET', 'System.Web', 'Server Error'],
+                                'rails': ['ActionController', 'Rails', 'We\'re sorry'],
+                                'fastapi': ['FastAPI', 'detail', 'Swagger UI'],
+                                'gin': ['404 page not found', 'gin-gonic'],
+                                'actix': ['actix-web', 'Not Found']
+                            }
                         }
                     },
                     'runtime_signatures': {
-                        'java': ['java', 'jvm', 'spring', 'tomcat', 'jetty'],
-                        'nodejs': ['node', 'express', 'v8'],
-                        'python': ['python', 'django', 'flask', 'wsgi'],
-                        'dotnet': ['asp.net', 'iis', '.net'],
-                        'php': ['php', 'apache', 'nginx-php']
+                        'java': [
+                            'java', 'jvm', 'spring', 'tomcat', 'jetty', 'undertow',
+                            'quarkus', 'micronaut', 'vertx', 'dropwizard'
+                        ],
+                        'nodejs': [
+                            'node', 'express', 'v8', 'npm', 'yarn', 'nestjs',
+                            'next', 'nuxt', 'meteor', 'socket.io'
+                        ],
+                        'python': [
+                            'python', 'django', 'flask', 'wsgi', 'fastapi',
+                            'gunicorn', 'uvicorn', 'tornado', 'pyramid', 'bottle'
+                        ],
+                        'dotnet': [
+                            'asp.net', 'iis', '.net', 'kestrel', 'blazor',
+                            'signalr', 'entity-framework'
+                        ],
+                        'php': [
+                            'php', 'apache', 'nginx-php', 'laravel', 'symfony',
+                            'codeigniter', 'zend', 'cakephp'
+                        ],
+                        'go': [
+                            'go', 'golang', 'gin', 'echo', 'fiber',
+                            'beego', 'buffalo', 'gorilla'
+                        ],
+                        'rust': [
+                            'rust', 'cargo', 'actix', 'warp', 'rocket',
+                            'axum', 'hyper'
+                        ],
+                        'ruby': [
+                            'ruby', 'rails', 'sinatra', 'puma', 'unicorn',
+                            'grape', 'roda'
+                        ],
+                        'scala': [
+                            'scala', 'akka', 'play', 'sbt', 'finatra',
+                            'http4s'
+                        ],
+                        'kotlin': [
+                            'kotlin', 'ktor', 'spring-kotlin', 'exposed'
+                        ],
+                        'clojure': [
+                            'clojure', 'ring', 'compojure', 'leiningen',
+                            'pedestal'
+                        ]
+                    },
+                    'response_analysis': {
+                        'header_patterns': [
+                            'Server', 'X-Powered-By', 'X-AspNet-Version',
+                            'X-Runtime', 'X-Version', 'X-Framework',
+                            'X-Generator', 'X-Drupal-Cache', 'X-Pingback'
+                        ],
+                        'content_analysis': {
+                            'meta_tags': ['generator', 'framework', 'powered-by'],
+                            'script_sources': ['jquery', 'bootstrap', 'react', 'vue', 'angular'],
+                            'css_frameworks': ['bootstrap', 'tailwind', 'bulma', 'material-ui']
+                        },
+                        'timing_analysis': {
+                            'cold_start_detection': True,
+                            'response_time_profiling': True,
+                            'jit_compilation_detection': True
+                        }
                     }
                 },
 
-                # Layer 9: Database/Storage Detection
+                # Layer 9: Database/Storage Detection (Enhanced)
                 'database_detection': {
                     'priority': 9,
                     'headers': {
                         'X-Database-Test': markers['uuid'],
-                        'X-Storage-Test': markers['sequence']
+                        'X-Storage-Test': markers['sequence'],
+                        'X-Cache-Test': markers['timestamp'],
+                        'X-Analytics-Test': markers['random_id']
                     },
                     'db_tests': {
+                        'relational_databases': {
+                            'postgresql': [
+                                f'/pg_stat_activity?test={markers["uuid"]}',
+                                f'/pg_stat_database?test={markers["uuid"]}',
+                                f'/pg_isready?test={markers["uuid"]}',
+                                f'/postgres/health?test={markers["uuid"]}'
+                            ],
+                            'mysql': [
+                                f'/mysql/status?test={markers["uuid"]}',
+                                f'/mysql/variables?test={markers["uuid"]}',
+                                f'/mysql/health?test={markers["uuid"]}',
+                                f'/phpmyadmin?test={markers["uuid"]}'
+                            ],
+                            'mariadb': [
+                                f'/mariadb/status?test={markers["uuid"]}',
+                                f'/mariadb/health?test={markers["uuid"]}'
+                            ],
+                            'oracle': [
+                                f'/oracle/health?test={markers["uuid"]}',
+                                f'/em/console?test={markers["uuid"]}',
+                                f'/apex?test={markers["uuid"]}'
+                            ],
+                            'mssql': [
+                                f'/mssql/health?test={markers["uuid"]}',
+                                f'/sql/health?test={markers["uuid"]}'
+                            ],
+                            'sqlite': [
+                                f'/sqlite/health?test={markers["uuid"]}',
+                                f'/db.sqlite3?test={markers["uuid"]}'
+                            ]
+                        },
+                        'nosql_databases': {
+                            'mongodb': [
+                                f'/mongo/status?test={markers["uuid"]}',
+                                f'/mongo/health?test={markers["uuid"]}',
+                                f'/admin/buildinfo?test={markers["uuid"]}',
+                                f'/mongoexpress?test={markers["uuid"]}'
+                            ],
+                            'cassandra': [
+                                f'/cassandra/health?test={markers["uuid"]}',
+                                f'/cassandra/status?test={markers["uuid"]}',
+                                f'/jolokia/read/org.apache.cassandra.metrics?test={markers["uuid"]}'
+                            ],
+                            'couchdb': [
+                                f'/couchdb/_up?test={markers["uuid"]}',
+                                f'/couchdb/_utils?test={markers["uuid"]}',
+                                f'/_up?test={markers["uuid"]}'
+                            ],
+                            'dynamodb': [
+                                f'/dynamodb/health?test={markers["uuid"]}',
+                                f'/dynamodb-local?test={markers["uuid"]}'
+                            ],
+                            'neo4j': [
+                                f'/db/data?test={markers["uuid"]}',
+                                f'/browser?test={markers["uuid"]}',
+                                f'/neo4j/health?test={markers["uuid"]}'
+                            ]
+                        },
                         'database_proxies': [
                             f'/db-status?test={markers["uuid"]}',
                             f'/pgbouncer?test={markers["uuid"]}',
-                            f'/mysql-proxy?test={markers["uuid"]}'
+                            f'/pgpool?test={markers["uuid"]}',
+                            f'/mysql-proxy?test={markers["uuid"]}',
+                            f'/proxysql?test={markers["uuid"]}',
+                            f'/haproxy/stats?test={markers["uuid"]}',
+                            f'/pgcat?test={markers["uuid"]}'
                         ],
-                        'cache_layers': [
-                            f'/redis-info?test={markers["uuid"]}',
-                            f'/memcached-stats?test={markers["uuid"]}',
-                            f'/cache-status?test={markers["uuid"]}'
-                        ],
-                        'storage_apis': [
-                            f'/api/storage?test={markers["uuid"]}',
-                            f'/s3-status?test={markers["uuid"]}',
-                            f'/blob-storage?test={markers["uuid"]}'
-                        ]
+                        'cache_layers': {
+                            'redis': [
+                                f'/redis/info?test={markers["uuid"]}',
+                                f'/redis/ping?test={markers["uuid"]}',
+                                f'/redis/health?test={markers["uuid"]}',
+                                f'/redis-commander?test={markers["uuid"]}',
+                                f'/redisinsight?test={markers["uuid"]}'
+                            ],
+                            'memcached': [
+                                f'/memcached/stats?test={markers["uuid"]}',
+                                f'/memcached/health?test={markers["uuid"]}'
+                            ],
+                            'hazelcast': [
+                                f'/hazelcast/health?test={markers["uuid"]}',
+                                f'/hazelcast/cluster?test={markers["uuid"]}'
+                            ],
+                            'ehcache': [
+                                f'/ehcache/statistics?test={markers["uuid"]}',
+                                f'/ehcache/health?test={markers["uuid"]}'
+                            ]
+                        },
+                        'search_engines': {
+                            'elasticsearch': [
+                                f'/_cluster/health?test={markers["uuid"]}',
+                                f'/_cat/health?test={markers["uuid"]}',
+                                f'/_cat/nodes?test={markers["uuid"]}',
+                                f'/elasticsearch/health?test={markers["uuid"]}',
+                                f'/_plugin/head?test={markers["uuid"]}'
+                            ],
+                            'opensearch': [
+                                f'/_cluster/health?test={markers["uuid"]}',
+                                f'/_cat/health?test={markers["uuid"]}',
+                                f'/_dashboards?test={markers["uuid"]}'
+                            ],
+                            'solr': [
+                                f'/solr/admin/cores?test={markers["uuid"]}',
+                                f'/solr/admin/info/system?test={markers["uuid"]}',
+                                f'/solr/#/?test={markers["uuid"]}'
+                            ],
+                            'sphinx': [
+                                f'/sphinx/status?test={markers["uuid"]}',
+                                f'/sphinx/health?test={markers["uuid"]}'
+                            ]
+                        },
+                        'message_queues': {
+                            'rabbitmq': [
+                                f'/rabbitmq/api/overview?test={markers["uuid"]}',
+                                f'/rabbitmq/#/?test={markers["uuid"]}',
+                                f'/api/overview?test={markers["uuid"]}'
+                            ],
+                            'kafka': [
+                                f'/kafka/health?test={markers["uuid"]}',
+                                f'/kafka/topics?test={markers["uuid"]}',
+                                f'/kafka-ui?test={markers["uuid"]}'
+                            ],
+                            'activemq': [
+                                f'/admin?test={markers["uuid"]}',
+                                f'/activemq/admin?test={markers["uuid"]}'
+                            ],
+                            'nats': [
+                                f'/varz?test={markers["uuid"]}',
+                                f'/connz?test={markers["uuid"]}',
+                                f'/routez?test={markers["uuid"]}'
+                            ],
+                            'pulsar': [
+                                f'/admin/v2/brokers/health?test={markers["uuid"]}',
+                                f'/pulsar-manager?test={markers["uuid"]}'
+                            ]
+                        },
+                        'storage_apis': {
+                            's3_compatible': [
+                                f'/api/storage?test={markers["uuid"]}',
+                                f'/s3-status?test={markers["uuid"]}',
+                                f'/minio/health/live?test={markers["uuid"]}',
+                                f'/minio/health/ready?test={markers["uuid"]}',
+                                f'/.well-known/s3?test={markers["uuid"]}'
+                            ],
+                            'azure_storage': [
+                                f'/blob-storage?test={markers["uuid"]}',
+                                f'/azure/storage/health?test={markers["uuid"]}'
+                            ],
+                            'gcs': [
+                                f'/gcs/health?test={markers["uuid"]}',
+                                f'/storage/v1?test={markers["uuid"]}'
+                            ],
+                            'hdfs': [
+                                f'/webhdfs/v1?test={markers["uuid"]}',
+                                f'/dfshealth.html?test={markers["uuid"]}'
+                            ]
+                        },
+                        'analytics_databases': {
+                            'clickhouse': [
+                                f'/ping?test={markers["uuid"]}',
+                                f'/?query=SELECT%201?test={markers["uuid"]}',
+                                f'/play?test={markers["uuid"]}'
+                            ],
+                            'influxdb': [
+                                f'/ping?test={markers["uuid"]}',
+                                f'/health?test={markers["uuid"]}',
+                                f'/query?test={markers["uuid"]}'
+                            ],
+                            'prometheus': [
+                                f'/-/healthy?test={markers["uuid"]}',
+                                f'/-/ready?test={markers["uuid"]}',
+                                f'/api/v1/status/config?test={markers["uuid"]}'
+                            ],
+                            'grafana': [
+                                f'/api/health?test={markers["uuid"]}',
+                                f'/login?test={markers["uuid"]}',
+                                f'/public/build?test={markers["uuid"]}'
+                            ]
+                        },
+                        'time_series_databases': {
+                            'influxdb': [
+                                f'/ping?test={markers["uuid"]}',
+                                f'/health?test={markers["uuid"]}'
+                            ],
+                            'timescaledb': [
+                                f'/timescale/health?test={markers["uuid"]}'
+                            ],
+                            'victoriametrics': [
+                                f'/health?test={markers["uuid"]}',
+                                f'/-/healthy?test={markers["uuid"]}'
+                            ]
+                        },
+                        'admin_interfaces': {
+                            'phpmyadmin': [
+                                f'/phpmyadmin?test={markers["uuid"]}',
+                                f'/pma?test={markers["uuid"]}',
+                                f'/phpMyAdmin?test={markers["uuid"]}'
+                            ],
+                            'adminer': [
+                                f'/adminer.php?test={markers["uuid"]}',
+                                f'/adminer?test={markers["uuid"]}'
+                            ],
+                            'pgadmin': [
+                                f'/pgadmin?test={markers["uuid"]}',
+                                f'/pgadmin4?test={markers["uuid"]}'
+                            ],
+                            'mongo_express': [
+                                f'/mongo-express?test={markers["uuid"]}',
+                                f'/mongoexpress?test={markers["uuid"]}'
+                            ]
+                        }
                     },
                     'db_signatures': {
-                        'redis': ['redis', 'x-redis'],
-                        'memcached': ['memcached', 'x-memcached'],
-                        'postgresql': ['postgresql', 'postgres', 'pgbouncer'],
-                        'mysql': ['mysql', 'mariadb'],
-                        'mongodb': ['mongodb', 'mongo'],
-                        's3_compatible': ['s3', 'minio', 'ceph']
+                        'postgresql': ['postgresql', 'postgres', 'pgbouncer', 'pgpool', 'pg_', 'psql'],
+                        'mysql': ['mysql', 'mariadb', 'percona', 'mysql-connector'],
+                        'oracle': ['oracle', 'ora_', 'sqlplus', 'tnsnames'],
+                        'mssql': ['sqlserver', 'mssql', 'sql-server', 'microsoft-sql'],
+                        'sqlite': ['sqlite', 'sqlite3'],
+                        
+                        'mongodb': ['mongodb', 'mongo', 'bson', 'mongoose'],
+                        'cassandra': ['cassandra', 'datastax', 'cql'],
+                        'couchdb': ['couchdb', 'couch', '_design'],
+                        'dynamodb': ['dynamodb', 'dynamo', 'aws-dynamodb'],
+                        'neo4j': ['neo4j', 'cypher', 'graph-db'],
+                        
+                        'redis': ['redis', 'x-redis', 'redis-cli', 'redis-server'],
+                        'memcached': ['memcached', 'x-memcached', 'memcache'],
+                        'hazelcast': ['hazelcast', 'hz', 'imap'],
+                        'ehcache': ['ehcache', 'terracotta'],
+                        
+                        'elasticsearch': ['elasticsearch', 'elastic', 'lucene', 'kibana'],
+                        'opensearch': ['opensearch', 'opensearch-dashboards'],
+                        'solr': ['solr', 'lucene', 'solrcloud'],
+                        'sphinx': ['sphinx', 'sphinxsearch'],
+                        
+                        'rabbitmq': ['rabbitmq', 'amqp', 'erlang'],
+                        'kafka': ['kafka', 'zookeeper', 'confluent'],
+                        'activemq': ['activemq', 'artemis', 'jms'],
+                        'nats': ['nats', 'nats-streaming'],
+                        'pulsar': ['pulsar', 'bookkeeper'],
+                        
+                        's3_compatible': ['s3', 'minio', 'ceph', 'aws-s3'],
+                        'azure_storage': ['azure-storage', 'blob-storage'],
+                        'gcs': ['google-cloud-storage', 'gcs'],
+                        'hdfs': ['hdfs', 'hadoop'],
+                        
+                        'clickhouse': ['clickhouse', 'ch'],
+                        'influxdb': ['influxdb', 'influx', 'flux'],
+                        'prometheus': ['prometheus', 'prom'],
+                        'grafana': ['grafana'],
+                        'victoriametrics': ['victoriametrics', 'vm']
+                    },
+                    'connection_pool_detection': {
+                        'java_pools': [
+                            'hikaricp', 'c3p0', 'dbcp', 'tomcat-jdbc',
+                            'connection-pool', 'datasource'
+                        ],
+                        'nodejs_pools': [
+                            'pg-pool', 'mysql-pool', 'connection-pool',
+                            'knex', 'sequelize', 'typeorm'
+                        ],
+                        'python_pools': [
+                            'psycopg2-pool', 'sqlalchemy-pool', 'pymongo-pool',
+                            'connection-pool'
+                        ],
+                        'dotnet_pools': [
+                            'connection-string', 'entity-framework', 'ado.net',
+                            'npgsql', 'mysql-connector'
+                        ]
+                    },
+                    'database_monitoring': {
+                        'health_endpoints': [
+                            '/db/health', '/database/status', '/db/ping',
+                            '/health/db', '/ready/db', '/live/db'
+                        ],
+                        'metrics_endpoints': [
+                            '/db/metrics', '/database/metrics', '/db/stats',
+                            '/metrics/database', '/prometheus/db'
+                        ],
+                        'performance_endpoints': [
+                            '/db/performance', '/database/slow-queries',
+                            '/db/explain', '/database/locks'
+                        ]
+                    },
+                    'orm_detection': {
+                        'java_orms': ['hibernate', 'jpa', 'mybatis', 'jooq'],
+                        'nodejs_orms': ['sequelize', 'typeorm', 'prisma', 'knex'],
+                        'python_orms': ['django-orm', 'sqlalchemy', 'peewee', 'tortoise'],
+                        'dotnet_orms': ['entity-framework', 'dapper', 'nhibernate'],
+                        'php_orms': ['eloquent', 'doctrine', 'propel'],
+                        'ruby_orms': ['active-record', 'sequel', 'datamapper']
                     }
                 },
 
@@ -1837,25 +2523,28 @@ class CommandGenerator:
             pass
 
     def infrastructure_fingerprinting(self):
-        """Fingerprint infrastructure components"""
-        print("\n🔍 Phase 2: Infrastructure Fingerprinting")
-
+        """Fingerprint complete infrastructure stack - All 10+ Layers"""
+        print("\n🔍 Phase 2: Complete Infrastructure Fingerprinting")
         fingerprints = self.create_fingerprint_payloads()
-
-        # CDN Detection
+        
+        # Layer 1: CDN Detection (Extended)
+        print("  🌐 Layer 1: CDN Detection")
         try:
             response = self.session.get(self.target_url, headers=fingerprints['cdn_detection']['headers'])
-
-            # Analyze response headers for CDN signatures
+            # Analyze response headers for CDN signatures (EXTENDED)
             cdn_indicators = {
                 'cloudflare': ['cf-ray', 'cf-cache-status', 'server.*cloudflare'],
                 'cloudfront': ['x-amz-cf', 'x-cache.*cloudfront'],
                 'fastly': ['fastly-debug', 'x-served-by.*fastly'],
                 'akamai': ['akamai-origin-hop', 'x-akamai'],
                 'incapsula': ['x-iinfo', 'incap_ses'],
-                'sucuri': ['x-sucuri', 'server.*sucuri']
+                'sucuri': ['x-sucuri', 'server.*sucuri'],
+                'maxcdn': ['x-cache.*maxcdn'],
+                'keycdn': ['server.*keycdn'],
+                'bunnycdn': ['server.*bunnycdn'],
+                'jsdelivr': ['x-served-by.*jsdelivr'],
+                'unpkg': ['x-served-by.*unpkg']
             }
-
             detected_cdn = None
             for cdn, indicators in cdn_indicators.items():
                 for indicator in indicators:
@@ -1863,29 +2552,56 @@ class CommandGenerator:
                         if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
                             detected_cdn = cdn
                             break
-                if detected_cdn:
-                    break
-
+                    if detected_cdn:
+                        break
             if detected_cdn:
                 self.log_discovery("CDN", "Detection", detected_cdn)
                 self.chain_map['layers'].append(f"CDN-{detected_cdn}")
-
         except Exception as e:
             self.log_discovery("CDN", "Error", str(e))
 
-        # WAF Detection
-        self.waf_fingerprinting(fingerprints['waf_detection'])
+        # Layer 2: WAF Detection (Using your existing function - EXTENDED)
+        self.waf_fingerprinting_extended(fingerprints['waf_detection'])
+        
+        # Layer 3: Load Balancer Detection (NEW)
+        print("  ⚖️ Layer 3: Load Balancer Detection")
+        self.load_balancer_fingerprinting(fingerprints['load_balancer_detection'])
+        
+        # Layer 4: Proxy Detection (Using your existing function - EXTENDED)
+        self.proxy_fingerprinting_extended(fingerprints['proxy_detection'])
+        
+        # Layer 5: API Gateway Detection (NEW)
+        print("  🚪 Layer 5: API Gateway Detection")
+        self.api_gateway_fingerprinting(fingerprints['api_gateway_detection'])
+        
+        # Layer 6: Service Mesh Detection (NEW)
+        print("  🕸️ Layer 6: Service Mesh Detection")
+        self.service_mesh_fingerprinting(fingerprints['service_mesh_detection'])
+        
+        # Layer 7: Container Detection (NEW)
+        print("  📦 Layer 7: Container Orchestration Detection")
+        self.container_fingerprinting(fingerprints['container_detection'])
+        
+        # Layer 8: Runtime Detection (NEW)
+        print("  🚀 Layer 8: Application Runtime Detection")
+        self.runtime_fingerprinting(fingerprints['runtime_detection'])
+        
+        # Layer 9: Database Detection (NEW)
+        print("  💾 Layer 9: Database/Storage Detection")
+        self.database_fingerprinting(fingerprints['database_detection'])
+        
+        # Layer 10: Serverless Detection (NEW)
+        print("  ☁️ Layer 10: Serverless/Function Detection")
+        self.serverless_fingerprinting(fingerprints['serverless_detection'])
+        
+        # Layer 11: Backend Detection (Using your existing function - EXTENDED)
+        self.backend_fingerprinting_extended(fingerprints['backend_detection'])
 
-        # Proxy Detection  
-        self.proxy_fingerprinting(fingerprints['proxy_detection'])
-
-        # Backend Detection
-        self.backend_fingerprinting(fingerprints['backend_detection'])
-
-    def waf_fingerprinting(self, waf_payloads):
-        """Advanced WAF fingerprinting"""
+    def waf_fingerprinting_extended(self, waf_payloads):
+        """Advanced WAF fingerprinting - EXTENDED VERSION"""
         print("  🛡️ WAF Detection...")
 
+        # Your original signatures + EXTENSIONS
         waf_signatures = {
             'cloudflare': ['cf-ray', 'cloudflare', 'error 1020'],
             'aws-waf': ['awselb', 'aws', 'x-amzn'],
@@ -1896,12 +2612,24 @@ class CommandGenerator:
             'barracuda': ['barracuda', 'bnsv'],
             'f5': ['f5', 'bigip', 'x-wa-info'],
             'fortinet': ['fortigate', 'fortiweb'],
-            'ispconfig': ['ispconfig', 'blocked by security policy', 'request rejected', 'web application firewall']
+            'ispconfig': ['ispconfig', 'blocked by security policy', 'request rejected', 'web application firewall'],
+            # EXTENDED WAF SIGNATURES
+            'modsecurity': ['mod_security', 'modsec', 'not acceptable'],
+            'naxsi': ['naxsi', 'unusual url'],
+            'wallarm': ['wallarm', 'blocked by wallarm'],
+            'azure-waf': ['applicationgateway', 'x-azure-ref'],
+            'citrix': ['citrix', 'netscaler', 'ns_af'],
+            'radware': ['radware', 'x-rdwr-'],
+            'kemp': ['kemp', 'x-kemp-'],
+            'checkpoint': ['checkpoint', 'fw-1'],
+            'paloalto': ['paloalto', 'pan-'],
+            'sophos': ['sophos', 'utm'],
+            'webknight': ['webknight', 'blocked by webknight']
         }
 
         detected_waf = None
 
-        # Test standard GET parameters
+        # Your original test logic (PRESERVED)
         for payload in waf_payloads['payloads']:
             try:
                 response = self.session.get(
@@ -1910,7 +2638,6 @@ class CommandGenerator:
                     timeout=10
                 )
 
-                # Analyze response for WAF signatures
                 full_response = f"{response.status_code} {response.headers} {response.text}".lower()
 
                 for waf, signatures in waf_signatures.items():
@@ -1927,7 +2654,7 @@ class CommandGenerator:
             except Exception as e:
                 continue
 
-        # Test path injection for ISPConfig detection
+        # Your original ISPConfig test (PRESERVED)
         if not detected_waf:
             try:
                 markers = self.generate_unique_markers()
@@ -1939,7 +2666,6 @@ class CommandGenerator:
                     timeout=10
                 )
 
-                # Check specifically for ISPConfig path injection blocking
                 full_response = f"{response.status_code} {response.headers} {response.text}".lower()
 
                 if response.status_code == 403:
@@ -1951,19 +2677,38 @@ class CommandGenerator:
             except Exception as e:
                 pass
 
+        # EXTENDED: Additional WAF detection techniques
+        if not detected_waf:
+            try:
+                # SQL injection test for WAF detection
+                sql_payload = "?id=1' OR '1'='1"
+                response = self.session.get(f"{self.target_url}{sql_payload}", timeout=5)
+                if response.status_code in [403, 406, 501, 503]:
+                    full_response = f"{response.headers} {response.text}".lower()
+                    for waf, signatures in waf_signatures.items():
+                        for signature in signatures:
+                            if re.search(signature, full_response):
+                                detected_waf = waf
+                                break
+                        if detected_waf:
+                            break
+            except Exception:
+                pass
+
         if detected_waf:
             self.log_discovery("WAF", "Detection", detected_waf)
             self.chain_map['layers'].append(f"WAF-{detected_waf}")
         else:
             self.log_discovery("WAF", "Detection", "None detected or unknown")
 
-    def proxy_fingerprinting(self, proxy_headers):
-        """Detect proxy/load balancer configuration"""
+    def proxy_fingerprinting_extended(self, proxy_headers):
+        """Detect proxy/load balancer configuration - EXTENDED VERSION"""
         print("  🔄 Proxy Detection...")
 
         try:
             response = self.session.get(self.target_url, headers=proxy_headers['headers'])
 
+            # Your original indicators + EXTENSIONS
             proxy_indicators = {
                 'nginx': ['server.*nginx', 'x-nginx'],
                 'apache': ['server.*apache', 'x-apache'],
@@ -1973,7 +2718,17 @@ class CommandGenerator:
                 'istio': ['server.*istio'],
                 'linkerd': ['l5d-'],
                 'aws-alb': ['awsalb', 'elbv2'],
-                'gcp-lb': ['via.*google frontend']
+                'gcp-lb': ['via.*google frontend'],
+                # EXTENDED PROXY SIGNATURES
+                'caddy': ['server.*caddy'],
+                'lighttpd': ['server.*lighttpd'],
+                'varnish': ['via.*varnish', 'x-varnish'],
+                'squid': ['via.*squid', 'x-squid'],
+                'cloudfront': ['via.*cloudfront'],
+                'azure-frontdoor': ['x-azure-fdid'],
+                'kong': ['via.*kong', 'x-kong-'],
+                'ambassador': ['x-envoy-upstream-service-time'],
+                'ingress-nginx': ['server.*nginx-ingress']
             }
 
             detected_proxy = None
@@ -1993,10 +2748,11 @@ class CommandGenerator:
         except Exception as e:
             self.log_discovery("Proxy", "Error", str(e))
 
-    def backend_fingerprinting(self, backend_paths):
-        """Fingerprint backend application server"""
+    def backend_fingerprinting_extended(self, backend_paths):
+        """Fingerprint backend application server - EXTENDED VERSION"""
         print("  🖥️ Backend Detection...")
 
+        # Your original signatures + EXTENSIONS
         backend_signatures = {
             'apache': ['server.*apache'],
             'nginx': ['server.*nginx'],
@@ -2007,11 +2763,24 @@ class CommandGenerator:
             'php': ['x-powered-by.*php', 'server.*php'],
             'python': ['server.*gunicorn', 'server.*uwsgi'],
             'ruby': ['server.*puma', 'x-powered-by.*ruby'],
-            'go': ['server.*go']
+            'go': ['server.*go'],
+            # EXTENDED BACKEND SIGNATURES
+            'undertow': ['server.*undertow'],
+            'kestrel': ['server.*kestrel'],
+            'uvicorn': ['server.*uvicorn'],
+            'hypercorn': ['server.*hypercorn'],
+            'daphne': ['server.*daphne'],
+            'cherrypy': ['server.*cherrypy'],
+            'tornado': ['server.*tornado'],
+            'waitress': ['server.*waitress'],
+            'actix': ['server.*actix'],
+            'warp': ['server.*warp'],
+            'rocket': ['server.*rocket']
         }
 
         detected_backend = None
 
+        # Your original test logic (PRESERVED)
         for path in backend_paths['paths']:
             try:
                 response = self.session.get(f"{self.target_url}{path}", timeout=5)
@@ -2032,10 +2801,162 @@ class CommandGenerator:
             except Exception as e:
                 continue
 
+        # EXTENDED: Additional backend detection via error pages
+        if not detected_backend:
+            try:
+                error_response = self.session.get(f"{self.target_url}/nonexistent-page-404", timeout=5)
+                error_text = error_response.text.lower()
+                
+                if 'apache' in error_text and 'server at' in error_text:
+                    detected_backend = 'apache'
+                elif 'nginx' in error_text:
+                    detected_backend = 'nginx'
+                elif 'iis' in error_text or 'internet information services' in error_text:
+                    detected_backend = 'iis'
+                    
+            except Exception:
+                pass
+
         if detected_backend:
             self.log_discovery("Backend", "Detection", detected_backend)
             self.chain_map['layers'].append(f"Backend-{detected_backend}")
 
+    # NEW FUNCTIONS (keeping the ones I provided earlier)
+    def load_balancer_fingerprinting(self, lb_config):
+        """Detect load balancers"""
+        try:
+            response = self.session.get(self.target_url, headers=lb_config['headers'])
+            
+            lb_signatures = lb_config['lb_signatures']
+            for lb_type, signatures in lb_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("LoadBalancer", "Detection", f"{lb_type}")
+                            self.chain_map['layers'].append(f"LB-{lb_type}")
+                            return
+                            
+            # Test health check endpoints
+            for health_check in lb_config['lb_tests']['health_checks']:
+                try:
+                    response = self.session.get(f"{self.target_url}{health_check}", timeout=3)
+                    if response.status_code == 200:
+                        self.log_discovery("LoadBalancer", "HealthCheck", health_check)
+                        break
+                except:
+                    continue
+                    
+        except Exception as e:
+            self.log_discovery("LoadBalancer", "Error", str(e))
+
+    def api_gateway_fingerprinting(self, gw_config):
+        """Detect API gateways"""
+        try:
+            response = self.session.get(self.target_url, headers=gw_config['headers'])
+            
+            gw_signatures = gw_config['gateway_signatures']
+            for gw_type, signatures in gw_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("APIGateway", "Detection", f"{gw_type}")
+                            self.chain_map['layers'].append(f"GW-{gw_type}")
+                            return
+                            
+        except Exception as e:
+            self.log_discovery("APIGateway", "Error", str(e))
+
+    def service_mesh_fingerprinting(self, mesh_config):
+        """Detect service mesh components"""
+        try:
+            response = self.session.get(self.target_url, headers=mesh_config['headers'])
+            
+            mesh_signatures = mesh_config['mesh_signatures']
+            for mesh_type, signatures in mesh_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("ServiceMesh", "Detection", f"{mesh_type}")
+                            self.chain_map['layers'].append(f"MESH-{mesh_type}")
+                            return
+                            
+        except Exception as e:
+            self.log_discovery("ServiceMesh", "Error", str(e))
+
+    def container_fingerprinting(self, container_config):
+        """Detect container orchestration platforms"""
+        try:
+            # Test Kubernetes endpoints
+            k8s_tests = container_config['container_tests']['kubernetes']['endpoints']
+            for k8s_test in k8s_tests:
+                try:
+                    response = self.session.get(f"{self.target_url}{k8s_test}", timeout=3)
+                    if response.status_code in [200, 401, 403]:
+                        self.log_discovery("Container", "Kubernetes", k8s_test)
+                        self.chain_map['layers'].append("K8S")
+                        return
+                except:
+                    continue
+                    
+        except Exception as e:
+            self.log_discovery("Container", "Error", str(e))
+
+    def runtime_fingerprinting(self, runtime_config):
+        """Detect application runtime environments"""
+        try:
+            # Test framework endpoints
+            framework_tests = runtime_config['runtime_tests']['framework_detection']
+            for framework, tests in framework_tests.items():
+                for test in tests:
+                    try:
+                        response = self.session.get(f"{self.target_url}{test}", timeout=3)
+                        if response.status_code in [200, 401, 403]:
+                            self.log_discovery("Runtime", "Framework", f"{framework}")
+                            self.chain_map['layers'].append(f"FW-{framework.upper()}")
+                            break
+                    except:
+                        continue
+                        
+        except Exception as e:
+            self.log_discovery("Runtime", "Error", str(e))
+
+    def database_fingerprinting(self, db_config):
+        """Detect database and storage systems"""
+        try:
+            # Test admin interfaces
+            if 'admin_interfaces' in db_config['db_tests']:
+                admin_tests = db_config['db_tests']['admin_interfaces']
+                for interface, tests in admin_tests.items():
+                    for test in tests:
+                        try:
+                            response = self.session.get(f"{self.target_url}{test}", timeout=3)
+                            if response.status_code in [200, 401, 403]:
+                                self.log_discovery("Database", "Admin", f"{interface}")
+                                self.chain_map['layers'].append(f"DB-ADMIN-{interface.upper()}")
+                                break
+                        except:
+                            continue
+                            
+        except Exception as e:
+            self.log_discovery("Database", "Error", str(e))
+
+    def serverless_fingerprinting(self, serverless_config):
+        """Detect serverless/function platforms"""
+        try:
+            response = self.session.get(self.target_url, headers=serverless_config['headers'])
+            
+            serverless_signatures = serverless_config['serverless_signatures']
+            for platform, signatures in serverless_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("Serverless", "Platform", f"{platform}")
+                            self.chain_map['layers'].append(f"SERVERLESS-{platform.upper()}")
+                            return
+                            
+        except Exception as e:
+            self.log_discovery("Serverless", "Error", str(e))
+        
     def parser_discrepancy_testing(self):
         """Test for parser discrepancies between layers"""
         print("\n🔍 Phase 3: Parser Discrepancy Testing")
@@ -2285,51 +3206,51 @@ class ApplicationTraceroute:
         except:
             pass
 
-    def infrastructure_fingerprinting(self):
-        """Fingerprint infrastructure components"""
-        print("\n🔍 Phase 2: Infrastructure Fingerprinting")
+    # def infrastructure_fingerprinting(self):
+    #     """Fingerprint infrastructure components"""
+    #     print("\n🔍 Phase 2: Infrastructure Fingerprinting")
         
-        fingerprints = self.create_fingerprint_payloads()
+    #     fingerprints = self.create_fingerprint_payloads()
         
-        # CDN Detection
-        try:
-            response = self.session.get(self.target_url, headers=fingerprints['cdn_detection']['headers'])
+    #     # CDN Detection
+    #     try:
+    #         response = self.session.get(self.target_url, headers=fingerprints['cdn_detection']['headers'])
             
-            # Analyze response headers for CDN signatures
-            cdn_indicators = {
-                'cloudflare': ['cf-ray', 'cf-cache-status', 'server.*cloudflare'],
-                'cloudfront': ['x-amz-cf', 'x-cache.*cloudfront'],
-                'fastly': ['fastly-debug', 'x-served-by.*fastly'],
-                'akamai': ['akamai-origin-hop', 'x-akamai'],
-                'incapsula': ['x-iinfo', 'incap_ses'],
-                'sucuri': ['x-sucuri', 'server.*sucuri']
-            }
+    #         # Analyze response headers for CDN signatures
+    #         cdn_indicators = {
+    #             'cloudflare': ['cf-ray', 'cf-cache-status', 'server.*cloudflare'],
+    #             'cloudfront': ['x-amz-cf', 'x-cache.*cloudfront'],
+    #             'fastly': ['fastly-debug', 'x-served-by.*fastly'],
+    #             'akamai': ['akamai-origin-hop', 'x-akamai'],
+    #             'incapsula': ['x-iinfo', 'incap_ses'],
+    #             'sucuri': ['x-sucuri', 'server.*sucuri']
+    #         }
             
-            detected_cdn = None
-            for cdn, indicators in cdn_indicators.items():
-                for indicator in indicators:
-                    for header, value in response.headers.items():
-                        if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
-                            detected_cdn = cdn
-                            break
-                if detected_cdn:
-                    break
+    #         detected_cdn = None
+    #         for cdn, indicators in cdn_indicators.items():
+    #             for indicator in indicators:
+    #                 for header, value in response.headers.items():
+    #                     if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
+    #                         detected_cdn = cdn
+    #                         break
+    #             if detected_cdn:
+    #                 break
             
-            if detected_cdn:
-                self.log_discovery("CDN", "Detection", detected_cdn)
-                self.chain_map['layers'].append(f"CDN-{detected_cdn}")
+    #         if detected_cdn:
+    #             self.log_discovery("CDN", "Detection", detected_cdn)
+    #             self.chain_map['layers'].append(f"CDN-{detected_cdn}")
             
-        except Exception as e:
-            self.log_discovery("CDN", "Error", str(e))
+    #     except Exception as e:
+    #         self.log_discovery("CDN", "Error", str(e))
         
-        # WAF Detection
-        self.waf_fingerprinting(fingerprints['waf_detection'])
+    #     # WAF Detection
+    #     self.waf_fingerprinting(fingerprints['waf_detection'])
         
-        # Proxy Detection  
-        self.proxy_fingerprinting(fingerprints['proxy_detection'])
+    #     # Proxy Detection  
+    #     self.proxy_fingerprinting(fingerprints['proxy_detection'])
         
-        # Backend Detection
-        self.backend_fingerprinting(fingerprints['backend_detection'])
+    #     # Backend Detection
+    #     self.backend_fingerprinting(fingerprints['backend_detection'])
 
     def _detect_stack_type(self, endpoint: str) -> Optional[str]:
         """Detect the stack type for a given endpoint"""
