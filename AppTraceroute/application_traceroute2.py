@@ -80,146 +80,492 @@ class ServiceDiscoveryEnhanced:
         })
         
         # Advanced detection patterns
+# Miglioramenti per service_signatures mantenendo la struttura originale
+
         self.service_signatures = {
             'microservice': {
-                'headers': ['x-service-name', 'x-microservice', 'x-service-id'],
-                'paths': ['/health', '/actuator/health', '/metrics', '/status'],
-                'response_patterns': ['service.*running', 'microservice', 'api.*version']
-            },
-            'api-gateway':  {
-                'headers': ['x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul', 'x-ambassador'],
-                'behavioral': {
-                    'rate_limiting': {'x-ratelimit', 'x-rate-limit', 'retry-after'},
-                    'request_id_propagation': {'x-request-id', 'x-correlation-id', 'x-trace-id'},
-                    'cors_handling': {'access-control-allow-origin', 'access-control-allow-methods'},
-                    'auth_delegation': {'www-authenticate', 'authorization'},
-                    'response_transformation': True  # Analyze JSON structure changes
-                },
-                'paths': ['/gateway', '/api/v1', '/graphql', '/.well-known/', '/swagger', '/openapi'],
+                'headers': [
+                    'x-service-name', 'x-microservice', 'x-service-id', 'x-service-version',
+                    'x-app-name', 'x-component', 'x-instance-id', 'service-name',
+                    'x-correlation-id', 'x-trace-id', 'x-span-id'
+                ],
+                'paths': [
+                    '/health', '/actuator/health', '/actuator/info', '/actuator/metrics',
+                    '/metrics', '/status', '/ping', '/ready', '/live', '/healthz',
+                    '/info', '/version', '/build-info', '/api/health', '/monitoring/health'
+                ],
                 'response_patterns': [
-                    r'gateway.*version', r'api.*documentation', r'swagger.*ui',
-                    r'rate.*limit.*exceeded', r'upstream.*timeout'
+                    r'service.*running', r'microservice', r'api.*version', r'spring.*boot',
+                    r'application.*name', r'build.*version', r'commit.*hash', r'instance.*id',
+                    r'uptime', r'status.*up', r'healthy', r'node.*js', r'express.*js'
+                ]
+            },
+            
+            'api-gateway': {
+                'headers': [
+                    'x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul', 'x-ambassador',
+                    'x-tyk-gateway', 'x-apigateway', 'gateway-version', 'x-gateway-version',
+                    'x-apigee', 'x-mashery', 'x-amazon-apigateway', 'x-azure-apim',
+                    'x-gravitee', 'x-wso2'
+                ],
+                'behavioral': {
+                    'rate_limiting': {
+                        'headers': ['x-ratelimit', 'x-rate-limit', 'retry-after', 'x-ratelimit-remaining',
+                                  'x-ratelimit-reset', 'x-rate-limit-limit', 'x-throttle'],
+                        'response_codes': [429, 503],
+                        'response_patterns': [r'rate.*limit.*exceeded', r'too.*many.*requests', 
+                                            r'quota.*exceeded', r'throttled']
+                    },
+                    'request_id_propagation': {
+                        'headers': ['x-request-id', 'x-correlation-id', 'x-trace-id', 'request-id',
+                                  'x-amzn-requestid', 'x-ms-request-id', 'x-goog-request-id']
+                    },
+                    'cors_handling': {
+                        'headers': ['access-control-allow-origin', 'access-control-allow-methods',
+                                  'access-control-allow-headers', 'access-control-expose-headers'],
+                        'preflight_support': True
+                    },
+                    'auth_delegation': {
+                        'headers': ['www-authenticate', 'authorization', 'x-auth-token',
+                                  'x-api-key', 'x-client-id'],
+                        'oauth_patterns': [r'bearer.*token', r'oauth.*', r'jwt.*']
+                    },
+                    'response_transformation': True,
+                    'request_routing': True,
+                    'circuit_breaker': {
+                        'response_patterns': [r'circuit.*breaker.*open', r'service.*unavailable',
+                                            r'upstream.*error', r'backend.*timeout']
+                    }
+                },
+                'paths': [
+                    '/gateway', '/api/v1', '/api/v2', '/api/v3', '/graphql', '/.well-known/',
+                    '/swagger', '/openapi', '/docs', '/api-docs', '/spec', '/schema',
+                    '/admin', '/management', '/actuator', '/gateway/routes', '/routes'
+                ],
+                'response_patterns': [
+                    r'gateway.*version', r'api.*documentation', r'swagger.*ui', r'openapi.*spec',
+                    r'rate.*limit.*exceeded', r'upstream.*timeout', r'backend.*error',
+                    r'routing.*error', r'service.*discovery', r'load.*balancer',
+                    r'kong.*gateway', r'zuul.*proxy', r'ambassador.*gateway'
                 ],
                 'timing_signatures': {
-                    'consistent_overhead': (50, 200),  # Gateway processing time ms
-                    'timeout_behavior': (5000, 30000)  # Gateway timeout ranges
+                    'consistent_overhead': (50, 200),
+                    'timeout_behavior': (5000, 30000),
+                    'cache_layer_timing': (10, 100),
+                    'auth_validation_time': (20, 500)
+                },
+                'version_patterns': {
+                    'kong': r'kong/(\d+\.\d+\.\d+)',
+                    'zuul': r'zuul.*(\d+\.\d+\.\d+)',
+                    'envoy': r'envoy/(\d+\.\d+\.\d+)'
                 }
             },
+
             'cdn_edge': {
                 'headers': [
-                    'cf-ray', 'cf-cache-status',  # Cloudflare
-                    'x-amz-cf-id', 'x-cache',     # CloudFront
-                    'x-served-by', 'x-cache-hits' # Fastly/Varnish
+                    # Cloudflare
+                    'cf-ray', 'cf-cache-status', 'cf-request-id', 'cf-visitor', 'cf-connecting-ip',
+                    'cf-ipcountry', 'cf-ew-via', 'cf-polished', 'cf-bgj',
+                    # AWS CloudFront
+                    'x-amz-cf-id', 'x-amz-cf-pop', 'x-cache', 'x-amz-request-id',
+                    'cloudfront-viewer-country', 'cloudfront-is-mobile-viewer',
+                    # Fastly
+                    'fastly-debug-path', 'fastly-debug-ttl', 'x-served-by', 'x-cache-hits',
+                    'x-timer', 'fastly-restarts', 'x-cache-grace',
+                    # Akamai
+                    'x-akamai-transformed', 'x-akamai-request-id', 'akamai-origin-hop',
+                    # Generic CDN
+                    'x-edge-location', 'x-cdn-pop', 'x-edge-response-result-type',
+                    'x-cache-status', 'x-cdn-cache-status'
                 ],
                 'behavioral': {
-                    'cache_behavior': True,
-                    'geo_routing': True,
-                    'ddos_protection': True,
-                    'compression': True
+                    'cache_behavior': {
+                        'cache_headers': ['cache-control', 'expires', 'etag', 'last-modified'],
+                        'cache_status_values': ['HIT', 'MISS', 'EXPIRED', 'STALE', 'UPDATING', 'BYPASS'],
+                        'ttl_headers': ['x-cache-ttl', 'x-ttl', 'age']
+                    },
+                    'geo_routing': {
+                        'country_headers': ['cf-ipcountry', 'x-country-code', 'cloudfront-viewer-country'],
+                        'pop_headers': ['x-pop', 'cf-ray', 'x-amz-cf-pop']
+                    },
+                    'ddos_protection': {
+                        'challenge_patterns': [r'ddos.*protection', r'checking.*browser', r'cloudflare.*challenge'],
+                        'security_headers': ['cf-ray', 'x-frame-options', 'x-content-type-options']
+                    },
+                    'compression': {
+                        'encoding_headers': ['content-encoding', 'x-original-content-length'],
+                        'compression_types': ['gzip', 'brotli', 'deflate']
+                    },
+                    'ssl_termination': True,
+                    'waf_integration': True
                 },
+                'paths': [
+                    '/cdn-cgi/', '/__cf_chl_jschl_tk__/', '/favicon.ico', '/robots.txt',
+                    '/cache-status', '/edge-status', '/akamai/sureroute-test-object.html'
+                ],
+                'response_patterns': [
+                    r'cloudflare', r'fastly.*error', r'cloudfront', r'akamai',
+                    r'cache.*hit', r'cache.*miss', r'edge.*server', r'pop.*server',
+                    r'cdn.*cache', r'origin.*server', r'edge.*location'
+                ],
                 'timing_signatures': {
                     'cache_hit': (5, 50),
                     'cache_miss': (100, 2000),
-                    'edge_processing': (10, 100)
+                    'edge_processing': (10, 100),
+                    'origin_fetch': (200, 5000),
+                    'ssl_handshake': (50, 300)
+                },
+                'error_patterns': {
+                    'origin_errors': [r'origin.*unreachable', r'backend.*error', r'upstream.*error'],
+                    'cache_errors': [r'cache.*error', r'storage.*error'],
+                    'ddos_patterns': [r'rate.*limited', r'blocked.*request', r'suspicious.*activity']
                 }
             },
+
             'container_orchestration': {
                 'headers': [
-                    'x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace',
-                    'x-container-id', 'x-docker', 'x-ecs-task'
+                    # Kubernetes
+                    'x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace', 'x-node-name',
+                    'x-cluster-name', 'x-service-account', 'x-deployment-name',
+                    # Docker Swarm
+                    'x-docker', 'x-container-id', 'x-service-name', 'x-task-id',
+                    'x-network-id', 'x-swarm-node-id',
+                    # ECS/Fargate
+                    'x-ecs-task', 'x-ecs-container-name', 'x-aws-region', 'x-amzn-trace-id',
+                    'x-ecs-cluster', 'x-fargate-task-arn',
+                    # OpenShift
+                    'x-openshift-build', 'x-openshift-project'
                 ],
                 'behavioral': {
-                    'health_checks': ['/health', '/healthz', '/ready', '/live'],
-                    'metrics_exposure': ['/metrics', '/prometheus', '/stats'],
-                    'service_discovery': True,  # DNS-based service discovery
-                    'rolling_updates': True,    # Analyze version changes
-                    'load_balancing': True      # Multi-pod response analysis
+                    'health_checks': {
+                        'paths': ['/health', '/healthz', '/ready', '/live', '/readiness', '/liveness'],
+                        'probe_types': ['readiness', 'liveness', 'startup']
+                    },
+                    'metrics_exposure': {
+                        'paths': ['/metrics', '/prometheus', '/stats', '/monitoring'],
+                        'formats': ['prometheus', 'json', 'text']
+                    },
+                    'service_discovery': {
+                        'dns_patterns': [r'.*\.svc\.cluster\.local', r'.*\.internal', r'.*\.mesh'],
+                        'consul_patterns': [r'.*\.service\.consul'],
+                        'eureka_patterns': [r'.*\.eureka']
+                    },
+                    'rolling_updates': {
+                        'version_headers': ['x-app-version', 'x-build-version', 'x-git-commit'],
+                        'deployment_headers': ['x-deployment-id', 'x-rollout-id']
+                    },
+                    'load_balancing': {
+                        'session_affinity': ['x-session-id', 'jsessionid', 'server-id'],
+                        'load_balancer_headers': ['x-forwarded-for', 'x-real-ip']
+                    },
+                    'auto_scaling': True,
+                    'resource_limits': True
                 },
                 'dns_patterns': [
-                    r'.*\.svc\.cluster\.local',
-                    r'.*\.internal',
-                    r'.*\.mesh'
+                    r'.*\.svc\.cluster\.local',      # Kubernetes
+                    r'.*\.internal',                 # Internal DNS
+                    r'.*\.mesh',                     # Service mesh
+                    r'.*\.swarm',                    # Docker Swarm
+                    r'.*\.ecs\.internal',            # ECS internal
+                    r'.*\.compute\.internal'         # AWS internal
+                ],
+                'paths': [
+                    '/metrics', '/healthz', '/readyz', '/livez', '/status',
+                    '/actuator/health', '/actuator/info', '/actuator/prometheus',
+                    '/debug/pprof', '/debug/vars', '/stats', '/info'
+                ],
+                'response_patterns': [
+                    r'kubernetes', r'k8s', r'pod.*name', r'namespace',
+                    r'docker.*container', r'container.*id', r'deployment',
+                    r'replica.*set', r'stateful.*set', r'daemon.*set',
+                    r'fargate', r'ecs.*task', r'cluster.*arn'
                 ],
                 'timing_signatures': {
                     'startup_time': (1000, 30000),
-                    'shutdown_graceful': (1000, 30000)
+                    'shutdown_graceful': (1000, 30000),
+                    'health_check_interval': (1000, 60000),
+                    'rolling_update_time': (10000, 300000)
                 }
             },
+
             'serverless_function': {
                 'headers': [
-                    'x-amzn-requestid', 'x-amzn-trace-id',  # AWS Lambda
-                    'function-execution-id', 'x-cloud-run',  # Google Cloud Run
-                    'x-azure-requestid', 'x-ms-request-id'   # Azure Functions
+                    # AWS Lambda
+                    'x-amzn-requestid', 'x-amzn-trace-id', 'x-lambda-request-id',
+                    'x-amz-invocation-type', 'x-amz-function-version', 'x-amz-function-name',
+                    'x-amzn-remapped-content-length', 'x-amzn-remapped-connection',
+                    # Google Cloud Functions
+                    'function-execution-id', 'x-cloud-trace-context', 'x-goog-', 'x-appengine-',
+                    'x-cloud-run-revision', 'x-serverless-runtime-version',
+                    # Azure Functions
+                    'x-azure-requestid', 'x-ms-request-id', 'x-ms-invocation-id',
+                    'x-azure-functions-', 'x-ms-execution-context-invocationid',
+                    # Vercel/Netlify
+                    'x-vercel-', 'x-now-', 'x-nf-', 'x-netlify-'
                 ],
                 'behavioral': {
-                    'cold_start_detection': True,  # Analyze timing variations
-                    'execution_time_patterns': True,  # Function execution timing
-                    'memory_constraints': True,  # Look for memory-related errors
-                    'concurrent_execution': True   # Test concurrent request handling
+                    'cold_start_detection': {
+                        'timing_variance': True,
+                        'initialization_patterns': [r'cold.*start', r'function.*init', r'runtime.*init']
+                    },
+                    'execution_time_patterns': {
+                        'timeout_headers': ['x-amzn-timeout', 'x-function-timeout'],
+                        'execution_time_headers': ['x-execution-time', 'x-duration']
+                    },
+                    'memory_constraints': {
+                        'memory_headers': ['x-max-memory', 'x-memory-limit'],
+                        'oom_patterns': [r'memory.*limit', r'out.*of.*memory', r'heap.*exhausted']
+                    },
+                    'concurrent_execution': {
+                        'concurrency_headers': ['x-concurrency-limit', 'x-reserved-concurrency'],
+                        'throttling_patterns': [r'throttled', r'concurrent.*limit', r'rate.*exceeded']
+                    },
+                    'event_sources': {
+                        'triggers': ['api-gateway', 'sqs', 's3', 'dynamodb', 'eventbridge', 'http']
+                    }
                 },
-                'paths': ['/api/', '/function/', '/.netlify/functions/', '/api/v1/'],
+                'paths': [
+                    '/api/', '/function/', '/.netlify/functions/', '/api/v1/',
+                    '/.vercel/output/functions/', '/lambda/', '/azure-functions/',
+                    '/gcf/', '/cloud-function/'
+                ],
                 'response_patterns': [
                     r'lambda.*timeout', r'function.*invocation', r'cold.*start',
-                    r'execution.*time', r'memory.*limit', r'concurrent.*execution'
+                    r'execution.*time', r'memory.*limit', r'concurrent.*execution',
+                    r'serverless.*runtime', r'function.*error', r'handler.*error',
+                    r'cloud.*function', r'azure.*function', r'vercel.*function'
                 ],
                 'timing_signatures': {
                     'cold_start_penalty': (100, 3000),
                     'warm_execution': (5, 100),
-                    'timeout_behavior': (15000, 900000)  # 15s to 15min
+                    'timeout_behavior': (15000, 900000),  # 15s to 15min
+                    'billed_duration': (100, 900000)
+                },
+                'error_patterns': {
+                    'timeout_errors': [r'task.*timed.*out', r'function.*timeout', r'execution.*timeout'],
+                    'memory_errors': [r'memory.*exhausted', r'out.*of.*memory', r'heap.*limit'],
+                    'runtime_errors': [r'runtime.*error', r'handler.*not.*found', r'module.*error']
                 }
             },
+
             'load-balancer': {
-                'headers': ['x-load-balancer', 'x-forwarded-by', 'x-lb'],
-                'paths': ['/lb-status', '/haproxy?stats'],
-                'response_patterns': ['load.*balance', 'upstream', 'backend.*pool']
-            },
-            'service-mesh': {
                 'headers': [
-                    'x-envoy', 'x-istio', 'x-linkerd', 'x-consul',
-                    'x-b3-traceid', 'x-b3-spanid', 'x-ot-span-context'
+                    'x-load-balancer', 'x-forwarded-by', 'x-lb', 'x-lb-name',
+                    'x-haproxy', 'x-nginx-lb', 'x-real-ip', 'x-forwarded-for',
+                    'x-forwarded-proto', 'x-forwarded-host', 'x-forwarded-port',
+                    'x-original-forwarded-for', 'x-cluster-client-ip',
+                    'x-aws-alb-target-group-arn', 'x-amzn-trace-id'
                 ],
                 'behavioral': {
-                    'mtls_termination': True,
-                    'circuit_breaking': True,
-                    'retry_policies': True,
-                    'canary_routing': True,
-                    'fault_injection': True
+                    'session_persistence': {
+                        'cookies': ['AWSALB', 'AWSALBCORS', 'lb-session', 'server-id'],
+                        'headers': ['x-session-affinity', 'x-sticky-session']
+                    },
+                    'health_checking': {
+                        'paths': ['/lb-status', '/health', '/check'],
+                        'response_patterns': [r'healthy', r'available', r'up']
+                    },
+                    'ssl_termination': {
+                        'headers': ['x-forwarded-proto', 'x-scheme'],
+                        'termination_patterns': [r'ssl.*terminated', r'https.*offload']
+                    },
+                    'load_balancing_algorithms': ['round-robin', 'least-connections', 'ip-hash', 'weighted'],
+                    'failover_behavior': True
+                },
+                'paths': [
+                    '/lb-status', '/haproxy?stats', '/nginx_status', '/status',
+                    '/health', '/load-balancer/health', '/elb-status'
+                ],
+                'response_patterns': [
+                    r'load.*balance', r'upstream', r'backend.*pool', r'server.*pool',
+                    r'haproxy', r'nginx.*lb', r'aws.*application.*load.*balancer',
+                    r'target.*group', r'health.*check', r'failover'
+                ],
+                'timing_signatures': {
+                    'health_check_interval': (5000, 30000),
+                    'failover_detection': (1000, 10000),
+                    'connection_draining': (5000, 300000)
+                }
+            },
+
+            'service-mesh': {
+                'headers': [
+                    # Istio/Envoy
+                    'x-envoy', 'x-envoy-upstream-service-time', 'x-envoy-original-path',
+                    'x-envoy-decorator-operation', 'x-envoy-peer-metadata',
+                    'x-istio-attributes', 'istio-mtls',
+                    # Linkerd
+                    'l5d-dst-service', 'l5d-dst-client', 'l5d-request-id',
+                    'l5d-ctx-trace', 'x-linkerd-', 'linkerd-',
+                    # Consul Connect
+                    'x-consul-', 'consul-', 'x-consul-token', 'x-consul-index',
+                    # Generic tracing
+                    'x-b3-traceid', 'x-b3-spanid', 'x-b3-parentspanid', 'x-b3-sampled',
+                    'x-ot-span-context', 'x-trace-id', 'x-span-id'
+                ],
+                'behavioral': {
+                    'mtls_termination': {
+                        'cert_headers': ['x-forwarded-client-cert', 'x-ssl-client-cert'],
+                        'mtls_patterns': [r'mtls.*enabled', r'mutual.*tls', r'client.*cert']
+                    },
+                    'circuit_breaking': {
+                        'response_patterns': [r'circuit.*breaker', r'upstream.*failure', r'max.*retries'],
+                        'status_codes': [503, 504]
+                    },
+                    'retry_policies': {
+                        'retry_headers': ['x-envoy-retry-on', 'x-envoy-max-retries'],
+                        'retry_patterns': [r'retry.*policy', r'max.*retries', r'retry.*timeout']
+                    },
+                    'canary_routing': {
+                        'routing_headers': ['x-canary-weight', 'x-traffic-split'],
+                        'version_headers': ['x-version', 'x-variant']
+                    },
+                    'fault_injection': {
+                        'fault_headers': ['x-envoy-fault-', 'x-chaos-'],
+                        'fault_patterns': [r'fault.*injection', r'chaos.*engineering']
+                    },
+                    'observability': {
+                        'metrics_collection': True,
+                        'distributed_tracing': True,
+                        'access_logging': True
+                    }
                 },
                 'admin_paths': [
                     '/stats', '/clusters', '/config_dump', '/server_info',
-                    '/listeners', '/runtime', '/certs', '/memory'
+                    '/listeners', '/runtime', '/certs', '/memory', '/cpuprofiler',
+                    '/ready', '/stats/prometheus', '/hot_restart_version'
+                ],
+                'response_patterns': [
+                    r'envoy.*proxy', r'istio', r'linkerd', r'consul.*connect',
+                    r'service.*mesh', r'sidecar.*proxy', r'data.*plane',
+                    r'control.*plane', r'xds.*config', r'pilot.*discovery'
                 ],
                 'timing_signatures': {
                     'proxy_overhead': (1, 50),
-                    'circuit_breaker_trip': (100, 1000)
+                    'circuit_breaker_trip': (100, 1000),
+                    'retry_backoff': (100, 5000),
+                    'config_reload': (1000, 30000)
                 }
             },
+
             'database-proxy': {
-                'headers': ['x-db-proxy', 'x-pgbouncer', 'x-mysql-proxy'],
-                'paths': ['/db-status', '/pool-status'],
-                'response_patterns': ['database.*proxy', 'connection.*pool', 'pgbouncer']
-            },
-            'cache-layer': {
-                'headers': ['x-cache', 'x-redis', 'x-memcached', 'x-varnish'],
-                'paths': ['/cache-status', '/redis-info'],
-                'response_patterns': ['redis', 'memcached', 'varnish', 'cache.*hit']
-            },
-            'message-queue': {
-                'headers': ['x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs', 'x-pubsub'],
+                'headers': [
+                    'x-db-proxy', 'x-pgbouncer', 'x-mysql-proxy', 'x-redis-proxy',
+                    'x-connection-pool', 'x-db-connection-id', 'x-query-cache',
+                    'x-db-server', 'x-shard-key'
+                ],
                 'behavioral': {
-                    'async_processing': True,
-                    'message_ordering': True,
-                    'dead_letter_queues': True,
-                    'batch_processing': True
+                    'connection_pooling': {
+                        'pool_headers': ['x-pool-size', 'x-active-connections', 'x-idle-connections'],
+                        'pool_patterns': [r'connection.*pool', r'max.*connections', r'pool.*exhausted']
+                    },
+                    'query_caching': {
+                        'cache_headers': ['x-query-cache-hit', 'x-cache-ttl'],
+                        'cache_patterns': [r'query.*cache', r'cache.*hit', r'cache.*miss']
+                    },
+                    'sharding': {
+                        'shard_headers': ['x-shard-id', 'x-partition-key'],
+                        'shard_patterns': [r'shard.*key', r'partition.*strategy']
+                    },
+                    'read_write_split': True,
+                    'failover_support': True
                 },
+                'paths': [
+                    '/db-status', '/pool-status', '/pgbouncer', '/mysql-proxy/status',
+                    '/redis-info', '/connection-stats', '/query-stats'
+                ],
+                'response_patterns': [
+                    r'database.*proxy', r'connection.*pool', r'pgbouncer', r'mysql.*proxy',
+                    r'redis.*proxy', r'db.*connection', r'query.*cache', r'shard.*info'
+                ],
+                'timing_signatures': {
+                    'connection_setup': (10, 100),
+                    'query_execution': (1, 5000),
+                    'pool_checkout': (1, 50)
+                }
+            },
+
+            'cache-layer': {
+                'headers': [
+                    'x-cache', 'x-redis', 'x-memcached', 'x-varnish', 'x-cache-status',
+                    'x-cache-key', 'x-cache-ttl', 'x-cache-hits', 'x-cache-age',
+                    'varnish-age', 'varnish-cache', 'x-drupal-cache'
+                ],
+                'behavioral': {
+                    'cache_strategies': {
+                        'strategies': ['write-through', 'write-behind', 'cache-aside'],
+                        'invalidation_patterns': [r'cache.*invalidate', r'purge.*cache', r'flush.*cache']
+                    },
+                    'cache_warming': {
+                        'warming_patterns': [r'cache.*warm', r'preload.*cache'],
+                        'warming_headers': ['x-cache-warmed', 'x-preload-status']
+                    },
+                    'distributed_cache': {
+                        'cluster_headers': ['x-cache-node', 'x-cluster-id'],
+                        'replication_patterns': [r'cache.*replica', r'sync.*status']
+                    },
+                    'compression': True,
+                    'serialization': ['json', 'binary', 'protobuf']
+                },
+                'paths': [
+                    '/cache-status', '/redis-info', '/memcached-stats', '/varnish-stats',
+                    '/cache-stats', '/hit-ratio', '/memory-usage'
+                ],
+                'response_patterns': [
+                    r'redis', r'memcached', r'varnish', r'cache.*hit', r'cache.*miss',
+                    r'cache.*server', r'key.*value', r'cache.*cluster', r'hit.*ratio'
+                ],
+                'timing_signatures': {
+                    'cache_hit': (1, 10),
+                    'cache_miss': (10, 1000),
+                    'cache_write': (1, 50),
+                    'eviction_time': (1, 100)
+                }
+            },
+
+            'message-queue': {
+                'headers': [
+                    'x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs', 'x-pubsub',
+                    'x-message-id', 'x-correlation-id', 'x-delivery-tag',
+                    'x-queue-name', 'x-topic-name', 'x-partition'
+                ],
+                'behavioral': {
+                    'async_processing': {
+                        'async_patterns': [r'async.*process', r'background.*job', r'queued.*task'],
+                        'callback_headers': ['x-callback-url', 'x-webhook-url']
+                    },
+                    'message_ordering': {
+                        'order_headers': ['x-sequence-number', 'x-message-order'],
+                        'fifo_patterns': [r'fifo.*queue', r'ordered.*delivery']
+                    },
+                    'dead_letter_queues': {
+                        'dlq_headers': ['x-dlq-retry-count', 'x-dead-letter-queue'],
+                        'dlq_patterns': [r'dead.*letter', r'retry.*exhausted', r'poison.*message']
+                    },
+                    'batch_processing': {
+                        'batch_headers': ['x-batch-size', 'x-batch-id'],
+                        'batch_patterns': [r'batch.*process', r'bulk.*operation']
+                    },
+                    'message_persistence': True,
+                    'acknowledgment_modes': ['auto', 'manual', 'duplicates-ok']
+                },
+                'paths': [
+                    '/queue-status', '/rabbitmq/api', '/kafka/topics', '/sqs/stats',
+                    '/pubsub/topics', '/messages', '/queues', '/topics'
+                ],
+                'response_patterns': [
+                    r'rabbitmq', r'kafka', r'amazon.*sqs', r'google.*pubsub',
+                    r'message.*queue', r'topic.*partition', r'consumer.*group',
+                    r'producer', r'subscriber', r'dead.*letter'
+                ],
                 'timing_signatures': {
                     'queue_processing': (10, 5000),
-                    'batch_delay': (100, 10000)
+                    'batch_delay': (100, 10000),
+                    'message_latency': (1, 1000),
+                    'consumer_lag': (0, 300000)
                 }
             }
-
-        }
-        
+        }        
         # Container orchestration signatures
         self.container_patterns = {
             'kubernetes': {
@@ -926,7 +1272,7 @@ class CommandGenerator:
                     test_headers['Referer'] = self.target_url
 
                 response = self.session.get(self.forbidden_endpoint, headers=test_headers, timeout=10)
-                if response.status_code in [401, 403]:
+                if response.status_code in [401, 403, 302]:
                     self.discovered_forbidden_endpoint = self.forbidden_endpoint
                     self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
                     return self.forbidden_endpoint
@@ -961,46 +1307,480 @@ class CommandGenerator:
 
         return None
 
-    def create_fingerprint_payloads(self):
-        """Create payloads to fingerprint each layer in the chain"""
-        markers = self.generate_unique_markers()
-
-        return {
-            'cdn_detection': {
-                'headers': {
-                    'X-CDN-Test': markers['uuid'],
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
+        def create_fingerprint_payloads(self):
+            """Create payloads to fingerprint unlimited layers in the chain"""
+            markers = self.generate_unique_markers()
+            
+            # Sistema di detection esteso per tutti i possibili layer
+            return {
+                # Layer 1: Edge/CDN Detection
+                'edge_cdn_detection': {
+                    'priority': 1,
+                    'headers': {
+                        'X-CDN-Test': markers['uuid'],
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'X-Edge-Test': markers['sequence'],
+                        'CF-Connecting-IP': f'127.0.0.1',  # Test Cloudflare
+                        'X-Forwarded-Proto': 'https',
+                        'X-Original-URL': f'/test-{markers["uuid"]}'
+                    },
+                    'expected_responses': [
+                        'cloudflare', 'cloudfront', 'fastly', 'akamai', 'maxcdn',
+                        'keycdn', 'bunnycdn', 'stackpath', 'quantil'
+                    ],
+                    'detection_headers': [
+                        'cf-ray', 'x-amz-cf-id', 'x-served-by', 'x-cache',
+                        'x-edge-location', 'x-cdn-pop'
+                    ],
+                    'timing_analysis': True,
+                    'geo_routing_test': True
                 },
-                'expected_responses': ['cloudflare', 'cloudfront', 'fastly', 'akamai']
-            },
 
-            'waf_detection': {
-                'payloads': [
-                    f"/?test=<script>alert('{markers['uuid']}')</script>",
-                    f"/?test=' OR 1=1 -- {markers['uuid']}",
-                    f"/?test=../../../etc/passwd#{markers['uuid']}"
-                ],
-                'headers': {'User-Agent': f'Mozilla/5.0 (test-{markers["uuid"]})'}
-            },
+                # Layer 2: DDoS Protection Detection  
+                'ddos_protection_detection': {
+                    'priority': 2,
+                    'headers': {
+                        'X-DDoS-Test': markers['uuid'],
+                        'User-Agent': f'SecurityTest-{markers["sequence"]}',
+                        'X-Rate-Limit-Test': markers['uuid']
+                    },
+                    'rate_limit_tests': {
+                        'burst_requests': 50,
+                        'time_window': 10,
+                        'escalation_pattern': [1, 5, 10, 25, 50]
+                    },
+                    'challenge_detection': [
+                        'cloudflare_challenge', 'incapsula_challenge', 'sucuri_firewall',
+                        'akamai_bot_manager', 'imperva_challenge'
+                    ],
+                    'js_challenge_markers': [markers['uuid']],
+                    'captcha_detection': True
+                },
 
-            'proxy_detection': {
-                'headers': {
-                    'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
-                    'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
-                    'X-Proxy-Test': markers['uuid']
+                # Layer 3: WAF Detection (Multi-vendor)
+                'waf_detection': {
+                    'priority': 3,
+                    'payloads': {
+                        'xss_tests': [
+                            f"/?xss=<script>alert('{markers['uuid']}')</script>",
+                            f"/?xss=javascript:alert('{markers['uuid']}')",
+                            f"/?xss=<img src=x onerror=alert('{markers['uuid']}')>",
+                            f"/?xss=<svg onload=alert('{markers['uuid']}')>"
+                        ],
+                        'sqli_tests': [
+                            f"/?sql=' OR 1=1 -- {markers['uuid']}",
+                            f"/?sql=' UNION SELECT '{markers['uuid']}' --",
+                            f"/?sql=1'; DROP TABLE users; -- {markers['uuid']}",
+                            f"/?sql=1' AND SLEEP(5) -- {markers['uuid']}"
+                        ],
+                        'lfi_tests': [
+                            f"/?file=../../../etc/passwd#{markers['uuid']}",
+                            f"/?file=....//....//....//etc/passwd#{markers['uuid']}",
+                            f"/?file=/etc/passwd%00{markers['uuid']}",
+                            f"/?file=php://filter/resource=index.php#{markers['uuid']}"
+                        ],
+                        'rce_tests': [
+                            f"/?cmd=id;echo {markers['uuid']}",
+                            f"/?cmd=`id`;echo {markers['uuid']}",
+                            f"/?cmd=$(id);echo {markers['uuid']}",
+                            f"/?cmd=|id;echo {markers['uuid']}"
+                        ],
+                        'xxe_tests': [
+                            f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test "{markers['uuid']}">]><root>&test;</root>""",
+                            f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "file:///etc/passwd">]><root>&test;{markers['uuid']}</root>"""
+                        ]
+                    },
+                    'waf_signatures': {
+                        'cloudflare': ['cf-ray', 'cloudflare', 'ray id'],
+                        'aws_waf': ['x-amzn-trace-id', 'x-amzn-requestid'],
+                        'akamai': ['akamai', 'ak-', 'x-akamai'],
+                        'imperva': ['incap_ses', 'visid_incap', 'imperva'],
+                        'f5_asm': ['f5-bigip', 'bigip', 'f5'],
+                        'barracuda': ['barra', 'cuda'],
+                        'sucuri': ['sucuri', 'x-sucuri'],
+                        'fortinet': ['fortigate', 'fortiweb'],
+                        'citrix': ['netscaler', 'citrix'],
+                        'modsecurity': ['mod_security', 'modsec']
+                    },
+                    'headers': {
+                        'User-Agent': f'Mozilla/5.0 (WAF-Test-{markers["uuid"]})',
+                        'X-WAF-Test': markers['uuid'],
+                        'X-Attack-Test': markers['sequence']
+                    }
+                },
+
+                # Layer 4: API Gateway Detection
+                'api_gateway_detection': {
+                    'priority': 4,
+                    'headers': {
+                        'X-API-Gateway-Test': markers['uuid'],
+                        'Authorization': f'Bearer test-{markers["sequence"]}',
+                        'X-API-Key': f'test-key-{markers["uuid"]}',
+                        'X-Client-ID': markers['uuid']
+                    },
+                    'api_tests': {
+                        'rate_limiting': {
+                            'requests_per_second': [1, 5, 10, 50, 100],
+                            'burst_patterns': [10, 20, 50, 100]
+                        },
+                        'auth_mechanisms': [
+                            'bearer_token', 'api_key', 'oauth2', 'jwt', 'basic_auth'
+                        ],
+                        'routing_tests': [
+                            f'/api/v1/test-{markers["uuid"]}',
+                            f'/api/v2/test-{markers["uuid"]}',
+                            f'/graphql?query={{test(id:"{markers["uuid"]}")}}',
+                            f'/rest/test/{markers["uuid"]}',
+                            f'/gateway/test/{markers["uuid"]}'
+                        ]
+                    },
+                    'gateway_signatures': {
+                        'kong': ['x-kong', 'kong-'],
+                        'zuul': ['x-zuul', 'zuul-'],
+                        'ambassador': ['x-ambassador'],
+                        'istio': ['x-envoy', 'istio-'],
+                        'aws_api_gateway': ['x-amzn-requestid', 'x-amz-apigw'],
+                        'azure_apim': ['x-ms-request-id', 'apim-'],
+                        'google_cloud': ['x-goog-', 'x-cloud-']
+                    },
+                    'response_analysis': {
+                        'json_structure': True,
+                        'error_formats': True,
+                        'cors_headers': True
+                    }
+                },
+
+                # Layer 5: Load Balancer Detection
+                'load_balancer_detection': {
+                    'priority': 5,
+                    'headers': {
+                        'X-LB-Test': markers['uuid'],
+                        'X-Session-Test': markers['sequence'],
+                        'Connection': 'keep-alive'
+                    },
+                    'lb_tests': {
+                        'session_persistence': {
+                            'cookie_tests': ['JSESSIONID', 'AWSALB', 'server-id'],
+                            'ip_hash_tests': True,
+                            'header_based_routing': ['X-User-Type', 'X-Version']
+                        },
+                        'health_checks': [
+                            f'/health?test={markers["uuid"]}',
+                            f'/lb-status?test={markers["uuid"]}',
+                            f'/haproxy?stats&test={markers["uuid"]}'
+                        ],
+                        'backend_detection': {
+                            'multiple_requests': 20,
+                            'response_variation_analysis': True,
+                            'server_header_analysis': True
+                        }
+                    },
+                    'lb_signatures': {
+                        'haproxy': ['haproxy', 'x-haproxy'],
+                        'nginx': ['nginx', 'x-nginx'],
+                        'aws_alb': ['awsalb', 'x-amzn-trace-id'],
+                        'f5_bigip': ['f5-bigip', 'bigip'],
+                        'citrix': ['netscaler', 'citrix'],
+                        'traefik': ['traefik', 'x-traefik']
+                    }
+                },
+
+                # Layer 6: Service Mesh Detection
+                'service_mesh_detection': {
+                    'priority': 6,
+                    'headers': {
+                        'X-Service-Mesh-Test': markers['uuid'],
+                        'X-Trace-Test': markers['sequence'],
+                        'X-B3-TraceId': markers['uuid'],
+                        'X-B3-SpanId': markers['sequence']
+                    },
+                    'mesh_tests': {
+                        'sidecar_detection': {
+                            'admin_endpoints': [
+                                f'/stats?test={markers["uuid"]}',
+                                f'/config_dump?test={markers["uuid"]}',
+                                f'/clusters?test={markers["uuid"]}',
+                                f'/server_info?test={markers["uuid"]}'
+                            ],
+                            'envoy_specific': True,
+                            'istio_specific': True
+                        },
+                        'mtls_detection': {
+                            'cert_headers': ['x-forwarded-client-cert'],
+                            'tls_version_tests': True
+                        },
+                        'traffic_policies': {
+                            'circuit_breaker_tests': True,
+                            'retry_policy_tests': True,
+                            'timeout_tests': [1, 5, 10, 30]
+                        }
+                    },
+                    'mesh_signatures': {
+                        'istio_envoy': ['x-envoy', 'istio', 'x-b3-'],
+                        'linkerd': ['l5d-', 'linkerd'],
+                        'consul_connect': ['x-consul'],
+                        'traefik_mesh': ['x-traefik']
+                    }
+                },
+
+                # Layer 7: Container Orchestration Detection
+                'container_detection': {
+                    'priority': 7,
+                    'headers': {
+                        'X-Container-Test': markers['uuid'],
+                        'X-K8s-Test': markers['sequence'],
+                        'X-Docker-Test': markers['uuid']
+                    },
+                    'container_tests': {
+                        'kubernetes': {
+                            'service_discovery': [
+                                'service.namespace.svc.cluster.local',
+                                'internal.service.discovery'
+                            ],
+                            'endpoints': [
+                                f'/metrics?test={markers["uuid"]}',
+                                f'/healthz?test={markers["uuid"]}',
+                                f'/readyz?test={markers["uuid"]}',
+                                f'/livez?test={markers["uuid"]}'
+                            ],
+                            'dns_patterns': ['.svc.cluster.local', '.internal']
+                        },
+                        'docker_swarm': {
+                            'service_discovery': ['tasks.service-name'],
+                            'overlay_networks': True
+                        },
+                        'ecs_fargate': {
+                            'task_metadata': [
+                                f'/v2/metadata?test={markers["uuid"]}',
+                                f'/v2/stats?test={markers["uuid"]}'
+                            ],
+                            'aws_specific': True
+                        }
+                    },
+                    'container_signatures': {
+                        'kubernetes': ['x-kubernetes', 'x-k8s', 'x-pod-name'],
+                        'docker': ['x-docker', 'x-container-id'],
+                        'ecs': ['x-ecs-task', 'x-amzn-trace-id'],
+                        'openshift': ['x-openshift']
+                    }
+                },
+
+                # Layer 8: Application Runtime Detection
+                'runtime_detection': {
+                    'priority': 8,
+                    'headers': {
+                        'X-Runtime-Test': markers['uuid'],
+                        'X-Framework-Test': markers['sequence']
+                    },
+                    'runtime_tests': {
+                        'language_detection': {
+                            'java': [
+                                f'/actuator/health?test={markers["uuid"]}',
+                                f'/jolokia?test={markers["uuid"]}',
+                                f'/hawtio?test={markers["uuid"]}'
+                            ],
+                            'nodejs': [
+                                f'/debug?test={markers["uuid"]}',
+                                f'/status?test={markers["uuid"]}'
+                            ],
+                            'python': [
+                                f'/debug?test={markers["uuid"]}',
+                                f'/__debug__?test={markers["uuid"]}'
+                            ],
+                            'dotnet': [
+                                f'/health?test={markers["uuid"]}',
+                                f'/info?test={markers["uuid"]}'
+                            ],
+                            'php': [
+                                f'/phpinfo.php?test={markers["uuid"]}',
+                                f'/info.php?test={markers["uuid"]}'
+                            ]
+                        },
+                        'framework_detection': {
+                            'spring_boot': ['/actuator/', '/management/'],
+                            'express_js': ['/api/', '/debug/'],
+                            'django': ['/__debug__/', '/admin/'],
+                            'flask': ['/debug/', '/status/'],
+                            'laravel': ['/telescope/', '/horizon/']
+                        }
+                    },
+                    'runtime_signatures': {
+                        'java': ['java', 'jvm', 'spring', 'tomcat', 'jetty'],
+                        'nodejs': ['node', 'express', 'v8'],
+                        'python': ['python', 'django', 'flask', 'wsgi'],
+                        'dotnet': ['asp.net', 'iis', '.net'],
+                        'php': ['php', 'apache', 'nginx-php']
+                    }
+                },
+
+                # Layer 9: Database/Storage Detection
+                'database_detection': {
+                    'priority': 9,
+                    'headers': {
+                        'X-Database-Test': markers['uuid'],
+                        'X-Storage-Test': markers['sequence']
+                    },
+                    'db_tests': {
+                        'database_proxies': [
+                            f'/db-status?test={markers["uuid"]}',
+                            f'/pgbouncer?test={markers["uuid"]}',
+                            f'/mysql-proxy?test={markers["uuid"]}'
+                        ],
+                        'cache_layers': [
+                            f'/redis-info?test={markers["uuid"]}',
+                            f'/memcached-stats?test={markers["uuid"]}',
+                            f'/cache-status?test={markers["uuid"]}'
+                        ],
+                        'storage_apis': [
+                            f'/api/storage?test={markers["uuid"]}',
+                            f'/s3-status?test={markers["uuid"]}',
+                            f'/blob-storage?test={markers["uuid"]}'
+                        ]
+                    },
+                    'db_signatures': {
+                        'redis': ['redis', 'x-redis'],
+                        'memcached': ['memcached', 'x-memcached'],
+                        'postgresql': ['postgresql', 'postgres', 'pgbouncer'],
+                        'mysql': ['mysql', 'mariadb'],
+                        'mongodb': ['mongodb', 'mongo'],
+                        's3_compatible': ['s3', 'minio', 'ceph']
+                    }
+                },
+
+                # Layer 10: Serverless/Function Detection
+                'serverless_detection': {
+                    'priority': 10,
+                    'headers': {
+                        'X-Serverless-Test': markers['uuid'],
+                        'X-Function-Test': markers['sequence']
+                    },
+                    'serverless_tests': {
+                        'cold_start_analysis': {
+                            'timing_tests': True,
+                            'initialization_detection': True
+                        },
+                        'execution_context': {
+                            'memory_limits': True,
+                            'timeout_detection': True,
+                            'concurrent_execution': True
+                        },
+                        'event_sources': [
+                            'api_gateway', 'sqs', 's3', 'dynamodb', 'eventbridge'
+                        ]
+                    },
+                    'serverless_signatures': {
+                        'aws_lambda': ['x-amzn-requestid', 'lambda'],
+                        'azure_functions': ['x-ms-invocation-id'],
+                        'google_functions': ['function-execution-id'],
+                        'vercel': ['x-vercel-'],
+                        'netlify': ['x-nf-']
+                    }
+                },
+
+                # Sistema di analisi dinamica per layer aggiuntivi
+                'dynamic_layer_detection': {
+                    'priority': 99,
+                    'adaptive_testing': True,
+                    'layer_chaining_analysis': True,
+                    'response_correlation': True,
+                    'timing_fingerprinting': True,
+                    'behavioral_analysis': True,
+                    'unknown_component_detection': {
+                        'header_pattern_analysis': True,
+                        'response_pattern_analysis': True,
+                        'timing_pattern_analysis': True,
+                        'error_pattern_analysis': True
+                    }
                 }
-            },
-
-            'backend_detection': {
-                'paths': [
-                    f'/server-info?test={markers["uuid"]}',
-                    f'/server-status?test={markers["uuid"]}',
-                    f'/.env?test={markers["uuid"]}',
-                    f'/phpinfo.php?test={markers["uuid"]}'
-                ]
             }
-        }
+
+        def execute_layer_detection(self, target_url: str, max_layers: int = 15):
+            """Execute detection for unlimited layers"""
+            detected_layers = []
+            fingerprint_payloads = self.create_comprehensive_fingerprint_payloads()
+            
+            # Ordina i test per priorità
+            sorted_tests = sorted(
+                fingerprint_payloads.items(), 
+                key=lambda x: x[1].get('priority', 99)
+            )
+            
+            for layer_name, layer_config in sorted_tests:
+                if len(detected_layers) >= max_layers:
+                    break
+                    
+                print(f"[*] Testing Layer {len(detected_layers) + 1}: {layer_name}")
+                
+                layer_result = self.test_layer(target_url, layer_name, layer_config)
+                
+                if layer_result['detected']:
+                    detected_layers.append({
+                        'layer_number': len(detected_layers) + 1,
+                        'layer_type': layer_name,
+                        'details': layer_result,
+                        'bypass_vectors': self.generate_layer_bypasses(layer_result)
+                    })
+                    
+                    # Analisi dinamica per layer successivi
+                    if layer_result.get('next_hop_hints'):
+                        additional_tests = self.generate_dynamic_tests(layer_result)
+                        fingerprint_payloads.update(additional_tests)
+            
+            return {
+                'total_layers': len(detected_layers),
+                'layer_chain': detected_layers,
+                'bypass_strategies': self.generate_chain_bypasses(detected_layers),
+                'reconnaissance_data': self.compile_intelligence(detected_layers)
+            }
+
+        def test_layer(self, target_url: str, layer_name: str, layer_config: dict) -> dict:
+            """Test specifico per un layer con analisi completa"""
+            results = {
+                'detected': False,
+                'confidence': 0.0,
+                'signatures_found': [],
+                'response_analysis': {},
+                'timing_analysis': {},
+                'next_hop_hints': []
+            }
+            
+            # Esegui tutti i test per questo layer
+            if 'headers' in layer_config:
+                header_results = self.test_headers(target_url, layer_config['headers'])
+                results['response_analysis']['headers'] = header_results
+                
+            if 'payloads' in layer_config:
+                payload_results = self.test_payloads(target_url, layer_config['payloads'])
+                results['response_analysis']['payloads'] = payload_results
+                
+            # Analisi timing per detection accurata
+            if layer_config.get('timing_analysis'):
+                timing_results = self.perform_timing_analysis(target_url, layer_config)
+                results['timing_analysis'] = timing_results
+                
+            # Calcola confidenza basata su tutti i risultati
+            results['confidence'] = self.calculate_detection_confidence(results)
+            results['detected'] = results['confidence'] > 0.6
+            
+            return results
+
+        def generate_dynamic_tests(self, layer_result: dict) -> dict:
+            """Genera test dinamici basati sui risultati del layer precedente"""
+            dynamic_tests = {}
+            
+            # Se abbiamo trovato hint per layer successivi
+            if layer_result.get('next_hop_hints'):
+                for hint in layer_result['next_hop_hints']:
+                    test_name = f"dynamic_{hint['type']}_detection"
+                    dynamic_tests[test_name] = {
+                        'priority': hint.get('priority', 50),
+                        'headers': hint.get('headers', {}),
+                        'payloads': hint.get('payloads', []),
+                        'signatures': hint.get('signatures', {})
+                    }
+            
+            return dynamic_tests
 
     async def protocol_discovery(self):
         """Discover supported protocols"""
