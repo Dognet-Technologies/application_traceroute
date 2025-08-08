@@ -1450,6 +1450,662 @@ class CommandGenerator:
 
         return None
 
+
+        def execute_layer_detection(self, target_url: str, max_layers: int = 15):
+            """Execute detection for unlimited layers"""
+            detected_layers = []
+            fingerprint_payloads = self.create_comprehensive_fingerprint_payloads()
+            
+            # Ordina i test per priorità
+            sorted_tests = sorted(
+                fingerprint_payloads.items(), 
+                key=lambda x: x[1].get('priority', 99)
+            )
+            
+            for layer_name, layer_config in sorted_tests:
+                if len(detected_layers) >= max_layers:
+                    break
+                    
+                print(f"[*] Testing Layer {len(detected_layers) + 1}: {layer_name}")
+                
+                layer_result = self.test_layer(target_url, layer_name, layer_config)
+                
+                if layer_result['detected']:
+                    detected_layers.append({
+                        'layer_number': len(detected_layers) + 1,
+                        'layer_type': layer_name,
+                        'details': layer_result,
+                        'bypass_vectors': self.generate_layer_bypasses(layer_result)
+                    })
+                    
+                    # Analisi dinamica per layer successivi
+                    if layer_result.get('next_hop_hints'):
+                        additional_tests = self.generate_dynamic_tests(layer_result)
+                        fingerprint_payloads.update(additional_tests)
+            
+            return {
+                'total_layers': len(detected_layers),
+                'layer_chain': detected_layers,
+                'bypass_strategies': self.generate_chain_bypasses(detected_layers),
+                'reconnaissance_data': self.compile_intelligence(detected_layers)
+            }
+
+        def test_layer(self, target_url: str, layer_name: str, layer_config: dict) -> dict:
+            """Test specifico per un layer con analisi completa"""
+            results = {
+                'detected': False,
+                'confidence': 0.0,
+                'signatures_found': [],
+                'response_analysis': {},
+                'timing_analysis': {},
+                'next_hop_hints': []
+            }
+            
+            # Esegui tutti i test per questo layer
+            if 'headers' in layer_config:
+                header_results = self.test_headers(target_url, layer_config['headers'])
+                results['response_analysis']['headers'] = header_results
+                
+            if 'payloads' in layer_config:
+                payload_results = self.test_payloads(target_url, layer_config['payloads'])
+                results['response_analysis']['payloads'] = payload_results
+                
+            # Analisi timing per detection accurata
+            if layer_config.get('timing_analysis'):
+                timing_results = self.perform_timing_analysis(target_url, layer_config)
+                results['timing_analysis'] = timing_results
+                
+            # Calcola confidenza basata su tutti i risultati
+            results['confidence'] = self.calculate_detection_confidence(results)
+            results['detected'] = results['confidence'] > 0.6
+            
+            return results
+
+        def generate_dynamic_tests(self, layer_result: dict) -> dict:
+            """Genera test dinamici basati sui risultati del layer precedente"""
+            dynamic_tests = {}
+            
+            # Se abbiamo trovato hint per layer successivi
+            if layer_result.get('next_hop_hints'):
+                for hint in layer_result['next_hop_hints']:
+                    test_name = f"dynamic_{hint['type']}_detection"
+                    dynamic_tests[test_name] = {
+                        'priority': hint.get('priority', 50),
+                        'headers': hint.get('headers', {}),
+                        'payloads': hint.get('payloads', []),
+                        'signatures': hint.get('signatures', {})
+                    }
+            
+            return dynamic_tests
+
+    async def protocol_discovery(self):
+        """Discover supported protocols"""
+        print("\n🔍 Phase 1: Protocol Discovery")
+
+        # HTTP/2 Detection
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.target_url) as response:
+                    if hasattr(response, 'version') and response.version.major >= 2:
+                        self.protocols['http2'] = True
+                        self.log_discovery("Protocol", "HTTP/2", "Supported")
+        except:
+            pass
+
+        # HTTP/3 Detection (via Alt-Svc header)
+        try:
+            response = self.session.head(self.target_url)
+            alt_svc = response.headers.get('Alt-Svc', '')
+            if 'h3' in alt_svc or 'h3-29' in alt_svc:
+                self.protocols['http3'] = True
+                self.log_discovery("Protocol", "HTTP/3", f"Detected via Alt-Svc: {alt_svc}")
+        except:
+            pass
+
+        # WebSocket Detection
+        try:
+            ws_headers = {
+                'Upgrade': 'websocket',
+                'Connection': 'Upgrade',
+                'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+                'Sec-WebSocket-Version': '13'
+            }
+            response = self.session.get(self.target_url, headers=ws_headers)
+            if response.status_code == 101:
+                self.protocols['websocket'] = True
+                self.log_discovery("Protocol", "WebSocket", "Upgrade supported")
+        except:
+            pass
+
+
+    def waf_fingerprinting_extended(self, waf_payloads):
+        """Advanced WAF fingerprinting - EXTENDED VERSION"""
+        print("  🛡️ WAF Detection...")
+
+        # Your original signatures + EXTENSIONS
+        waf_signatures = {
+            'cloudflare': ['cf-ray', 'cloudflare', 'error 1020'],
+            'aws-waf': ['awselb', 'aws', 'x-amzn'],
+            'imperva': ['incap_ses', 'visid_incap', 'imperva'],
+            'akamai': ['akamai', 'ak-bmsc'],
+            'wordfence': ['wordfence', 'this site is protected'],
+            'sucuri': ['sucuri', 'access denied.*sucuri'],
+            'barracuda': ['barracuda', 'bnsv'],
+            'f5': ['f5', 'bigip', 'x-wa-info'],
+            'fortinet': ['fortigate', 'fortiweb'],
+            'ispconfig': ['ispconfig', 'blocked by security policy', 'request rejected', 'web application firewall'],
+            # EXTENDED WAF SIGNATURES
+            'modsecurity': ['mod_security', 'modsec', 'not acceptable'],
+            'naxsi': ['naxsi', 'unusual url'],
+            'wallarm': ['wallarm', 'blocked by wallarm'],
+            'azure-waf': ['applicationgateway', 'x-azure-ref'],
+            'citrix': ['citrix', 'netscaler', 'ns_af'],
+            'radware': ['radware', 'x-rdwr-'],
+            'kemp': ['kemp', 'x-kemp-'],
+            'checkpoint': ['checkpoint', 'fw-1'],
+            'paloalto': ['paloalto', 'pan-'],
+            'sophos': ['sophos', 'utm'],
+            'webknight': ['webknight', 'blocked by webknight']
+        }
+
+        detected_waf = None
+
+        # Your original test logic (PRESERVED)
+        for payload in waf_payloads['payloads']:
+            try:
+                response = self.session.get(
+                    f"{self.target_url}{payload}",
+                    headers=waf_payloads['headers'],
+                    timeout=10
+                )
+
+                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
+
+                for waf, signatures in waf_signatures.items():
+                    for signature in signatures:
+                        if re.search(signature, full_response):
+                            detected_waf = waf
+                            break
+                    if detected_waf:
+                        break
+
+                if detected_waf:
+                    break
+
+            except Exception as e:
+                continue
+
+        # Your original ISPConfig test (PRESERVED)
+        if not detected_waf:
+            try:
+                markers = self.generate_unique_markers()
+                path_injection_payload = f"/test{markers['uuid']}%3cscript%3ealert(1)%3c/script%3e/"
+
+                response = self.session.get(
+                    f"{self.target_url}{path_injection_payload}",
+                    headers=waf_payloads['headers'],
+                    timeout=10
+                )
+
+                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
+
+                if response.status_code == 403:
+                    for signature in waf_signatures['ispconfig']:
+                        if re.search(signature, full_response):
+                            detected_waf = 'ispconfig'
+                            break
+
+            except Exception as e:
+                pass
+
+        # EXTENDED: Additional WAF detection techniques
+        if not detected_waf:
+            try:
+                # SQL injection test for WAF detection
+                sql_payload = "?id=1' OR '1'='1"
+                response = self.session.get(f"{self.target_url}{sql_payload}", timeout=5)
+                if response.status_code in [403, 406, 501, 503]:
+                    full_response = f"{response.headers} {response.text}".lower()
+                    for waf, signatures in waf_signatures.items():
+                        for signature in signatures:
+                            if re.search(signature, full_response):
+                                detected_waf = waf
+                                break
+                        if detected_waf:
+                            break
+            except Exception:
+                pass
+
+        if detected_waf:
+            self.log_discovery("WAF", "Detection", detected_waf)
+            self.chain_map['layers'].append(f"WAF-{detected_waf}")
+        else:
+            self.log_discovery("WAF", "Detection", "None detected or unknown")
+
+    def proxy_fingerprinting_extended(self, proxy_headers):
+        """Detect proxy/load balancer configuration - EXTENDED VERSION"""
+        print("  🔄 Proxy Detection...")
+
+        try:
+            response = self.session.get(self.target_url, headers=proxy_headers['headers'])
+
+            # Your original indicators + EXTENSIONS
+            proxy_indicators = {
+                'nginx': ['server.*nginx', 'x-nginx'],
+                'apache': ['server.*apache', 'x-apache'],
+                'haproxy': ['server.*haproxy'],
+                'traefik': ['server.*traefik'],
+                'envoy': ['server.*envoy', 'x-envoy'],
+                'istio': ['server.*istio'],
+                'linkerd': ['l5d-'],
+                'aws-alb': ['awsalb', 'elbv2'],
+                'gcp-lb': ['via.*google frontend'],
+                # EXTENDED PROXY SIGNATURES
+                'caddy': ['server.*caddy'],
+                'lighttpd': ['server.*lighttpd'],
+                'varnish': ['via.*varnish', 'x-varnish'],
+                'squid': ['via.*squid', 'x-squid'],
+                'cloudfront': ['via.*cloudfront'],
+                'azure-frontdoor': ['x-azure-fdid'],
+                'kong': ['via.*kong', 'x-kong-'],
+                'ambassador': ['x-envoy-upstream-service-time'],
+                'ingress-nginx': ['server.*nginx-ingress']
+            }
+
+            detected_proxy = None
+            for proxy, indicators in proxy_indicators.items():
+                for indicator in indicators:
+                    for header, value in response.headers.items():
+                        if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
+                            detected_proxy = proxy
+                            break
+                if detected_proxy:
+                    break
+
+            if detected_proxy:
+                self.log_discovery("Proxy", "Detection", detected_proxy)
+                self.chain_map['layers'].append(f"Proxy-{detected_proxy}")
+
+        except Exception as e:
+            self.log_discovery("Proxy", "Error", str(e))
+
+    def backend_fingerprinting_extended(self, backend_paths):
+        """Fingerprint backend application server - EXTENDED VERSION"""
+        print("  🖥️ Backend Detection...")
+
+        # Your original signatures + EXTENSIONS
+        backend_signatures = {
+            'apache': ['server.*apache'],
+            'nginx': ['server.*nginx'],
+            'iis': ['server.*iis', 'x-aspnet-version'],
+            'tomcat': ['server.*tomcat'],
+            'jetty': ['server.*jetty'],
+            'node': ['x-powered-by.*express', 'x-powered-by.*node'],
+            'php': ['x-powered-by.*php', 'server.*php'],
+            'python': ['server.*gunicorn', 'server.*uwsgi'],
+            'ruby': ['server.*puma', 'x-powered-by.*ruby'],
+            'go': ['server.*go'],
+            # EXTENDED BACKEND SIGNATURES
+            'undertow': ['server.*undertow'],
+            'kestrel': ['server.*kestrel'],
+            'uvicorn': ['server.*uvicorn'],
+            'hypercorn': ['server.*hypercorn'],
+            'daphne': ['server.*daphne'],
+            'cherrypy': ['server.*cherrypy'],
+            'tornado': ['server.*tornado'],
+            'waitress': ['server.*waitress'],
+            'actix': ['server.*actix'],
+            'warp': ['server.*warp'],
+            'rocket': ['server.*rocket']
+        }
+
+        detected_backend = None
+
+        # Your original test logic (PRESERVED)
+        for path in backend_paths['paths']:
+            try:
+                response = self.session.get(f"{self.target_url}{path}", timeout=5)
+
+                full_response = f"{response.headers} {response.text}".lower()
+
+                for backend, signatures in backend_signatures.items():
+                    for signature in signatures:
+                        if re.search(signature, full_response):
+                            detected_backend = backend
+                            break
+                    if detected_backend:
+                        break
+
+                if detected_backend:
+                    break
+
+            except Exception as e:
+                continue
+
+        # EXTENDED: Additional backend detection via error pages
+        if not detected_backend:
+            try:
+                error_response = self.session.get(f"{self.target_url}/nonexistent-page-404", timeout=5)
+                error_text = error_response.text.lower()
+                
+                if 'apache' in error_text and 'server at' in error_text:
+                    detected_backend = 'apache'
+                elif 'nginx' in error_text:
+                    detected_backend = 'nginx'
+                elif 'iis' in error_text or 'internet information services' in error_text:
+                    detected_backend = 'iis'
+                    
+            except Exception:
+                pass
+
+        if detected_backend:
+            self.log_discovery("Backend", "Detection", detected_backend)
+            self.chain_map['layers'].append(f"Backend-{detected_backend}")
+
+    # NEW FUNCTIONS (keeping the ones I provided earlier)
+    def load_balancer_fingerprinting(self, lb_config):
+        """Detect load balancers"""
+        try:
+            response = self.session.get(self.target_url, headers=lb_config['headers'])
+            
+            lb_signatures = lb_config['lb_signatures']
+            for lb_type, signatures in lb_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("LoadBalancer", "Detection", f"{lb_type}")
+                            self.chain_map['layers'].append(f"LB-{lb_type}")
+                            return
+                            
+            # Test health check endpoints
+            for health_check in lb_config['lb_tests']['health_checks']:
+                try:
+                    response = self.session.get(f"{self.target_url}{health_check}", timeout=3)
+                    if response.status_code == 200:
+                        self.log_discovery("LoadBalancer", "HealthCheck", health_check)
+                        break
+                except:
+                    continue
+                    
+        except Exception as e:
+            self.log_discovery("LoadBalancer", "Error", str(e))
+
+    def api_gateway_fingerprinting(self, gw_config):
+        """Detect API gateways"""
+        try:
+            response = self.session.get(self.target_url, headers=gw_config['headers'])
+            
+            gw_signatures = gw_config['gateway_signatures']
+            for gw_type, signatures in gw_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("APIGateway", "Detection", f"{gw_type}")
+                            self.chain_map['layers'].append(f"GW-{gw_type}")
+                            return
+                            
+        except Exception as e:
+            self.log_discovery("APIGateway", "Error", str(e))
+
+    def service_mesh_fingerprinting(self, mesh_config):
+        """Detect service mesh components"""
+        try:
+            response = self.session.get(self.target_url, headers=mesh_config['headers'])
+            
+            mesh_signatures = mesh_config['mesh_signatures']
+            for mesh_type, signatures in mesh_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("ServiceMesh", "Detection", f"{mesh_type}")
+                            self.chain_map['layers'].append(f"MESH-{mesh_type}")
+                            return
+                            
+        except Exception as e:
+            self.log_discovery("ServiceMesh", "Error", str(e))
+
+    def container_fingerprinting(self, container_config):
+        """Detect container orchestration platforms"""
+        try:
+            # Test Kubernetes endpoints
+            k8s_tests = container_config['container_tests']['kubernetes']['endpoints']
+            for k8s_test in k8s_tests:
+                try:
+                    response = self.session.get(f"{self.target_url}{k8s_test}", timeout=3)
+                    if response.status_code in [200, 401, 403]:
+                        self.log_discovery("Container", "Kubernetes", k8s_test)
+                        self.chain_map['layers'].append("K8S")
+                        return
+                except:
+                    continue
+                    
+        except Exception as e:
+            self.log_discovery("Container", "Error", str(e))
+
+    def runtime_fingerprinting(self, runtime_config):
+        """Detect application runtime environments"""
+        try:
+            # Test framework endpoints
+            framework_tests = runtime_config['runtime_tests']['framework_detection']
+            for framework, tests in framework_tests.items():
+                for test in tests:
+                    try:
+                        response = self.session.get(f"{self.target_url}{test}", timeout=3)
+                        if response.status_code in [200, 401, 403]:
+                            self.log_discovery("Runtime", "Framework", f"{framework}")
+                            self.chain_map['layers'].append(f"FW-{framework.upper()}")
+                            break
+                    except:
+                        continue
+                        
+        except Exception as e:
+            self.log_discovery("Runtime", "Error", str(e))
+
+    def database_fingerprinting(self, db_config):
+        """Detect database and storage systems"""
+        try:
+            # Test admin interfaces
+            if 'admin_interfaces' in db_config['db_tests']:
+                admin_tests = db_config['db_tests']['admin_interfaces']
+                for interface, tests in admin_tests.items():
+                    for test in tests:
+                        try:
+                            response = self.session.get(f"{self.target_url}{test}", timeout=3)
+                            if response.status_code in [200, 401, 403]:
+                                self.log_discovery("Database", "Admin", f"{interface}")
+                                self.chain_map['layers'].append(f"DB-ADMIN-{interface.upper()}")
+                                break
+                        except:
+                            continue
+                            
+        except Exception as e:
+            self.log_discovery("Database", "Error", str(e))
+
+    def serverless_fingerprinting(self, serverless_config):
+        """Detect serverless/function platforms"""
+        try:
+            response = self.session.get(self.target_url, headers=serverless_config['headers'])
+            
+            serverless_signatures = serverless_config['serverless_signatures']
+            for platform, signatures in serverless_signatures.items():
+                for signature in signatures:
+                    for header, value in response.headers.items():
+                        if signature.lower() in f"{header}: {value}".lower():
+                            self.log_discovery("Serverless", "Platform", f"{platform}")
+                            self.chain_map['layers'].append(f"SERVERLESS-{platform.upper()}")
+                            return
+                            
+        except Exception as e:
+            self.log_discovery("Serverless", "Error", str(e))
+        
+    def parser_discrepancy_testing(self):
+        """Test for parser discrepancies between layers"""
+        print("\n🔍 Phase 3: Parser Discrepancy Testing")
+        # Placeholder: Implement discrepancy testing logic
+        # Should include tests for:
+        # - URL encoding/decoding differences
+        # - Header normalization
+        # - Path traversal parsing
+        # - Content-type confusion
+        # - Special character handling
+        self.log_discovery("Parser", "Discrepancy", "Not yet implemented")
+
+    def generate_custom_bypasses(self):
+        """Generate custom payloads for bypassing detected layers"""
+        print("\n🔍 Phase 4: Bypass Payload Generation")
+        # Placeholder: Implement custom bypass generation logic based on discovered discrepancies
+        self.log_discovery("Bypass", "Payloads", "Not yet implemented")
+
+    def test_generated_bypasses(self):
+        """Test all generated bypass payloads against forbidden endpoint"""
+        print("\n🔍 Phase 5: Bypass Testing")
+        # Placeholder: Implement bypass testing logic
+        self.log_discovery("Bypass", "Testing", "Not yet implemented")
+
+    def generate_report(self):
+        """Generate detailed report of the analysis"""
+        print("\n📊 Phase 6: Report Generation")
+        report = {
+            'target_url': self.target_url,
+            'forbidden_endpoint': self.discovered_forbidden_endpoint,
+            'protocols': self.protocols,
+            'chain_map': self.chain_map,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        try:
+            report_path = f"traceroute_report_{int(time.time())}.json"
+            with open(report_path, "w") as f:
+                json.dump(report, f, indent=2)
+            print(f"  ✅ Report saved to {report_path}")
+        except Exception as e:
+            print(f"  ⚠️ Error saving report: {e}")
+
+        return report
+
+    # The enhancement requires this function for stack detection
+    def _detect_stack_type(self, endpoint: str) -> Optional[str]:
+        """Detect the stack type for a given endpoint"""
+        try:
+            response = self.session.head(endpoint)
+            headers = response.headers
+            if any(h in headers for h in ['cf-ray', 'cf-cache-status']):
+                return 'cloudflare_nginx'
+            elif any(h in headers for h in ['x-amzn-trace-id']):
+                return 'aws_waf_apache'
+            return None
+        except Exception:
+            return None
+
+class ApplicationTraceroute:
+    def __init__(self, target_url, forbidden_endpoint=None, skip_forbidden_tests=False):
+        self.target_url = target_url.rstrip('/')
+        self.parsed_url = urlparse(target_url)
+        self.session = requests.Session()
+        self.service_discovery = ServiceDiscoveryEnhanced()
+        self.mesh_detector = ServiceMeshDetector()
+        self.request_tracker = RequestTracker()
+        self.payload_analyzer = PayloadAnalyzer()
+        self.stack_handler = StackHandler()
+        self.command_generator = None     
+
+        # Forbidden endpoint configuration
+        self.forbidden_endpoint = forbidden_endpoint
+        self.skip_forbidden_tests = skip_forbidden_tests
+        self.discovered_forbidden_endpoint = None
+        
+        # Chain discovery results
+        self.chain_map = {
+            'layers': [],
+            'discrepancies': [],
+            'fingerprints': {},
+            'bypasses': []
+        }
+        
+        # Protocol support detection
+        self.protocols = {
+            'http1': True,
+            'http2': False,
+            'http3': False,
+            'websocket': False
+        }
+        
+    def log_discovery(self, layer, discovery_type, details):
+        """Log discoveries with structured data"""
+        timestamp = time.strftime('%H:%M:%S')
+        print(f"[{timestamp}] 🔍 {layer} - {discovery_type}: {details}")
+        
+        if layer not in self.chain_map['fingerprints']:
+            self.chain_map['fingerprints'][layer] = {}
+        self.chain_map['fingerprints'][layer][discovery_type] = details
+
+    def generate_unique_markers(self):
+        """Generate unique markers for request tracking"""
+        return {
+            'uuid': ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)),
+            'timestamp': str(int(time.time())),
+            'sequence': str(random.randint(100000, 999999))
+        }
+
+    def find_forbidden_endpoint(self):
+        """Find an endpoint that returns 403/401 for bypass testing"""
+        print("\n🔍 Phase 0: Finding Forbidden Endpoint for Testing")
+        # Browser-like headers per evitare detection WAF/anti-bot
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+
+        
+        # If specified by user, verify it's actually forbidden
+        if self.forbidden_endpoint:
+            try:
+                # Per cross-domain, aggiungere Referer
+                test_headers = browser_headers.copy()
+                forbidden_parsed = urlparse(self.forbidden_endpoint)
+                if forbidden_parsed.netloc != self.parsed_url.netloc:
+                    test_headers['Referer'] = self.target_url
+
+                response = self.session.get(self.forbidden_endpoint, timeout=5)
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = self.forbidden_endpoint
+                    self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
+                    return self.forbidden_endpoint
+                else:
+                    print(f"  ⚠️ Provided endpoint returned {response.status_code}, not 403/401. Searching for alternatives...")
+            except Exception as e:
+                print(f"  ⚠️ Error checking provided endpoint: {e}")
+        
+        # Search for common protected endpoints
+        common_protected = [
+            '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
+            '/manage', '/console', '/portal', '/control', '/private',
+            '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
+            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer', '/users'
+            '/pages', '/root', '/uploads', '/includes', 'cgi-bin'
+        ]
+        
+        for endpoint in common_protected:
+            try:
+                url = self.target_url + endpoint
+                response = self.session.get(url, headers=browser_headers, timeout=5, allow_redirects=False)
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = url
+                    self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
+                    return url
+            except:
+                continue
+        
+        # If no forbidden endpoint found
+        if not self.skip_forbidden_tests:
+            print("  ⚠️ No forbidden endpoint found - some bypass tests will be limited")
+            print("  💡 Tip: Use --forbidden-endpoint to specify one, or --skip-forbidden-tests to skip these tests")
+        
+        return None
         def create_fingerprint_payloads(self):
             """Create payloads to fingerprint unlimited layers in the chain"""
             markers = self.generate_unique_markers()
@@ -2396,97 +3052,51 @@ class CommandGenerator:
                 }
             }
 
-        def execute_layer_detection(self, target_url: str, max_layers: int = 15):
-            """Execute detection for unlimited layers"""
-            detected_layers = []
-            fingerprint_payloads = self.create_comprehensive_fingerprint_payloads()
+    # def create_fingerprint_payloads(self):
+    #     """Create payloads to fingerprint each layer in the chain"""
+    #     markers = self.generate_unique_markers()
+        
+    #     return {
+    #         'cdn_detection': {
+    #             'headers': {
+    #                 'X-CDN-Test': markers['uuid'],
+    #                 'Cache-Control': 'no-cache',
+    #                 'Pragma': 'no-cache'
+    #             },
+    #             'expected_responses': ['cloudflare', 'cloudfront', 'fastly', 'akamai']
+    #         },
             
-            # Ordina i test per priorità
-            sorted_tests = sorted(
-                fingerprint_payloads.items(), 
-                key=lambda x: x[1].get('priority', 99)
-            )
+    #         'waf_detection': {
+    #             'payloads': [
+    #                 f"/?test=<script>alert('{markers['uuid']}')</script>",
+    #                 f"/?test=' OR 1=1 -- {markers['uuid']}",
+    #                 f"/?test=../../../etc/passwd#{markers['uuid']}"
+    #             ],
+    #             'headers': {'User-Agent': f'Mozilla/5.0 (test-{markers["uuid"]})'}
+    #         },
             
-            for layer_name, layer_config in sorted_tests:
-                if len(detected_layers) >= max_layers:
-                    break
-                    
-                print(f"[*] Testing Layer {len(detected_layers) + 1}: {layer_name}")
-                
-                layer_result = self.test_layer(target_url, layer_name, layer_config)
-                
-                if layer_result['detected']:
-                    detected_layers.append({
-                        'layer_number': len(detected_layers) + 1,
-                        'layer_type': layer_name,
-                        'details': layer_result,
-                        'bypass_vectors': self.generate_layer_bypasses(layer_result)
-                    })
-                    
-                    # Analisi dinamica per layer successivi
-                    if layer_result.get('next_hop_hints'):
-                        additional_tests = self.generate_dynamic_tests(layer_result)
-                        fingerprint_payloads.update(additional_tests)
+    #         'proxy_detection': {
+    #             'headers': {
+    #                 'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
+    #                 'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
+    #                 'X-Proxy-Test': markers['uuid']
+    #             }
+    #         },
             
-            return {
-                'total_layers': len(detected_layers),
-                'layer_chain': detected_layers,
-                'bypass_strategies': self.generate_chain_bypasses(detected_layers),
-                'reconnaissance_data': self.compile_intelligence(detected_layers)
-            }
-
-        def test_layer(self, target_url: str, layer_name: str, layer_config: dict) -> dict:
-            """Test specifico per un layer con analisi completa"""
-            results = {
-                'detected': False,
-                'confidence': 0.0,
-                'signatures_found': [],
-                'response_analysis': {},
-                'timing_analysis': {},
-                'next_hop_hints': []
-            }
-            
-            # Esegui tutti i test per questo layer
-            if 'headers' in layer_config:
-                header_results = self.test_headers(target_url, layer_config['headers'])
-                results['response_analysis']['headers'] = header_results
-                
-            if 'payloads' in layer_config:
-                payload_results = self.test_payloads(target_url, layer_config['payloads'])
-                results['response_analysis']['payloads'] = payload_results
-                
-            # Analisi timing per detection accurata
-            if layer_config.get('timing_analysis'):
-                timing_results = self.perform_timing_analysis(target_url, layer_config)
-                results['timing_analysis'] = timing_results
-                
-            # Calcola confidenza basata su tutti i risultati
-            results['confidence'] = self.calculate_detection_confidence(results)
-            results['detected'] = results['confidence'] > 0.6
-            
-            return results
-
-        def generate_dynamic_tests(self, layer_result: dict) -> dict:
-            """Genera test dinamici basati sui risultati del layer precedente"""
-            dynamic_tests = {}
-            
-            # Se abbiamo trovato hint per layer successivi
-            if layer_result.get('next_hop_hints'):
-                for hint in layer_result['next_hop_hints']:
-                    test_name = f"dynamic_{hint['type']}_detection"
-                    dynamic_tests[test_name] = {
-                        'priority': hint.get('priority', 50),
-                        'headers': hint.get('headers', {}),
-                        'payloads': hint.get('payloads', []),
-                        'signatures': hint.get('signatures', {})
-                    }
-            
-            return dynamic_tests
+    #         'backend_detection': {
+    #             'paths': [
+    #                 f'/server-info?test={markers["uuid"]}',
+    #                 f'/server-status?test={markers["uuid"]}',
+    #                 f'/.env?test={markers["uuid"]}',
+    #                 f'/phpinfo.php?test={markers["uuid"]}'
+    #             ]
+    #         }
+    #     }
 
     async def protocol_discovery(self):
         """Discover supported protocols"""
         print("\n🔍 Phase 1: Protocol Discovery")
-
+        
         # HTTP/2 Detection
         try:
             async with aiohttp.ClientSession() as session:
@@ -2496,7 +3106,7 @@ class CommandGenerator:
                         self.log_discovery("Protocol", "HTTP/2", "Supported")
         except:
             pass
-
+        
         # HTTP/3 Detection (via Alt-Svc header)
         try:
             response = self.session.head(self.target_url)
@@ -2506,7 +3116,7 @@ class CommandGenerator:
                 self.log_discovery("Protocol", "HTTP/3", f"Detected via Alt-Svc: {alt_svc}")
         except:
             pass
-
+        
         # WebSocket Detection
         try:
             ws_headers = {
@@ -2521,7 +3131,6 @@ class CommandGenerator:
                 self.log_discovery("Protocol", "WebSocket", "Upgrade supported")
         except:
             pass
-
     def infrastructure_fingerprinting(self):
         """Fingerprint complete infrastructure stack - All 10+ Layers"""
         print("\n🔍 Phase 2: Complete Infrastructure Fingerprinting")
@@ -2596,615 +3205,6 @@ class CommandGenerator:
         
         # Layer 11: Backend Detection (Using your existing function - EXTENDED)
         self.backend_fingerprinting_extended(fingerprints['backend_detection'])
-
-    def waf_fingerprinting_extended(self, waf_payloads):
-        """Advanced WAF fingerprinting - EXTENDED VERSION"""
-        print("  🛡️ WAF Detection...")
-
-        # Your original signatures + EXTENSIONS
-        waf_signatures = {
-            'cloudflare': ['cf-ray', 'cloudflare', 'error 1020'],
-            'aws-waf': ['awselb', 'aws', 'x-amzn'],
-            'imperva': ['incap_ses', 'visid_incap', 'imperva'],
-            'akamai': ['akamai', 'ak-bmsc'],
-            'wordfence': ['wordfence', 'this site is protected'],
-            'sucuri': ['sucuri', 'access denied.*sucuri'],
-            'barracuda': ['barracuda', 'bnsv'],
-            'f5': ['f5', 'bigip', 'x-wa-info'],
-            'fortinet': ['fortigate', 'fortiweb'],
-            'ispconfig': ['ispconfig', 'blocked by security policy', 'request rejected', 'web application firewall'],
-            # EXTENDED WAF SIGNATURES
-            'modsecurity': ['mod_security', 'modsec', 'not acceptable'],
-            'naxsi': ['naxsi', 'unusual url'],
-            'wallarm': ['wallarm', 'blocked by wallarm'],
-            'azure-waf': ['applicationgateway', 'x-azure-ref'],
-            'citrix': ['citrix', 'netscaler', 'ns_af'],
-            'radware': ['radware', 'x-rdwr-'],
-            'kemp': ['kemp', 'x-kemp-'],
-            'checkpoint': ['checkpoint', 'fw-1'],
-            'paloalto': ['paloalto', 'pan-'],
-            'sophos': ['sophos', 'utm'],
-            'webknight': ['webknight', 'blocked by webknight']
-        }
-
-        detected_waf = None
-
-        # Your original test logic (PRESERVED)
-        for payload in waf_payloads['payloads']:
-            try:
-                response = self.session.get(
-                    f"{self.target_url}{payload}",
-                    headers=waf_payloads['headers'],
-                    timeout=10
-                )
-
-                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
-
-                for waf, signatures in waf_signatures.items():
-                    for signature in signatures:
-                        if re.search(signature, full_response):
-                            detected_waf = waf
-                            break
-                    if detected_waf:
-                        break
-
-                if detected_waf:
-                    break
-
-            except Exception as e:
-                continue
-
-        # Your original ISPConfig test (PRESERVED)
-        if not detected_waf:
-            try:
-                markers = self.generate_unique_markers()
-                path_injection_payload = f"/test{markers['uuid']}%3cscript%3ealert(1)%3c/script%3e/"
-
-                response = self.session.get(
-                    f"{self.target_url}{path_injection_payload}",
-                    headers=waf_payloads['headers'],
-                    timeout=10
-                )
-
-                full_response = f"{response.status_code} {response.headers} {response.text}".lower()
-
-                if response.status_code == 403:
-                    for signature in waf_signatures['ispconfig']:
-                        if re.search(signature, full_response):
-                            detected_waf = 'ispconfig'
-                            break
-
-            except Exception as e:
-                pass
-
-        # EXTENDED: Additional WAF detection techniques
-        if not detected_waf:
-            try:
-                # SQL injection test for WAF detection
-                sql_payload = "?id=1' OR '1'='1"
-                response = self.session.get(f"{self.target_url}{sql_payload}", timeout=5)
-                if response.status_code in [403, 406, 501, 503]:
-                    full_response = f"{response.headers} {response.text}".lower()
-                    for waf, signatures in waf_signatures.items():
-                        for signature in signatures:
-                            if re.search(signature, full_response):
-                                detected_waf = waf
-                                break
-                        if detected_waf:
-                            break
-            except Exception:
-                pass
-
-        if detected_waf:
-            self.log_discovery("WAF", "Detection", detected_waf)
-            self.chain_map['layers'].append(f"WAF-{detected_waf}")
-        else:
-            self.log_discovery("WAF", "Detection", "None detected or unknown")
-
-    def proxy_fingerprinting_extended(self, proxy_headers):
-        """Detect proxy/load balancer configuration - EXTENDED VERSION"""
-        print("  🔄 Proxy Detection...")
-
-        try:
-            response = self.session.get(self.target_url, headers=proxy_headers['headers'])
-
-            # Your original indicators + EXTENSIONS
-            proxy_indicators = {
-                'nginx': ['server.*nginx', 'x-nginx'],
-                'apache': ['server.*apache', 'x-apache'],
-                'haproxy': ['server.*haproxy'],
-                'traefik': ['server.*traefik'],
-                'envoy': ['server.*envoy', 'x-envoy'],
-                'istio': ['server.*istio'],
-                'linkerd': ['l5d-'],
-                'aws-alb': ['awsalb', 'elbv2'],
-                'gcp-lb': ['via.*google frontend'],
-                # EXTENDED PROXY SIGNATURES
-                'caddy': ['server.*caddy'],
-                'lighttpd': ['server.*lighttpd'],
-                'varnish': ['via.*varnish', 'x-varnish'],
-                'squid': ['via.*squid', 'x-squid'],
-                'cloudfront': ['via.*cloudfront'],
-                'azure-frontdoor': ['x-azure-fdid'],
-                'kong': ['via.*kong', 'x-kong-'],
-                'ambassador': ['x-envoy-upstream-service-time'],
-                'ingress-nginx': ['server.*nginx-ingress']
-            }
-
-            detected_proxy = None
-            for proxy, indicators in proxy_indicators.items():
-                for indicator in indicators:
-                    for header, value in response.headers.items():
-                        if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
-                            detected_proxy = proxy
-                            break
-                if detected_proxy:
-                    break
-
-            if detected_proxy:
-                self.log_discovery("Proxy", "Detection", detected_proxy)
-                self.chain_map['layers'].append(f"Proxy-{detected_proxy}")
-
-        except Exception as e:
-            self.log_discovery("Proxy", "Error", str(e))
-
-    def backend_fingerprinting_extended(self, backend_paths):
-        """Fingerprint backend application server - EXTENDED VERSION"""
-        print("  🖥️ Backend Detection...")
-
-        # Your original signatures + EXTENSIONS
-        backend_signatures = {
-            'apache': ['server.*apache'],
-            'nginx': ['server.*nginx'],
-            'iis': ['server.*iis', 'x-aspnet-version'],
-            'tomcat': ['server.*tomcat'],
-            'jetty': ['server.*jetty'],
-            'node': ['x-powered-by.*express', 'x-powered-by.*node'],
-            'php': ['x-powered-by.*php', 'server.*php'],
-            'python': ['server.*gunicorn', 'server.*uwsgi'],
-            'ruby': ['server.*puma', 'x-powered-by.*ruby'],
-            'go': ['server.*go'],
-            # EXTENDED BACKEND SIGNATURES
-            'undertow': ['server.*undertow'],
-            'kestrel': ['server.*kestrel'],
-            'uvicorn': ['server.*uvicorn'],
-            'hypercorn': ['server.*hypercorn'],
-            'daphne': ['server.*daphne'],
-            'cherrypy': ['server.*cherrypy'],
-            'tornado': ['server.*tornado'],
-            'waitress': ['server.*waitress'],
-            'actix': ['server.*actix'],
-            'warp': ['server.*warp'],
-            'rocket': ['server.*rocket']
-        }
-
-        detected_backend = None
-
-        # Your original test logic (PRESERVED)
-        for path in backend_paths['paths']:
-            try:
-                response = self.session.get(f"{self.target_url}{path}", timeout=5)
-
-                full_response = f"{response.headers} {response.text}".lower()
-
-                for backend, signatures in backend_signatures.items():
-                    for signature in signatures:
-                        if re.search(signature, full_response):
-                            detected_backend = backend
-                            break
-                    if detected_backend:
-                        break
-
-                if detected_backend:
-                    break
-
-            except Exception as e:
-                continue
-
-        # EXTENDED: Additional backend detection via error pages
-        if not detected_backend:
-            try:
-                error_response = self.session.get(f"{self.target_url}/nonexistent-page-404", timeout=5)
-                error_text = error_response.text.lower()
-                
-                if 'apache' in error_text and 'server at' in error_text:
-                    detected_backend = 'apache'
-                elif 'nginx' in error_text:
-                    detected_backend = 'nginx'
-                elif 'iis' in error_text or 'internet information services' in error_text:
-                    detected_backend = 'iis'
-                    
-            except Exception:
-                pass
-
-        if detected_backend:
-            self.log_discovery("Backend", "Detection", detected_backend)
-            self.chain_map['layers'].append(f"Backend-{detected_backend}")
-
-    # NEW FUNCTIONS (keeping the ones I provided earlier)
-    def load_balancer_fingerprinting(self, lb_config):
-        """Detect load balancers"""
-        try:
-            response = self.session.get(self.target_url, headers=lb_config['headers'])
-            
-            lb_signatures = lb_config['lb_signatures']
-            for lb_type, signatures in lb_signatures.items():
-                for signature in signatures:
-                    for header, value in response.headers.items():
-                        if signature.lower() in f"{header}: {value}".lower():
-                            self.log_discovery("LoadBalancer", "Detection", f"{lb_type}")
-                            self.chain_map['layers'].append(f"LB-{lb_type}")
-                            return
-                            
-            # Test health check endpoints
-            for health_check in lb_config['lb_tests']['health_checks']:
-                try:
-                    response = self.session.get(f"{self.target_url}{health_check}", timeout=3)
-                    if response.status_code == 200:
-                        self.log_discovery("LoadBalancer", "HealthCheck", health_check)
-                        break
-                except:
-                    continue
-                    
-        except Exception as e:
-            self.log_discovery("LoadBalancer", "Error", str(e))
-
-    def api_gateway_fingerprinting(self, gw_config):
-        """Detect API gateways"""
-        try:
-            response = self.session.get(self.target_url, headers=gw_config['headers'])
-            
-            gw_signatures = gw_config['gateway_signatures']
-            for gw_type, signatures in gw_signatures.items():
-                for signature in signatures:
-                    for header, value in response.headers.items():
-                        if signature.lower() in f"{header}: {value}".lower():
-                            self.log_discovery("APIGateway", "Detection", f"{gw_type}")
-                            self.chain_map['layers'].append(f"GW-{gw_type}")
-                            return
-                            
-        except Exception as e:
-            self.log_discovery("APIGateway", "Error", str(e))
-
-    def service_mesh_fingerprinting(self, mesh_config):
-        """Detect service mesh components"""
-        try:
-            response = self.session.get(self.target_url, headers=mesh_config['headers'])
-            
-            mesh_signatures = mesh_config['mesh_signatures']
-            for mesh_type, signatures in mesh_signatures.items():
-                for signature in signatures:
-                    for header, value in response.headers.items():
-                        if signature.lower() in f"{header}: {value}".lower():
-                            self.log_discovery("ServiceMesh", "Detection", f"{mesh_type}")
-                            self.chain_map['layers'].append(f"MESH-{mesh_type}")
-                            return
-                            
-        except Exception as e:
-            self.log_discovery("ServiceMesh", "Error", str(e))
-
-    def container_fingerprinting(self, container_config):
-        """Detect container orchestration platforms"""
-        try:
-            # Test Kubernetes endpoints
-            k8s_tests = container_config['container_tests']['kubernetes']['endpoints']
-            for k8s_test in k8s_tests:
-                try:
-                    response = self.session.get(f"{self.target_url}{k8s_test}", timeout=3)
-                    if response.status_code in [200, 401, 403]:
-                        self.log_discovery("Container", "Kubernetes", k8s_test)
-                        self.chain_map['layers'].append("K8S")
-                        return
-                except:
-                    continue
-                    
-        except Exception as e:
-            self.log_discovery("Container", "Error", str(e))
-
-    def runtime_fingerprinting(self, runtime_config):
-        """Detect application runtime environments"""
-        try:
-            # Test framework endpoints
-            framework_tests = runtime_config['runtime_tests']['framework_detection']
-            for framework, tests in framework_tests.items():
-                for test in tests:
-                    try:
-                        response = self.session.get(f"{self.target_url}{test}", timeout=3)
-                        if response.status_code in [200, 401, 403]:
-                            self.log_discovery("Runtime", "Framework", f"{framework}")
-                            self.chain_map['layers'].append(f"FW-{framework.upper()}")
-                            break
-                    except:
-                        continue
-                        
-        except Exception as e:
-            self.log_discovery("Runtime", "Error", str(e))
-
-    def database_fingerprinting(self, db_config):
-        """Detect database and storage systems"""
-        try:
-            # Test admin interfaces
-            if 'admin_interfaces' in db_config['db_tests']:
-                admin_tests = db_config['db_tests']['admin_interfaces']
-                for interface, tests in admin_tests.items():
-                    for test in tests:
-                        try:
-                            response = self.session.get(f"{self.target_url}{test}", timeout=3)
-                            if response.status_code in [200, 401, 403]:
-                                self.log_discovery("Database", "Admin", f"{interface}")
-                                self.chain_map['layers'].append(f"DB-ADMIN-{interface.upper()}")
-                                break
-                        except:
-                            continue
-                            
-        except Exception as e:
-            self.log_discovery("Database", "Error", str(e))
-
-    def serverless_fingerprinting(self, serverless_config):
-        """Detect serverless/function platforms"""
-        try:
-            response = self.session.get(self.target_url, headers=serverless_config['headers'])
-            
-            serverless_signatures = serverless_config['serverless_signatures']
-            for platform, signatures in serverless_signatures.items():
-                for signature in signatures:
-                    for header, value in response.headers.items():
-                        if signature.lower() in f"{header}: {value}".lower():
-                            self.log_discovery("Serverless", "Platform", f"{platform}")
-                            self.chain_map['layers'].append(f"SERVERLESS-{platform.upper()}")
-                            return
-                            
-        except Exception as e:
-            self.log_discovery("Serverless", "Error", str(e))
-        
-    def parser_discrepancy_testing(self):
-        """Test for parser discrepancies between layers"""
-        print("\n🔍 Phase 3: Parser Discrepancy Testing")
-        # Placeholder: Implement discrepancy testing logic
-        # Should include tests for:
-        # - URL encoding/decoding differences
-        # - Header normalization
-        # - Path traversal parsing
-        # - Content-type confusion
-        # - Special character handling
-        self.log_discovery("Parser", "Discrepancy", "Not yet implemented")
-
-    def generate_custom_bypasses(self):
-        """Generate custom payloads for bypassing detected layers"""
-        print("\n🔍 Phase 4: Bypass Payload Generation")
-        # Placeholder: Implement custom bypass generation logic based on discovered discrepancies
-        self.log_discovery("Bypass", "Payloads", "Not yet implemented")
-
-    def test_generated_bypasses(self):
-        """Test all generated bypass payloads against forbidden endpoint"""
-        print("\n🔍 Phase 5: Bypass Testing")
-        # Placeholder: Implement bypass testing logic
-        self.log_discovery("Bypass", "Testing", "Not yet implemented")
-
-    def generate_report(self):
-        """Generate detailed report of the analysis"""
-        print("\n📊 Phase 6: Report Generation")
-        report = {
-            'target_url': self.target_url,
-            'forbidden_endpoint': self.discovered_forbidden_endpoint,
-            'protocols': self.protocols,
-            'chain_map': self.chain_map,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        try:
-            report_path = f"traceroute_report_{int(time.time())}.json"
-            with open(report_path, "w") as f:
-                json.dump(report, f, indent=2)
-            print(f"  ✅ Report saved to {report_path}")
-        except Exception as e:
-            print(f"  ⚠️ Error saving report: {e}")
-
-        return report
-
-    # The enhancement requires this function for stack detection
-    def _detect_stack_type(self, endpoint: str) -> Optional[str]:
-        """Detect the stack type for a given endpoint"""
-        try:
-            response = self.session.head(endpoint)
-            headers = response.headers
-            if any(h in headers for h in ['cf-ray', 'cf-cache-status']):
-                return 'cloudflare_nginx'
-            elif any(h in headers for h in ['x-amzn-trace-id']):
-                return 'aws_waf_apache'
-            return None
-        except Exception:
-            return None
-
-class ApplicationTraceroute:
-    def __init__(self, target_url, forbidden_endpoint=None, skip_forbidden_tests=False):
-        self.target_url = target_url.rstrip('/')
-        self.parsed_url = urlparse(target_url)
-        self.session = requests.Session()
-        self.service_discovery = ServiceDiscoveryEnhanced()
-        self.mesh_detector = ServiceMeshDetector()
-        self.request_tracker = RequestTracker()
-        self.payload_analyzer = PayloadAnalyzer()
-        self.stack_handler = StackHandler()
-        self.command_generator = None     
-
-        # Forbidden endpoint configuration
-        self.forbidden_endpoint = forbidden_endpoint
-        self.skip_forbidden_tests = skip_forbidden_tests
-        self.discovered_forbidden_endpoint = None
-        
-        # Chain discovery results
-        self.chain_map = {
-            'layers': [],
-            'discrepancies': [],
-            'fingerprints': {},
-            'bypasses': []
-        }
-        
-        # Protocol support detection
-        self.protocols = {
-            'http1': True,
-            'http2': False,
-            'http3': False,
-            'websocket': False
-        }
-        
-    def log_discovery(self, layer, discovery_type, details):
-        """Log discoveries with structured data"""
-        timestamp = time.strftime('%H:%M:%S')
-        print(f"[{timestamp}] 🔍 {layer} - {discovery_type}: {details}")
-        
-        if layer not in self.chain_map['fingerprints']:
-            self.chain_map['fingerprints'][layer] = {}
-        self.chain_map['fingerprints'][layer][discovery_type] = details
-
-    def generate_unique_markers(self):
-        """Generate unique markers for request tracking"""
-        return {
-            'uuid': ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)),
-            'timestamp': str(int(time.time())),
-            'sequence': str(random.randint(100000, 999999))
-        }
-
-    def find_forbidden_endpoint(self):
-        """Find an endpoint that returns 403/401 for bypass testing"""
-        print("\n🔍 Phase 0: Finding Forbidden Endpoint for Testing")
-        # Browser-like headers per evitare detection WAF/anti-bot
-        browser_headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'it,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
-        }
-
-        
-        # If specified by user, verify it's actually forbidden
-        if self.forbidden_endpoint:
-            try:
-                # Per cross-domain, aggiungere Referer
-                test_headers = browser_headers.copy()
-                forbidden_parsed = urlparse(self.forbidden_endpoint)
-                if forbidden_parsed.netloc != self.parsed_url.netloc:
-                    test_headers['Referer'] = self.target_url
-
-                response = self.session.get(self.forbidden_endpoint, timeout=5)
-                if response.status_code in [401, 403]:
-                    self.discovered_forbidden_endpoint = self.forbidden_endpoint
-                    self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
-                    return self.forbidden_endpoint
-                else:
-                    print(f"  ⚠️ Provided endpoint returned {response.status_code}, not 403/401. Searching for alternatives...")
-            except Exception as e:
-                print(f"  ⚠️ Error checking provided endpoint: {e}")
-        
-        # Search for common protected endpoints
-        common_protected = [
-            '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
-            '/manage', '/console', '/portal', '/control', '/private',
-            '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
-            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer', '/users'
-            '/pages', '/root', '/uploads', '/includes', 'cgi-bin'
-        ]
-        
-        for endpoint in common_protected:
-            try:
-                url = self.target_url + endpoint
-                response = self.session.get(url, headers=browser_headers, timeout=5, allow_redirects=False)
-                if response.status_code in [401, 403]:
-                    self.discovered_forbidden_endpoint = url
-                    self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
-                    return url
-            except:
-                continue
-        
-        # If no forbidden endpoint found
-        if not self.skip_forbidden_tests:
-            print("  ⚠️ No forbidden endpoint found - some bypass tests will be limited")
-            print("  💡 Tip: Use --forbidden-endpoint to specify one, or --skip-forbidden-tests to skip these tests")
-        
-        return None
-
-    def create_fingerprint_payloads(self):
-        """Create payloads to fingerprint each layer in the chain"""
-        markers = self.generate_unique_markers()
-        
-        return {
-            'cdn_detection': {
-                'headers': {
-                    'X-CDN-Test': markers['uuid'],
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
-                },
-                'expected_responses': ['cloudflare', 'cloudfront', 'fastly', 'akamai']
-            },
-            
-            'waf_detection': {
-                'payloads': [
-                    f"/?test=<script>alert('{markers['uuid']}')</script>",
-                    f"/?test=' OR 1=1 -- {markers['uuid']}",
-                    f"/?test=../../../etc/passwd#{markers['uuid']}"
-                ],
-                'headers': {'User-Agent': f'Mozilla/5.0 (test-{markers["uuid"]})'}
-            },
-            
-            'proxy_detection': {
-                'headers': {
-                    'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
-                    'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
-                    'X-Proxy-Test': markers['uuid']
-                }
-            },
-            
-            'backend_detection': {
-                'paths': [
-                    f'/server-info?test={markers["uuid"]}',
-                    f'/server-status?test={markers["uuid"]}',
-                    f'/.env?test={markers["uuid"]}',
-                    f'/phpinfo.php?test={markers["uuid"]}'
-                ]
-            }
-        }
-
-    async def protocol_discovery(self):
-        """Discover supported protocols"""
-        print("\n🔍 Phase 1: Protocol Discovery")
-        
-        # HTTP/2 Detection
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self.target_url) as response:
-                    if hasattr(response, 'version') and response.version.major >= 2:
-                        self.protocols['http2'] = True
-                        self.log_discovery("Protocol", "HTTP/2", "Supported")
-        except:
-            pass
-        
-        # HTTP/3 Detection (via Alt-Svc header)
-        try:
-            response = self.session.head(self.target_url)
-            alt_svc = response.headers.get('Alt-Svc', '')
-            if 'h3' in alt_svc or 'h3-29' in alt_svc:
-                self.protocols['http3'] = True
-                self.log_discovery("Protocol", "HTTP/3", f"Detected via Alt-Svc: {alt_svc}")
-        except:
-            pass
-        
-        # WebSocket Detection
-        try:
-            ws_headers = {
-                'Upgrade': 'websocket',
-                'Connection': 'Upgrade',
-                'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
-                'Sec-WebSocket-Version': '13'
-            }
-            response = self.session.get(self.target_url, headers=ws_headers)
-            if response.status_code == 101:
-                self.protocols['websocket'] = True
-                self.log_discovery("Protocol", "WebSocket", "Upgrade supported")
-        except:
-            pass
 
     # def infrastructure_fingerprinting(self):
     #     """Fingerprint infrastructure components"""
