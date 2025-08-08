@@ -757,7 +757,7 @@ class ServiceDiscoveryEnhanced:
             return 'error'
 
     def _get_container_info(self, endpoint: str) -> Dict:
-        """Advanced container orchestration detection for bypass strategies"""
+        """Advanced container orchestration detection with scoring"""
         container_info = {
             'orchestrator': 'unknown',
             'container_id': None,
@@ -766,223 +766,194 @@ class ServiceDiscoveryEnhanced:
             'cluster': None,
             'bypass_hints': []
         }
-        
+
         try:
             response = self._safe_request('GET', endpoint, timeout=5)
             if not response:
                 return container_info
-            
-            headers_normalized = self._normalize_headers(response.headers)
 
-            # Kubernetes detection with bypass intelligence
-            k8s_score = 0
-            k8s_headers = ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace']
-            
-            for k8s_header in k8s_headers:
-                k8s_header_lower = k8s_header.lower()
-                
-                if k8s_header_lower in headers_normalized:
-                    k8s_score += 10
-                    container_info['orchestrator'] = 'kubernetes'
-                    
-                    header_data = headers_normalized[k8s_header_lower]
-                    if 'pod-name' in k8s_header_lower:
-                        container_info['container_id'] = header_data['value']
-                    elif 'namespace' in k8s_header_lower:
-                        container_info['namespace'] = header_data['value']
-            
-            # Advanced Kubernetes detection via service patterns
+            headers = self._normalize_headers(response.headers)
+            body = response.text.lower()
             parsed_url = urlparse(endpoint)
-            hostname = parsed_url.hostname
-            
-            # Check for Kubernetes DNS patterns
-            if hostname and '.svc.cluster.local' in hostname:
-                k8s_score += 15
-                container_info['orchestrator'] = 'kubernetes'
+            hostname = parsed_url.hostname or ""
+
+            score_map = {
+                'kubernetes': 0,
+                'docker': 0,
+                'ecs': 0
+            }
+
+            # Header-based detection
+            header_checks = {
+                'kubernetes': ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace'],
+                'docker': ['x-container-id', 'x-docker'],
+                'ecs': ['x-ecs-task', 'x-amzn-trace-id']
+            }
+
+            for kind, patterns in header_checks.items():
+                for pattern in patterns:
+                    if pattern.lower() in headers:
+                        score_map[kind] += 10
+                        if kind == 'kubernetes':
+                            if 'pod-name' in pattern.lower():
+                                container_info['container_id'] = headers[pattern.lower()]['value']
+                            if 'namespace' in pattern.lower():
+                                container_info['namespace'] = headers[pattern.lower()]['value']
+                        elif kind == 'docker':
+                            if 'container-id' in pattern.lower():
+                                container_info['container_id'] = headers[pattern.lower()]['value']
+
+            # DNS pattern (Kubernetes)
+            if '.svc.cluster.local' in hostname:
+                score_map['kubernetes'] += 15
                 container_info['cluster'] = 'detected'
-                # Extract service and namespace from DNS
                 parts = hostname.split('.')
                 if len(parts) >= 3:
                     container_info['namespace'] = parts[1]
-            
-            # Probe Kubernetes-specific endpoints
-            k8s_probes = ['/metrics', '/healthz', '/readyz', '/livez']
-            for probe in k8s_probes:
-                probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", probe)
-                probe_response = self._safe_request('GET', probe_url, timeout=3)
-                
-                if probe_response and probe_response.status_code == 200:
-                    k8s_score += 5
-                    # Look for Prometheus metrics (common in K8s)
-                    if 'prometheus' in probe_response.text.lower() or '# TYPE' in probe_response.text:
-                        k8s_score += 10
-                        container_info['orchestrator'] = 'kubernetes'
-            
-            # Docker detection
-            docker_indicators = ['x-container-id', 'x-docker', 'docker-content-digest']
-            for docker_header in docker_indicators:
-                docker_header_lower = docker_header.lower()
-                
-                if docker_header_lower in headers_normalized:
-                    container_info['orchestrator'] = 'docker'
-                    if 'container-id' in docker_header_lower:
-                        container_info['container_id'] = headers_normalized[docker_header_lower]['value']
-        
-            # ECS/Fargate detection
-            aws_indicators = ['x-amzn-trace-id', 'x-amzn-requestid', 'x-aws-']
-            ecs_score = sum(1 for header_name in headers.keys() 
-                           if any(aws_ind in header_name for aws_ind in aws_indicators))
-            
-            if ecs_score >= 2:
-                container_info['orchestrator'] = 'ecs'
-                # Try to get ECS task metadata
-                metadata_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", '/task-metadata')
-                metadata_response = self._safe_request('GET', metadata_url, timeout=3)
-                if metadata_response and 'TaskARN' in metadata_response.text:
-                    container_info['orchestrator'] = 'ecs-confirmed'
-            
-            # Generate bypass hints based on detected orchestration
-            if container_info['orchestrator'] == 'kubernetes':
-                container_info['bypass_hints'] = [
+
+            # Body pattern detection
+            body_patterns = {
+                'kubernetes': [r'kubernetes', r'pod.*name', r'namespace', r'cluster'],
+                'docker': [r'docker.*container', r'container.*id'],
+                'ecs': [r'ecs.*task', r'fargate', r'taskarn', r'aws.*region']
+            }
+
+            for kind, patterns in body_patterns.items():
+                for pattern in patterns:
+                    if re.search(pattern, body):
+                        score_map[kind] += 5
+
+            # Health/metrics endpoints
+            probe_paths = {
+                'kubernetes': ['/metrics', '/healthz', '/readyz', '/livez'],
+                'docker': ['/docker-health', '/container-info'],
+                'ecs': ['/task-metadata', '/stats']
+            }
+
+            for kind, paths in probe_paths.items():
+                for path in paths:
+                    probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", path)
+                    probe_response = self._safe_request('GET', probe_url, timeout=3)
+                    if probe_response and probe_response.status_code == 200:
+                        score_map[kind] += 5
+                        if 'prometheus' in probe_response.text.lower() or '# TYPE' in probe_response.text:
+                            score_map[kind] += 5
+
+            # Final decision
+            detected = max(score_map.items(), key=lambda x: x[1])
+            if detected[1] >= 10:
+                container_info['orchestrator'] = detected[0]
+
+            # Bypass hints
+            hints = {
+                'kubernetes': [
                     'internal_service_communication',
                     'cluster_internal_dns',
                     'service_mesh_bypass',
                     'pod_to_pod_direct'
-                ]
-            elif container_info['orchestrator'] == 'docker':
-                container_info['bypass_hints'] = [
+                ],
+                'docker': [
                     'container_network_bypass',
                     'docker_api_exposure',
                     'container_escape_vectors'
-                ]
-            elif container_info['orchestrator'] == 'ecs':
-                container_info['bypass_hints'] = [
+                ],
+                'ecs': [
                     'aws_metadata_service',
                     'task_role_assumption',
                     'ecs_service_discovery'
                 ]
-            
+            }
+
+            container_info['bypass_hints'] = hints.get(container_info['orchestrator'], [])
             return container_info
-            
+
         except Exception as e:
             container_info['error'] = str(e)
             return container_info
 
+
     def _get_service_mesh_info(self, endpoint: str) -> Dict:
-        """Comprehensive service mesh detection for advanced bypass techniques"""
+        """Detect service mesh layer with enhanced fingerprinting"""
         mesh_info = {
-            'mesh_type': 'none',
-            'proxy_type': None,
+            'service_mesh': 'unknown',
+            'sidecar': None,
             'version': None,
-            'config_access': [],
-            'bypass_vectors': []
+            'bypass_hints': []
         }
-        
+
         try:
             response = self._safe_request('GET', endpoint, timeout=5)
             if not response:
                 return mesh_info
-            
-            headers_normalized = self._normalize_headers(response.headers)
 
-            # Envoy/Istio detection (most common)
-            envoy_indicators = ['server', 'x-envoy-', 'x-request-id']
-            envoy_score = 0
-            
-            for header_name, header_value in headers.items():
-                if 'envoy' in header_value:
-                    envoy_score += 15
-                    mesh_info['mesh_type'] = 'istio'
-                    mesh_info['proxy_type'] = 'envoy'
-                    
-                    # Extract Envoy version if available
-                    version_match = re.search(r'envoy/(\d+\.\d+\.\d+)', header_value)
-                    if version_match:
-                        mesh_info['version'] = version_match.group(1)
-                
-                if any(env_header in header_name for env_header in ['x-envoy-', 'x-b3-']):
-                    envoy_score += 10
-            
-            # Advanced Envoy detection via admin endpoints
+            headers = self._normalize_headers(response.headers)
+            body = response.text.lower()
+            score_map = {
+                'istio': 0,
+                'linkerd': 0,
+                'consul': 0
+            }
+
+            # --- Header detection ---
+            header_patterns = {
+                'istio': ['x-envoy-peer-metadata', 'x-envoy-attempt-count', 'x-request-id', 'x-b3-traceid'],
+                'linkerd': ['l5d-ctx-trace', 'l5d-dst-override'],
+                'consul': ['x-consul-default', 'x-consul-trace']
+            }
+
+            for mesh, patterns in header_patterns.items():
+                for pattern in patterns:
+                    if pattern in headers:
+                        score_map[mesh] += 5
+
+            # --- Body-based detection ---
+            body_patterns = {
+                'istio': [r'istio', r'envoy', r'pilot', r'istiod', r'mesh'],
+                'linkerd': [r'linkerd', r'outbound', r'proxy', r'service-profile'],
+                'consul': [r'consul', r'sidecar', r'connect', r'envoy']
+            }
+
+            for mesh, patterns in body_patterns.items():
+                for pattern in patterns:
+                    if re.search(pattern, body):
+                        score_map[mesh] += 2
+
+            # --- Probe endpoints for control planes ---
+            control_plane_probes = {
+                'istio': ['/stats', '/config_dump'],
+                'linkerd': ['/metrics', '/proxy-log-level'],
+                'consul': ['/v1/agent/self', '/v1/catalog/nodes']
+            }
+
             parsed_url = urlparse(endpoint)
-            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-            
-            # Envoy admin endpoints (often exposed internally)
-            envoy_admin_paths = [
-                '/stats',
-                '/clusters',
-                '/config_dump',
-                '/server_info',
-                '/listeners',
-                '/runtime'
-            ]
-            
-            accessible_endpoints = []
-            for admin_path in envoy_admin_paths:
-                admin_url = urljoin(base_url, admin_path)
-                admin_response = self._safe_request('GET', admin_url, timeout=3)
-                
-                if admin_response and admin_response.status_code == 200:
-                    accessible_endpoints.append(admin_path)
-                    envoy_score += 20
-                    
-                    # Confirm it's Envoy by looking for specific content
-                    if 'envoy' in admin_response.text.lower():
-                        mesh_info['mesh_type'] = 'istio'
-                        mesh_info['proxy_type'] = 'envoy'
-                    
-                    # Look for cluster information for service discovery
-                    if admin_path == '/clusters' and 'outbound|' in admin_response.text:
-                        mesh_info['mesh_type'] = 'istio-confirmed'
-            
-            mesh_info['config_access'] = accessible_endpoints
-            
-            # Linkerd detection
-            linkerd_indicators = ['l5d-', 'x-linkerd', 'linkerd-']
-            for header_name, header_value in headers.items():
-                if any(linkerd_ind in header_name for linkerd_ind in linkerd_indicators):
-                    mesh_info['mesh_type'] = 'linkerd'
-                    mesh_info['proxy_type'] = 'linkerd-proxy'
-            
-            # Consul Connect detection
-            consul_indicators = ['x-consul-', 'consul-']
-            for header_name, header_value in headers.items():
-                if any(consul_ind in header_name for consul_ind in consul_indicators):
-                    mesh_info['mesh_type'] = 'consul-connect'
-                    mesh_info['proxy_type'] = 'consul-proxy'
-            
-            # Generate bypass vectors based on detected mesh
-            if mesh_info['mesh_type'] in ['istio', 'istio-confirmed']:
-                mesh_info['bypass_vectors'] = [
-                    'sidecar_bypass',
-                    'mtls_certificate_abuse',
-                    'service_identity_spoofing',
-                    'envoy_admin_exposure',
-                    'pilot_discovery_abuse'
-                ]
-                
-                if accessible_endpoints:
-                    mesh_info['bypass_vectors'].append('admin_api_exposed')
-            
-            elif mesh_info['mesh_type'] == 'linkerd':
-                mesh_info['bypass_vectors'] = [
-                    'linkerd_proxy_bypass',
-                    'tap_api_abuse',
-                    'control_plane_access'
-                ]
-            
-            elif mesh_info['mesh_type'] == 'consul-connect':
-                mesh_info['bypass_vectors'] = [
-                    'consul_api_access',
-                    'service_segmentation_bypass',
-                    'intention_manipulation'
-                ]
-            
+            for mesh, paths in control_plane_probes.items():
+                for path in paths:
+                    probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", path)
+                    probe_response = self._safe_request('GET', probe_url, timeout=3)
+                    if probe_response and probe_response.status_code == 200:
+                        if mesh in probe_response.text.lower():
+                            score_map[mesh] += 4
+
+            # --- Decision ---
+            detected = max(score_map.items(), key=lambda x: x[1])
+            if detected[1] >= 5:
+                mesh_info['service_mesh'] = detected[0]
+
+            # --- Bypass hints ---
+            hints = {
+                'istio': ['sidecar_bypass', 'outbound_rule_exfiltration', 'cluster_internal'],
+                'linkerd': ['l5d_header_injection', 'profile_route_fuzzing'],
+                'consul': ['envoy_config_exposure', 'consul_api_token_abuse']
+            }
+
+            mesh_info['bypass_hints'] = hints.get(mesh_info['service_mesh'], [])
+
             return mesh_info
-            
+
         except Exception as e:
             mesh_info['error'] = str(e)
             return mesh_info
+
 
     def _find_next_service(self, service_info: Dict) -> Optional[str]:
         """Intelligent next-hop discovery using multiple detection vectors"""
@@ -1415,7 +1386,7 @@ class CommandGenerator:
                     test_headers['Referer'] = self.target_url
 
                 response = self.session.get(self.forbidden_endpoint, headers=test_headers, timeout=10)
-                if response.status_code in [401, 403, 302]:
+                if response.status_code in [401, 403]:
                     self.discovered_forbidden_endpoint = self.forbidden_endpoint
                     self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
                     return self.forbidden_endpoint
@@ -2961,23 +2932,56 @@ class ApplicationTraceroute:
             self.log_discovery("Container", "Error", str(e))
 
     def runtime_fingerprinting(self, runtime_config):
-        """Detect application runtime environments"""
+        """Detect application runtime environments with strict validation"""
         try:
-            # Test framework endpoints
             framework_tests = runtime_config['runtime_tests']['framework_detection']
             for framework, tests in framework_tests.items():
+                score = 0
                 for test in tests:
                     try:
-                        response = self.session.get(f"{self.target_url}{test}", timeout=3)
+                        url = f"{self.target_url}{test}"
+                        response = self.session.get(url, timeout=3)
+
+                        # Base status code check
                         if response.status_code in [200, 401, 403]:
-                            self.log_discovery("Runtime", "Framework", f"{framework}")
-                            self.chain_map['layers'].append(f"FW-{framework.upper()}")
-                            break
-                    except:
+                            score += 1  # path exists and accessible
+
+                            body = response.text.lower()
+                            headers = {k.lower(): v.lower() for k, v in response.headers.items()}
+                            
+                            # Check for keywords in response body
+                            keyword_hits = 0
+                            if framework.lower() in body:
+                                keyword_hits += 1
+                            for keyword in ['framework', 'spring', 'django', 'express', 'runtime', 'node.js', 'flask', 'fastapi', 'dotnet', 'laravel']:
+                                if keyword in body:
+                                    keyword_hits += 1
+
+                            # Check headers
+                            header_hits = 0
+                            for header in ['x-powered-by', 'server', 'x-runtime']:
+                                if header in headers and framework.lower() in headers[header]:
+                                    header_hits += 1
+
+                            # Avoid false positives: body too generic?
+                            generic_bodies = ['ok', 'healthy', 'up', '', '{}']
+                            if body.strip() in generic_bodies:
+                                continue  # skip this test as too vague
+
+                            score += keyword_hits + header_hits
+
+                            if score >= 4:
+                                self.log_discovery("Runtime", "Framework", f"{framework}")
+                                self.chain_map['layers'].append(f"FW-{framework.upper()}")
+                                break  # Found with confidence
+
+                    except Exception:
                         continue
-                        
+
         except Exception as e:
             self.log_discovery("Runtime", "Error", str(e))
+
+
 
     def database_fingerprinting(self, db_config):
         """Detect database and storage systems"""
