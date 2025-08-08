@@ -1698,7 +1698,7 @@ class ApplicationTraceroute:
         # Sistema di detection esteso per tutti i possibili layer
         return {
             # Layer 1: Edge/CDN Detection
-            'edge_cdn_detection': {
+            'cdn_detection': {
                 'priority': 1,
                 'headers': {
                     'X-CDN-Test': markers['uuid'],
@@ -1869,6 +1869,8 @@ class ApplicationTraceroute:
                     'traefik': ['traefik', 'x-traefik']
                 }
             },
+
+            # Layer 5.5: Proxy Detection
             'proxy_detection': {
                 'priority': 5.5,
                 'headers': {
@@ -1878,16 +1880,6 @@ class ApplicationTraceroute:
                 }
             },
             
-            'backend_detection': {
-                'priority': 5.6,
-                'paths': [
-                    f'/server-info?test={markers["uuid"]}',
-                    f'/server-status?test={markers["uuid"]}',
-                    f'/.env?test={markers["uuid"]}',
-                    f'/phpinfo.php?test={markers["uuid"]}'
-                ]
-            },
-
             # Layer 6: Service Mesh Detection
             'service_mesh_detection': {
                 'priority': 6,
@@ -1968,7 +1960,6 @@ class ApplicationTraceroute:
                 }
             },
 
-            # Layer 8: Application Runtime Detection
             # Layer 8: Application Runtime Detection (Enhanced)
             'runtime_detection': {
                 'priority': 8,
@@ -2638,6 +2629,16 @@ class ApplicationTraceroute:
                 }
             },
 
+            # Layer 11: Backend Detection
+            'backend_detection': {
+                'priority': 11,
+                'paths': [
+                    f'/server-info?test={markers["uuid"]}',
+                    f'/server-status?test={markers["uuid"]}',
+                    f'/.env?test={markers["uuid"]}',
+                    f'/phpinfo.php?test={markers["uuid"]}'
+                ]
+            },
             # Sistema di analisi dinamica per layer aggiuntivi
             'dynamic_layer_detection': {
                 'priority': 99,
