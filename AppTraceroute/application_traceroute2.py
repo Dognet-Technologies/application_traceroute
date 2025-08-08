@@ -1578,6 +1578,1123 @@ class CommandGenerator:
             pass
 
 
+
+
+class ApplicationTraceroute:
+    def __init__(self, target_url, forbidden_endpoint=None, skip_forbidden_tests=False):
+        self.target_url = target_url.rstrip('/')
+        self.parsed_url = urlparse(target_url)
+        self.session = requests.Session()
+        self.service_discovery = ServiceDiscoveryEnhanced()
+        self.mesh_detector = ServiceMeshDetector()
+        self.request_tracker = RequestTracker()
+        self.payload_analyzer = PayloadAnalyzer()
+        self.stack_handler = StackHandler()
+        self.command_generator = None     
+
+        # Forbidden endpoint configuration
+        self.forbidden_endpoint = forbidden_endpoint
+        self.skip_forbidden_tests = skip_forbidden_tests
+        self.discovered_forbidden_endpoint = None
+        
+        # Chain discovery results
+        self.chain_map = {
+            'layers': [],
+            'discrepancies': [],
+            'fingerprints': {},
+            'bypasses': []
+        }
+        
+        # Protocol support detection
+        self.protocols = {
+            'http1': True,
+            'http2': False,
+            'http3': False,
+            'websocket': False
+        }
+        
+    def log_discovery(self, layer, discovery_type, details):
+        """Log discoveries with structured data"""
+        timestamp = time.strftime('%H:%M:%S')
+        print(f"[{timestamp}] 🔍 {layer} - {discovery_type}: {details}")
+        
+        if layer not in self.chain_map['fingerprints']:
+            self.chain_map['fingerprints'][layer] = {}
+        self.chain_map['fingerprints'][layer][discovery_type] = details
+
+    def generate_unique_markers(self):
+        """Generate unique markers for request tracking"""
+        return {
+            'uuid': ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)),
+            'timestamp': str(int(time.time())),
+            'sequence': str(random.randint(100000, 999999))
+        }
+
+    def find_forbidden_endpoint(self):
+        """Find an endpoint that returns 403/401 for bypass testing"""
+        print("\n🔍 Phase 0: Finding Forbidden Endpoint for Testing")
+        # Browser-like headers per evitare detection WAF/anti-bot
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+
+        
+        # If specified by user, verify it's actually forbidden
+        if self.forbidden_endpoint:
+            try:
+                # Per cross-domain, aggiungere Referer
+                test_headers = browser_headers.copy()
+                forbidden_parsed = urlparse(self.forbidden_endpoint)
+                if forbidden_parsed.netloc != self.parsed_url.netloc:
+                    test_headers['Referer'] = self.target_url
+
+                response = self.session.get(self.forbidden_endpoint, timeout=5)
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = self.forbidden_endpoint
+                    self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
+                    return self.forbidden_endpoint
+                else:
+                    print(f"  ⚠️ Provided endpoint returned {response.status_code}, not 403/401. Searching for alternatives...")
+            except Exception as e:
+                print(f"  ⚠️ Error checking provided endpoint: {e}")
+        
+        # Search for common protected endpoints
+        common_protected = [
+            '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
+            '/manage', '/console', '/portal', '/control', '/private',
+            '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
+            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer', '/users'
+            '/pages', '/root', '/uploads', '/includes', 'cgi-bin'
+        ]
+        
+        for endpoint in common_protected:
+            try:
+                url = self.target_url + endpoint
+                response = self.session.get(url, headers=browser_headers, timeout=5, allow_redirects=False)
+                if response.status_code in [401, 403]:
+                    self.discovered_forbidden_endpoint = url
+                    self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
+                    return url
+            except:
+                continue
+        
+        # If no forbidden endpoint found
+        if not self.skip_forbidden_tests:
+            print("  ⚠️ No forbidden endpoint found - some bypass tests will be limited")
+            print("  💡 Tip: Use --forbidden-endpoint to specify one, or --skip-forbidden-tests to skip these tests")
+        
+        return None
+
+    def create_fingerprint_payloads(self):
+        """Create payloads to fingerprint unlimited layers in the chain"""
+        markers = self.generate_unique_markers()
+        
+        # Sistema di detection esteso per tutti i possibili layer
+        return {
+            # Layer 1: Edge/CDN Detection
+            'edge_cdn_detection': {
+                'priority': 1,
+                'headers': {
+                    'X-CDN-Test': markers['uuid'],
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'X-Edge-Test': markers['sequence'],
+                    'CF-Connecting-IP': f'127.0.0.1',  # Test Cloudflare
+                    'X-Forwarded-Proto': 'https',
+                    'X-Original-URL': f'/test-{markers["uuid"]}'
+                },
+                'expected_responses': [
+                    'cloudflare', 'cloudfront', 'fastly', 'akamai', 'maxcdn',
+                    'keycdn', 'bunnycdn', 'stackpath', 'quantil'
+                ],
+                'detection_headers': [
+                    'cf-ray', 'x-amz-cf-id', 'x-served-by', 'x-cache',
+                    'x-edge-location', 'x-cdn-pop'
+                ],
+                'timing_analysis': True,
+                'geo_routing_test': True
+            },
+
+            # Layer 2: DDoS Protection Detection  
+            'ddos_protection_detection': {
+                'priority': 2,
+                'headers': {
+                    'X-DDoS-Test': markers['uuid'],
+                    'User-Agent': f'SecurityTest-{markers["sequence"]}',
+                    'X-Rate-Limit-Test': markers['uuid']
+                },
+                'rate_limit_tests': {
+                    'burst_requests': 50,
+                    'time_window': 10,
+                    'escalation_pattern': [1, 5, 10, 25, 50]
+                },
+                'challenge_detection': [
+                    'cloudflare_challenge', 'incapsula_challenge', 'sucuri_firewall',
+                    'akamai_bot_manager', 'imperva_challenge'
+                ],
+                'js_challenge_markers': [markers['uuid']],
+                'captcha_detection': True
+            },
+
+            # Layer 3: WAF Detection (Multi-vendor)
+            'waf_detection': {
+                'priority': 3,
+                'payloads': {
+                    'xss_tests': [
+                        f"/?xss=<script>alert('{markers['uuid']}')</script>",
+                        f"/?xss=javascript:alert('{markers['uuid']}')",
+                        f"/?xss=<img src=x onerror=alert('{markers['uuid']}')>",
+                        f"/?xss=<svg onload=alert('{markers['uuid']}')>"
+                    ],
+                    'sqli_tests': [
+                        f"/?sql=' OR 1=1 -- {markers['uuid']}",
+                        f"/?sql=' UNION SELECT '{markers['uuid']}' --",
+                        f"/?sql=1'; DROP TABLE users; -- {markers['uuid']}",
+                        f"/?sql=1' AND SLEEP(5) -- {markers['uuid']}"
+                    ],
+                    'lfi_tests': [
+                        f"/?file=../../../etc/passwd#{markers['uuid']}",
+                        f"/?file=....//....//....//etc/passwd#{markers['uuid']}",
+                        f"/?file=/etc/passwd%00{markers['uuid']}",
+                        f"/?file=php://filter/resource=index.php#{markers['uuid']}"
+                    ],
+                    'rce_tests': [
+                        f"/?cmd=id;echo {markers['uuid']}",
+                        f"/?cmd=`id`;echo {markers['uuid']}",
+                        f"/?cmd=$(id);echo {markers['uuid']}",
+                        f"/?cmd=|id;echo {markers['uuid']}"
+                    ],
+                    'xxe_tests': [
+                        f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test "{markers['uuid']}">]><root>&test;</root>""",
+                        f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "file:///etc/passwd">]><root>&test;{markers['uuid']}</root>"""
+                    ]
+                },
+                'waf_signatures': {
+                    'cloudflare': ['cf-ray', 'cloudflare', 'ray id'],
+                    'aws_waf': ['x-amzn-trace-id', 'x-amzn-requestid'],
+                    'akamai': ['akamai', 'ak-', 'x-akamai'],
+                    'imperva': ['incap_ses', 'visid_incap', 'imperva'],
+                    'f5_asm': ['f5-bigip', 'bigip', 'f5'],
+                    'barracuda': ['barra', 'cuda'],
+                    'sucuri': ['sucuri', 'x-sucuri'],
+                    'fortinet': ['fortigate', 'fortiweb'],
+                    'citrix': ['netscaler', 'citrix'],
+                    'modsecurity': ['mod_security', 'modsec']
+                },
+                'headers': {
+                    'User-Agent': f'Mozilla/5.0 (WAF-Test-{markers["uuid"]})',
+                    'X-WAF-Test': markers['uuid'],
+                    'X-Attack-Test': markers['sequence']
+                }
+            },
+
+            # Layer 4: API Gateway Detection
+            'api_gateway_detection': {
+                'priority': 4,
+                'headers': {
+                    'X-API-Gateway-Test': markers['uuid'],
+                    'Authorization': f'Bearer test-{markers["sequence"]}',
+                    'X-API-Key': f'test-key-{markers["uuid"]}',
+                    'X-Client-ID': markers['uuid']
+                },
+                'api_tests': {
+                    'rate_limiting': {
+                        'requests_per_second': [1, 5, 10, 50, 100],
+                        'burst_patterns': [10, 20, 50, 100]
+                    },
+                    'auth_mechanisms': [
+                        'bearer_token', 'api_key', 'oauth2', 'jwt', 'basic_auth'
+                    ],
+                    'routing_tests': [
+                        f'/api/v1/test-{markers["uuid"]}',
+                        f'/api/v2/test-{markers["uuid"]}',
+                        f'/graphql?query={{test(id:"{markers["uuid"]}")}}',
+                        f'/rest/test/{markers["uuid"]}',
+                        f'/gateway/test/{markers["uuid"]}'
+                    ]
+                },
+                'gateway_signatures': {
+                    'kong': ['x-kong', 'kong-'],
+                    'zuul': ['x-zuul', 'zuul-'],
+                    'ambassador': ['x-ambassador'],
+                    'istio': ['x-envoy', 'istio-'],
+                    'aws_api_gateway': ['x-amzn-requestid', 'x-amz-apigw'],
+                    'azure_apim': ['x-ms-request-id', 'apim-'],
+                    'google_cloud': ['x-goog-', 'x-cloud-']
+                },
+                'response_analysis': {
+                    'json_structure': True,
+                    'error_formats': True,
+                    'cors_headers': True
+                }
+            },
+
+            # Layer 5: Load Balancer Detection
+            'load_balancer_detection': {
+                'priority': 5,
+                'headers': {
+                    'X-LB-Test': markers['uuid'],
+                    'X-Session-Test': markers['sequence'],
+                    'Connection': 'keep-alive'
+                },
+                'lb_tests': {
+                    'session_persistence': {
+                        'cookie_tests': ['JSESSIONID', 'AWSALB', 'server-id'],
+                        'ip_hash_tests': True,
+                        'header_based_routing': ['X-User-Type', 'X-Version']
+                    },
+                    'health_checks': [
+                        f'/health?test={markers["uuid"]}',
+                        f'/lb-status?test={markers["uuid"]}',
+                        f'/haproxy?stats&test={markers["uuid"]}'
+                    ],
+                    'backend_detection': {
+                        'multiple_requests': 20,
+                        'response_variation_analysis': True,
+                        'server_header_analysis': True
+                    }
+                },
+                'lb_signatures': {
+                    'haproxy': ['haproxy', 'x-haproxy'],
+                    'nginx': ['nginx', 'x-nginx'],
+                    'aws_alb': ['awsalb', 'x-amzn-trace-id'],
+                    'f5_bigip': ['f5-bigip', 'bigip'],
+                    'citrix': ['netscaler', 'citrix'],
+                    'traefik': ['traefik', 'x-traefik']
+                }
+            },
+            'proxy_detection': {
+                'priority': 5.5,
+                'headers': {
+                    'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
+                    'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
+                    'X-Proxy-Test': markers['uuid']
+                }
+            },
+            
+            'backend_detection': {
+                'priority': 5.6,
+                'paths': [
+                    f'/server-info?test={markers["uuid"]}',
+                    f'/server-status?test={markers["uuid"]}',
+                    f'/.env?test={markers["uuid"]}',
+                    f'/phpinfo.php?test={markers["uuid"]}'
+                ]
+            },
+            
+            # Layer 6: Service Mesh Detection
+            'service_mesh_detection': {
+                'priority': 6,
+                'headers': {
+                    'X-Service-Mesh-Test': markers['uuid'],
+                    'X-Trace-Test': markers['sequence'],
+                    'X-B3-TraceId': markers['uuid'],
+                    'X-B3-SpanId': markers['sequence']
+                },
+                'mesh_tests': {
+                    'sidecar_detection': {
+                        'admin_endpoints': [
+                            f'/stats?test={markers["uuid"]}',
+                            f'/config_dump?test={markers["uuid"]}',
+                            f'/clusters?test={markers["uuid"]}',
+                            f'/server_info?test={markers["uuid"]}'
+                        ],
+                        'envoy_specific': True,
+                        'istio_specific': True
+                    },
+                    'mtls_detection': {
+                        'cert_headers': ['x-forwarded-client-cert'],
+                        'tls_version_tests': True
+                    },
+                    'traffic_policies': {
+                        'circuit_breaker_tests': True,
+                        'retry_policy_tests': True,
+                        'timeout_tests': [1, 5, 10, 30]
+                    }
+                },
+                'mesh_signatures': {
+                    'istio_envoy': ['x-envoy', 'istio', 'x-b3-'],
+                    'linkerd': ['l5d-', 'linkerd'],
+                    'consul_connect': ['x-consul'],
+                    'traefik_mesh': ['x-traefik']
+                }
+            },
+
+            # Layer 7: Container Orchestration Detection
+            'container_detection': {
+                'priority': 7,
+                'headers': {
+                    'X-Container-Test': markers['uuid'],
+                    'X-K8s-Test': markers['sequence'],
+                    'X-Docker-Test': markers['uuid']
+                },
+                'container_tests': {
+                    'kubernetes': {
+                        'service_discovery': [
+                            'service.namespace.svc.cluster.local',
+                            'internal.service.discovery'
+                        ],
+                        'endpoints': [
+                            f'/metrics?test={markers["uuid"]}',
+                            f'/healthz?test={markers["uuid"]}',
+                            f'/readyz?test={markers["uuid"]}',
+                            f'/livez?test={markers["uuid"]}'
+                        ],
+                        'dns_patterns': ['.svc.cluster.local', '.internal']
+                    },
+                    'docker_swarm': {
+                        'service_discovery': ['tasks.service-name'],
+                        'overlay_networks': True
+                    },
+                    'ecs_fargate': {
+                        'task_metadata': [
+                            f'/v2/metadata?test={markers["uuid"]}',
+                            f'/v2/stats?test={markers["uuid"]}'
+                        ],
+                        'aws_specific': True
+                    }
+                },
+                'container_signatures': {
+                    'kubernetes': ['x-kubernetes', 'x-k8s', 'x-pod-name'],
+                    'docker': ['x-docker', 'x-container-id'],
+                    'ecs': ['x-ecs-task', 'x-amzn-trace-id'],
+                    'openshift': ['x-openshift']
+                }
+            },
+
+            # Layer 8: Application Runtime Detection
+            # Layer 8: Application Runtime Detection (Enhanced)
+            'runtime_detection': {
+                'priority': 8,
+                'headers': {
+                    'X-Runtime-Test': markers['uuid'],
+                    'X-Framework-Test': markers['sequence'],
+                    'X-Language-Test': markers['timestamp']
+                   # 'X-Version-Test': markers['random_id']
+                },
+                'runtime_tests': {
+                    'language_detection': {
+                        'java': [
+                            f'/actuator/health?test={markers["uuid"]}',
+                            f'/jolokia?test={markers["uuid"]}',
+                            f'/hawtio?test={markers["uuid"]}',
+                            f'/micrometer?test={markers["uuid"]}',
+                            f'/management/metrics?test={markers["uuid"]}',
+                            f'/jmx-console?test={markers["uuid"]}'
+                        ],
+                        'nodejs': [
+                            f'/debug?test={markers["uuid"]}',
+                            f'/status?test={markers["uuid"]}',
+                            f'/healthcheck?test={markers["uuid"]}',
+                            f'/.well-known/health?test={markers["uuid"]}',
+                            f'/metrics?test={markers["uuid"]}'
+                        ],
+                        'python': [
+                            f'/debug?test={markers["uuid"]}',
+                            f'/__debug__?test={markers["uuid"]}',
+                            f'/health?test={markers["uuid"]}',
+                            f'/metrics?test={markers["uuid"]}',
+                            f'/status?test={markers["uuid"]}'
+                        ],
+                        'dotnet': [
+                            f'/health?test={markers["uuid"]}',
+                            f'/info?test={markers["uuid"]}',
+                            f'/metrics?test={markers["uuid"]}',
+                            f'/swagger?test={markers["uuid"]}',
+                            f'/weatherforecast?test={markers["uuid"]}'  # Default ASP.NET template
+                        ],
+                        'php': [
+                            f'/phpinfo.php?test={markers["uuid"]}',
+                            f'/info.php?test={markers["uuid"]}',
+                            f'/status.php?test={markers["uuid"]}',
+                            f'/health.php?test={markers["uuid"]}',
+                            f'/server-status?test={markers["uuid"]}'
+                        ],
+                        'go': [
+                            f'/debug/pprof?test={markers["uuid"]}',
+                            f'/health?test={markers["uuid"]}',
+                            f'/metrics?test={markers["uuid"]}',
+                            f'/debug/vars?test={markers["uuid"]}',
+                            f'/healthz?test={markers["uuid"]}'
+                        ],
+                        'rust': [
+                            f'/health?test={markers["uuid"]}',
+                            f'/metrics?test={markers["uuid"]}',
+                            f'/debug?test={markers["uuid"]}',
+                            f'/status?test={markers["uuid"]}'
+                        ],
+                        'ruby': [
+                            f'/health?test={markers["uuid"]}',
+                            f'/status?test={markers["uuid"]}',
+                            f'/debug?test={markers["uuid"]}',
+                            f'/rails/info/routes?test={markers["uuid"]}'
+                        ],
+                        'scala': [
+                            f'/actuator/health?test={markers["uuid"]}',
+                            f'/healthcheck?test={markers["uuid"]}',
+                            f'/metrics?test={markers["uuid"]}',
+                            f'/management/health?test={markers["uuid"]}'
+                        ],
+                        'kotlin': [
+                            f'/actuator/health?test={markers["uuid"]}',
+                            f'/health?test={markers["uuid"]}',
+                            f'/metrics?test={markers["uuid"]}'
+                        ]
+                    },
+                    'framework_detection': {
+                        # Java Frameworks
+                        'spring_boot': [
+                            '/actuator/', '/management/', '/beans', '/configprops',
+                            '/actuator/env', '/actuator/metrics', '/actuator/loggers'
+                        ],
+                        'quarkus': [
+                            '/q/health/', '/q/metrics/', '/q/openapi/',
+                            '/q/health/live', '/q/health/ready', '/q/dev/'
+                        ],
+                        'micronaut': [
+                            '/health/', '/beans/', '/routes/', '/info/',
+                            '/metrics/', '/loggers/'
+                        ],
+                        'vertx': [
+                            '/eventbus/', '/health/', '/metrics/',
+                            '/sockjs/', '/vertx/'
+                        ],
+                        'dropwizard': [
+                            '/healthcheck', '/metrics', '/ping',
+                            '/threads', '/tasks'
+                        ],
+                        
+                        # JavaScript/Node.js Frameworks
+                        'express_js': [
+                            '/api/', '/debug/', '/status/',
+                            '/health/', '/metrics/'
+                        ],
+                        'nestjs': [
+                            '/health/', '/swagger/', '/metrics/',
+                            '/docs/', '/api/', '/graphql'
+                        ],
+                        'koa': ['/health/', '/status/', '/api/'],
+                        'fastify': [
+                            '/health/', '/metrics/', '/documentation/',
+                            '/swagger/', '/api/'
+                        ],
+                        'next_js': [
+                            '/_next/', '/api/', '/__next/',
+                            '/api/health', '/_next/static/'
+                        ],
+                        'nuxt': [
+                            '/_nuxt/', '/api/', '/.nuxt/',
+                            '/api/health'
+                        ],
+                        'meteor': [
+                            '/sockjs/', '/__meteor__/', '/api/',
+                            '/health/'
+                        ],
+                        
+                        # Python Frameworks
+                        'django': [
+                            '/__debug__/', '/admin/', '/api/',
+                            '/debug/', '/health/', '/static/admin/'
+                        ],
+                        'flask': [
+                            '/debug/', '/status/', '/health/',
+                            '/api/', '/metrics/'
+                        ],
+                        'fastapi': [
+                            '/docs/', '/openapi.json', '/health/',
+                            '/redoc/', '/api/', '/metrics/'
+                        ],
+                        'tornado': ['/health/', '/status/', '/api/'],
+                        'pyramid': ['/debug/', '/health/', '/api/'],
+                        'bottle': ['/debug/', '/status/', '/api/'],
+                        'cherrypy': ['/status/', '/health/', '/api/'],
+                        
+                        # .NET Frameworks
+                        'aspnet_core': [
+                            '/health/', '/swagger/', '/api/',
+                            '/weatherforecast', '/hubs/', '/metrics/'
+                        ],
+                        'aspnet_mvc': [
+                            '/health/', '/api/', '/trace.axd',
+                            '/elmah.axd'
+                        ],
+                        'blazor': [
+                            '/_blazor/', '/api/', '/health/',
+                            '/_framework/'
+                        ],
+                        
+                        # PHP Frameworks
+                        'laravel': [
+                            '/telescope/', '/horizon/', '/health/',
+                            '/api/', '/docs/', '/nova/'
+                        ],
+                        'symfony': [
+                            '/debug/', '/_wdt/', '/_profiler/',
+                            '/api/', '/health/', '/_error/'
+                        ],
+                        'codeigniter': [
+                            '/debug/', '/system/', '/api/',
+                            '/index.php/welcome/'
+                        ],
+                        'zend': ['/debug/', '/status/', '/api/'],
+                        'cakephp': [
+                            '/debug/', '/api/', '/health/',
+                            '/debug_kit/'
+                        ],
+                        
+                        # Go Frameworks
+                        'gin': [
+                            '/debug/pprof/', '/health/', '/metrics/',
+                            '/api/', '/ping'
+                        ],
+                        'echo': ['/health/', '/metrics/', '/api/'],
+                        'fiber': ['/health/', '/metrics/', '/api/'],
+                        'beego': [
+                            '/healthcheck/', '/task/', '/api/',
+                            '/swagger/'
+                        ],
+                        'buffalo': ['/health/', '/api/', '/debug/'],
+                        
+                        # Ruby Frameworks
+                        'rails': [
+                            '/rails/info/', '/health/', '/debug/',
+                            '/api/', '/cable/', '/rails/mailers/'
+                        ],
+                        'sinatra': ['/health/', '/status/', '/api/'],
+                        'grape': ['/api/', '/swagger/', '/health/'],
+                        
+                        # Rust Frameworks
+                        'actix_web': ['/health/', '/metrics/', '/api/'],
+                        'warp': ['/health/', '/metrics/', '/api/'],
+                        'rocket': ['/health/', '/metrics/', '/api/'],
+                        'axum': ['/health/', '/metrics/', '/api/'],
+                        
+                        # Scala Frameworks
+                        'play': [
+                            '/health/', '/metrics/', '/api/',
+                            '/assets/', '/docs/'
+                        ],
+                        'akka_http': [
+                            '/health/', '/metrics/', '/api/',
+                            '/system/'
+                        ]
+                    },
+                    'runtime_version_detection': {
+                        'version_endpoints': [
+                            '/version', '/v1/version', '/api/version',
+                            '/build-info', '/info', '/about',
+                            '/actuator/info', '/management/info',
+                            '/api/v1/version', '/.well-known/version'
+                        ],
+                        'build_info_endpoints': [
+                            '/build', '/build-info', '/actuator/info',
+                            '/api/build', '/version.json', '/manifest.json'
+                        ]
+                    },
+                    'runtime_specific_paths': {
+                        'java_specific': [
+                            '/WEB-INF/', '/META-INF/', '/classes/',
+                            '/lib/', '/resources/', '/static/'
+                        ],
+                        'nodejs_specific': [
+                            '/node_modules/', '/public/', '/dist/',
+                            '/build/', '/assets/'
+                        ],
+                        'python_specific': [
+                            '/__pycache__/', '/static/', '/media/',
+                            '/templates/', '/locale/'
+                        ],
+                        'php_specific': [
+                            '/vendor/', '/public/', '/storage/',
+                            '/bootstrap/', '/config/'
+                        ],
+                        'dotnet_specific': [
+                            '/bin/', '/obj/', '/wwwroot/',
+                            '/Views/', '/Controllers/'
+                        ]
+                    },
+                    'error_page_fingerprinting': {
+                        'test_paths': [
+                            '/nonexistent-page-404',
+                            '/error-test-500',
+                            '/forbidden-403',
+                            '/method-not-allowed-405'
+                        ],
+                        'framework_error_signatures': {
+                            'spring_boot': ['Whitelabel Error Page', 'Spring Boot', 'org.springframework'],
+                            'django': ['DisallowedHost', 'Django', 'django.core'],
+                            'flask': ['werkzeug', 'Flask', 'Werkzeug Debugger'],
+                            'express': ['Cannot GET', 'Express', 'express'],
+                            'laravel': ['Illuminate\\', 'Laravel', 'Whoops'],
+                            'asp_net': ['ASP.NET', 'System.Web', 'Server Error'],
+                            'rails': ['ActionController', 'Rails', 'We\'re sorry'],
+                            'fastapi': ['FastAPI', 'detail', 'Swagger UI'],
+                            'gin': ['404 page not found', 'gin-gonic'],
+                            'actix': ['actix-web', 'Not Found']
+                        }
+                    }
+                },
+                'runtime_signatures': {
+                    'java': [
+                        'java', 'jvm', 'spring', 'tomcat', 'jetty', 'undertow',
+                        'quarkus', 'micronaut', 'vertx', 'dropwizard'
+                    ],
+                    'nodejs': [
+                        'node', 'express', 'v8', 'npm', 'yarn', 'nestjs',
+                        'next', 'nuxt', 'meteor', 'socket.io'
+                    ],
+                    'python': [
+                        'python', 'django', 'flask', 'wsgi', 'fastapi',
+                        'gunicorn', 'uvicorn', 'tornado', 'pyramid', 'bottle'
+                    ],
+                    'dotnet': [
+                        'asp.net', 'iis', '.net', 'kestrel', 'blazor',
+                        'signalr', 'entity-framework'
+                    ],
+                    'php': [
+                        'php', 'apache', 'nginx-php', 'laravel', 'symfony',
+                        'codeigniter', 'zend', 'cakephp'
+                    ],
+                    'go': [
+                        'go', 'golang', 'gin', 'echo', 'fiber',
+                        'beego', 'buffalo', 'gorilla'
+                    ],
+                    'rust': [
+                        'rust', 'cargo', 'actix', 'warp', 'rocket',
+                        'axum', 'hyper'
+                    ],
+                    'ruby': [
+                        'ruby', 'rails', 'sinatra', 'puma', 'unicorn',
+                        'grape', 'roda'
+                    ],
+                    'scala': [
+                        'scala', 'akka', 'play', 'sbt', 'finatra',
+                        'http4s'
+                    ],
+                    'kotlin': [
+                        'kotlin', 'ktor', 'spring-kotlin', 'exposed'
+                    ],
+                    'clojure': [
+                        'clojure', 'ring', 'compojure', 'leiningen',
+                        'pedestal'
+                    ]
+                },
+                'response_analysis': {
+                    'header_patterns': [
+                        'Server', 'X-Powered-By', 'X-AspNet-Version',
+                        'X-Runtime', 'X-Version', 'X-Framework',
+                        'X-Generator', 'X-Drupal-Cache', 'X-Pingback'
+                    ],
+                    'content_analysis': {
+                        'meta_tags': ['generator', 'framework', 'powered-by'],
+                        'script_sources': ['jquery', 'bootstrap', 'react', 'vue', 'angular'],
+                        'css_frameworks': ['bootstrap', 'tailwind', 'bulma', 'material-ui']
+                    },
+                    'timing_analysis': {
+                        'cold_start_detection': True,
+                        'response_time_profiling': True,
+                        'jit_compilation_detection': True
+                    }
+                }
+            },
+
+            # Layer 9: Database/Storage Detection (Enhanced)
+            'database_detection': {
+                'priority': 9,
+                'headers': {
+                    'X-Database-Test': markers['uuid'],
+                    'X-Storage-Test': markers['sequence'],
+                    'X-Cache-Test': markers['timestamp'],
+                   # 'X-Analytics-Test': markers['random_id']
+                },
+                'db_tests': {
+                    'relational_databases': {
+                        'postgresql': [
+                            f'/pg_stat_activity?test={markers["uuid"]}',
+                            f'/pg_stat_database?test={markers["uuid"]}',
+                            f'/pg_isready?test={markers["uuid"]}',
+                            f'/postgres/health?test={markers["uuid"]}'
+                        ],
+                        'mysql': [
+                            f'/mysql/status?test={markers["uuid"]}',
+                            f'/mysql/variables?test={markers["uuid"]}',
+                            f'/mysql/health?test={markers["uuid"]}',
+                            f'/phpmyadmin?test={markers["uuid"]}'
+                        ],
+                        'mariadb': [
+                            f'/mariadb/status?test={markers["uuid"]}',
+                            f'/mariadb/health?test={markers["uuid"]}'
+                        ],
+                        'oracle': [
+                            f'/oracle/health?test={markers["uuid"]}',
+                            f'/em/console?test={markers["uuid"]}',
+                            f'/apex?test={markers["uuid"]}'
+                        ],
+                        'mssql': [
+                            f'/mssql/health?test={markers["uuid"]}',
+                            f'/sql/health?test={markers["uuid"]}'
+                        ],
+                        'sqlite': [
+                            f'/sqlite/health?test={markers["uuid"]}',
+                            f'/db.sqlite3?test={markers["uuid"]}'
+                        ]
+                    },
+                    'nosql_databases': {
+                        'mongodb': [
+                            f'/mongo/status?test={markers["uuid"]}',
+                            f'/mongo/health?test={markers["uuid"]}',
+                            f'/admin/buildinfo?test={markers["uuid"]}',
+                            f'/mongoexpress?test={markers["uuid"]}'
+                        ],
+                        'cassandra': [
+                            f'/cassandra/health?test={markers["uuid"]}',
+                            f'/cassandra/status?test={markers["uuid"]}',
+                            f'/jolokia/read/org.apache.cassandra.metrics?test={markers["uuid"]}'
+                        ],
+                        'couchdb': [
+                            f'/couchdb/_up?test={markers["uuid"]}',
+                            f'/couchdb/_utils?test={markers["uuid"]}',
+                            f'/_up?test={markers["uuid"]}'
+                        ],
+                        'dynamodb': [
+                            f'/dynamodb/health?test={markers["uuid"]}',
+                            f'/dynamodb-local?test={markers["uuid"]}'
+                        ],
+                        'neo4j': [
+                            f'/db/data?test={markers["uuid"]}',
+                            f'/browser?test={markers["uuid"]}',
+                            f'/neo4j/health?test={markers["uuid"]}'
+                        ]
+                    },
+                    'database_proxies': [
+                        f'/db-status?test={markers["uuid"]}',
+                        f'/pgbouncer?test={markers["uuid"]}',
+                        f'/pgpool?test={markers["uuid"]}',
+                        f'/mysql-proxy?test={markers["uuid"]}',
+                        f'/proxysql?test={markers["uuid"]}',
+                        f'/haproxy/stats?test={markers["uuid"]}',
+                        f'/pgcat?test={markers["uuid"]}'
+                    ],
+                    'cache_layers': {
+                        'redis': [
+                            f'/redis/info?test={markers["uuid"]}',
+                            f'/redis/ping?test={markers["uuid"]}',
+                            f'/redis/health?test={markers["uuid"]}',
+                            f'/redis-commander?test={markers["uuid"]}',
+                            f'/redisinsight?test={markers["uuid"]}'
+                        ],
+                        'memcached': [
+                            f'/memcached/stats?test={markers["uuid"]}',
+                            f'/memcached/health?test={markers["uuid"]}'
+                        ],
+                        'hazelcast': [
+                            f'/hazelcast/health?test={markers["uuid"]}',
+                            f'/hazelcast/cluster?test={markers["uuid"]}'
+                        ],
+                        'ehcache': [
+                            f'/ehcache/statistics?test={markers["uuid"]}',
+                            f'/ehcache/health?test={markers["uuid"]}'
+                        ]
+                    },
+                    'search_engines': {
+                        'elasticsearch': [
+                            f'/_cluster/health?test={markers["uuid"]}',
+                            f'/_cat/health?test={markers["uuid"]}',
+                            f'/_cat/nodes?test={markers["uuid"]}',
+                            f'/elasticsearch/health?test={markers["uuid"]}',
+                            f'/_plugin/head?test={markers["uuid"]}'
+                        ],
+                        'opensearch': [
+                            f'/_cluster/health?test={markers["uuid"]}',
+                            f'/_cat/health?test={markers["uuid"]}',
+                            f'/_dashboards?test={markers["uuid"]}'
+                        ],
+                        'solr': [
+                            f'/solr/admin/cores?test={markers["uuid"]}',
+                            f'/solr/admin/info/system?test={markers["uuid"]}',
+                            f'/solr/#/?test={markers["uuid"]}'
+                        ],
+                        'sphinx': [
+                            f'/sphinx/status?test={markers["uuid"]}',
+                            f'/sphinx/health?test={markers["uuid"]}'
+                        ]
+                    },
+                    'message_queues': {
+                        'rabbitmq': [
+                            f'/rabbitmq/api/overview?test={markers["uuid"]}',
+                            f'/rabbitmq/#/?test={markers["uuid"]}',
+                            f'/api/overview?test={markers["uuid"]}'
+                        ],
+                        'kafka': [
+                            f'/kafka/health?test={markers["uuid"]}',
+                            f'/kafka/topics?test={markers["uuid"]}',
+                            f'/kafka-ui?test={markers["uuid"]}'
+                        ],
+                        'activemq': [
+                            f'/admin?test={markers["uuid"]}',
+                            f'/activemq/admin?test={markers["uuid"]}'
+                        ],
+                        'nats': [
+                            f'/varz?test={markers["uuid"]}',
+                            f'/connz?test={markers["uuid"]}',
+                            f'/routez?test={markers["uuid"]}'
+                        ],
+                        'pulsar': [
+                            f'/admin/v2/brokers/health?test={markers["uuid"]}',
+                            f'/pulsar-manager?test={markers["uuid"]}'
+                        ]
+                    },
+                    'storage_apis': {
+                        's3_compatible': [
+                            f'/api/storage?test={markers["uuid"]}',
+                            f'/s3-status?test={markers["uuid"]}',
+                            f'/minio/health/live?test={markers["uuid"]}',
+                            f'/minio/health/ready?test={markers["uuid"]}',
+                            f'/.well-known/s3?test={markers["uuid"]}'
+                        ],
+                        'azure_storage': [
+                            f'/blob-storage?test={markers["uuid"]}',
+                            f'/azure/storage/health?test={markers["uuid"]}'
+                        ],
+                        'gcs': [
+                            f'/gcs/health?test={markers["uuid"]}',
+                            f'/storage/v1?test={markers["uuid"]}'
+                        ],
+                        'hdfs': [
+                            f'/webhdfs/v1?test={markers["uuid"]}',
+                            f'/dfshealth.html?test={markers["uuid"]}'
+                        ]
+                    },
+                    'analytics_databases': {
+                        'clickhouse': [
+                            f'/ping?test={markers["uuid"]}',
+                            f'/?query=SELECT%201?test={markers["uuid"]}',
+                            f'/play?test={markers["uuid"]}'
+                        ],
+                        'influxdb': [
+                            f'/ping?test={markers["uuid"]}',
+                            f'/health?test={markers["uuid"]}',
+                            f'/query?test={markers["uuid"]}'
+                        ],
+                        'prometheus': [
+                            f'/-/healthy?test={markers["uuid"]}',
+                            f'/-/ready?test={markers["uuid"]}',
+                            f'/api/v1/status/config?test={markers["uuid"]}'
+                        ],
+                        'grafana': [
+                            f'/api/health?test={markers["uuid"]}',
+                            f'/login?test={markers["uuid"]}',
+                            f'/public/build?test={markers["uuid"]}'
+                        ]
+                    },
+                    'time_series_databases': {
+                        'influxdb': [
+                            f'/ping?test={markers["uuid"]}',
+                            f'/health?test={markers["uuid"]}'
+                        ],
+                        'timescaledb': [
+                            f'/timescale/health?test={markers["uuid"]}'
+                        ],
+                        'victoriametrics': [
+                            f'/health?test={markers["uuid"]}',
+                            f'/-/healthy?test={markers["uuid"]}'
+                        ]
+                    },
+                    'admin_interfaces': {
+                        'phpmyadmin': [
+                            f'/phpmyadmin?test={markers["uuid"]}',
+                            f'/pma?test={markers["uuid"]}',
+                            f'/phpMyAdmin?test={markers["uuid"]}'
+                        ],
+                        'adminer': [
+                            f'/adminer.php?test={markers["uuid"]}',
+                            f'/adminer?test={markers["uuid"]}'
+                        ],
+                        'pgadmin': [
+                            f'/pgadmin?test={markers["uuid"]}',
+                            f'/pgadmin4?test={markers["uuid"]}'
+                        ],
+                        'mongo_express': [
+                            f'/mongo-express?test={markers["uuid"]}',
+                            f'/mongoexpress?test={markers["uuid"]}'
+                        ]
+                    }
+                },
+                'db_signatures': {
+                    'postgresql': ['postgresql', 'postgres', 'pgbouncer', 'pgpool', 'pg_', 'psql'],
+                    'mysql': ['mysql', 'mariadb', 'percona', 'mysql-connector'],
+                    'oracle': ['oracle', 'ora_', 'sqlplus', 'tnsnames'],
+                    'mssql': ['sqlserver', 'mssql', 'sql-server', 'microsoft-sql'],
+                    'sqlite': ['sqlite', 'sqlite3'],
+                    
+                    'mongodb': ['mongodb', 'mongo', 'bson', 'mongoose'],
+                    'cassandra': ['cassandra', 'datastax', 'cql'],
+                    'couchdb': ['couchdb', 'couch', '_design'],
+                    'dynamodb': ['dynamodb', 'dynamo', 'aws-dynamodb'],
+                    'neo4j': ['neo4j', 'cypher', 'graph-db'],
+                    
+                    'redis': ['redis', 'x-redis', 'redis-cli', 'redis-server'],
+                    'memcached': ['memcached', 'x-memcached', 'memcache'],
+                    'hazelcast': ['hazelcast', 'hz', 'imap'],
+                    'ehcache': ['ehcache', 'terracotta'],
+                    
+                    'elasticsearch': ['elasticsearch', 'elastic', 'lucene', 'kibana'],
+                    'opensearch': ['opensearch', 'opensearch-dashboards'],
+                    'solr': ['solr', 'lucene', 'solrcloud'],
+                    'sphinx': ['sphinx', 'sphinxsearch'],
+                    
+                    'rabbitmq': ['rabbitmq', 'amqp', 'erlang'],
+                    'kafka': ['kafka', 'zookeeper', 'confluent'],
+                    'activemq': ['activemq', 'artemis', 'jms'],
+                    'nats': ['nats', 'nats-streaming'],
+                    'pulsar': ['pulsar', 'bookkeeper'],
+                    
+                    's3_compatible': ['s3', 'minio', 'ceph', 'aws-s3'],
+                    'azure_storage': ['azure-storage', 'blob-storage'],
+                    'gcs': ['google-cloud-storage', 'gcs'],
+                    'hdfs': ['hdfs', 'hadoop'],
+                    
+                    'clickhouse': ['clickhouse', 'ch'],
+                    'influxdb': ['influxdb', 'influx', 'flux'],
+                    'prometheus': ['prometheus', 'prom'],
+                    'grafana': ['grafana'],
+                    'victoriametrics': ['victoriametrics', 'vm']
+                },
+                'connection_pool_detection': {
+                    'java_pools': [
+                        'hikaricp', 'c3p0', 'dbcp', 'tomcat-jdbc',
+                        'connection-pool', 'datasource'
+                    ],
+                    'nodejs_pools': [
+                        'pg-pool', 'mysql-pool', 'connection-pool',
+                        'knex', 'sequelize', 'typeorm'
+                    ],
+                    'python_pools': [
+                        'psycopg2-pool', 'sqlalchemy-pool', 'pymongo-pool',
+                        'connection-pool'
+                    ],
+                    'dotnet_pools': [
+                        'connection-string', 'entity-framework', 'ado.net',
+                        'npgsql', 'mysql-connector'
+                    ]
+                },
+                'database_monitoring': {
+                    'health_endpoints': [
+                        '/db/health', '/database/status', '/db/ping',
+                        '/health/db', '/ready/db', '/live/db'
+                    ],
+                    'metrics_endpoints': [
+                        '/db/metrics', '/database/metrics', '/db/stats',
+                        '/metrics/database', '/prometheus/db'
+                    ],
+                    'performance_endpoints': [
+                        '/db/performance', '/database/slow-queries',
+                        '/db/explain', '/database/locks'
+                    ]
+                },
+                'orm_detection': {
+                    'java_orms': ['hibernate', 'jpa', 'mybatis', 'jooq'],
+                    'nodejs_orms': ['sequelize', 'typeorm', 'prisma', 'knex'],
+                    'python_orms': ['django-orm', 'sqlalchemy', 'peewee', 'tortoise'],
+                    'dotnet_orms': ['entity-framework', 'dapper', 'nhibernate'],
+                    'php_orms': ['eloquent', 'doctrine', 'propel'],
+                    'ruby_orms': ['active-record', 'sequel', 'datamapper']
+                }
+            },
+
+            # Layer 10: Serverless/Function Detection
+            'serverless_detection': {
+                'priority': 10,
+                'headers': {
+                    'X-Serverless-Test': markers['uuid'],
+                    'X-Function-Test': markers['sequence']
+                },
+                'serverless_tests': {
+                    'cold_start_analysis': {
+                        'timing_tests': True,
+                        'initialization_detection': True
+                    },
+                    'execution_context': {
+                        'memory_limits': True,
+                        'timeout_detection': True,
+                        'concurrent_execution': True
+                    },
+                    'event_sources': [
+                        'api_gateway', 'sqs', 's3', 'dynamodb', 'eventbridge'
+                    ]
+                },
+                'serverless_signatures': {
+                    'aws_lambda': ['x-amzn-requestid', 'lambda'],
+                    'azure_functions': ['x-ms-invocation-id'],
+                    'google_functions': ['function-execution-id'],
+                    'vercel': ['x-vercel-'],
+                    'netlify': ['x-nf-']
+                }
+            },
+
+            # Sistema di analisi dinamica per layer aggiuntivi
+            'dynamic_layer_detection': {
+                'priority': 99,
+                'adaptive_testing': True,
+                'layer_chaining_analysis': True,
+                'response_correlation': True,
+                'timing_fingerprinting': True,
+                'behavioral_analysis': True,
+                'unknown_component_detection': {
+                    'header_pattern_analysis': True,
+                    'response_pattern_analysis': True,
+                    'timing_pattern_analysis': True,
+                    'error_pattern_analysis': True
+                }
+            }
+        }
+
+    # def create_fingerprint_payloads(self):
+    #     """Create payloads to fingerprint each layer in the chain"""
+    #     markers = self.generate_unique_markers()
+        
+    #     return {
+    #         'cdn_detection': {
+    #             'headers': {
+    #                 'X-CDN-Test': markers['uuid'],
+    #                 'Cache-Control': 'no-cache',
+    #                 'Pragma': 'no-cache'
+    #             },
+    #             'expected_responses': ['cloudflare', 'cloudfront', 'fastly', 'akamai']
+    #         },
+            
+    #         'waf_detection': {
+    #             'payloads': [
+    #                 f"/?test=<script>alert('{markers['uuid']}')</script>",
+    #                 f"/?test=' OR 1=1 -- {markers['uuid']}",
+    #                 f"/?test=../../../etc/passwd#{markers['uuid']}"
+    #             ],
+    #             'headers': {'User-Agent': f'Mozilla/5.0 (test-{markers["uuid"]})'}
+    #         },
+            
+    #         'proxy_detection': {
+    #             'headers': {
+    #                 'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
+    #                 'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
+    #                 'X-Proxy-Test': markers['uuid']
+    #             }
+    #         },
+            
+    #         'backend_detection': {
+    #             'paths': [
+    #                 f'/server-info?test={markers["uuid"]}',
+    #                 f'/server-status?test={markers["uuid"]}',
+    #                 f'/.env?test={markers["uuid"]}',
+    #                 f'/phpinfo.php?test={markers["uuid"]}'
+    #             ]
+    #         }
+    #     }
     def waf_fingerprinting_extended(self, waf_payloads):
         """Advanced WAF fingerprinting - EXTENDED VERSION"""
         print("  🛡️ WAF Detection...")
@@ -1995,1104 +3112,6 @@ class CommandGenerator:
             return None
         except Exception:
             return None
-
-class ApplicationTraceroute:
-    def __init__(self, target_url, forbidden_endpoint=None, skip_forbidden_tests=False):
-        self.target_url = target_url.rstrip('/')
-        self.parsed_url = urlparse(target_url)
-        self.session = requests.Session()
-        self.service_discovery = ServiceDiscoveryEnhanced()
-        self.mesh_detector = ServiceMeshDetector()
-        self.request_tracker = RequestTracker()
-        self.payload_analyzer = PayloadAnalyzer()
-        self.stack_handler = StackHandler()
-        self.command_generator = None     
-
-        # Forbidden endpoint configuration
-        self.forbidden_endpoint = forbidden_endpoint
-        self.skip_forbidden_tests = skip_forbidden_tests
-        self.discovered_forbidden_endpoint = None
-        
-        # Chain discovery results
-        self.chain_map = {
-            'layers': [],
-            'discrepancies': [],
-            'fingerprints': {},
-            'bypasses': []
-        }
-        
-        # Protocol support detection
-        self.protocols = {
-            'http1': True,
-            'http2': False,
-            'http3': False,
-            'websocket': False
-        }
-        
-    def log_discovery(self, layer, discovery_type, details):
-        """Log discoveries with structured data"""
-        timestamp = time.strftime('%H:%M:%S')
-        print(f"[{timestamp}] 🔍 {layer} - {discovery_type}: {details}")
-        
-        if layer not in self.chain_map['fingerprints']:
-            self.chain_map['fingerprints'][layer] = {}
-        self.chain_map['fingerprints'][layer][discovery_type] = details
-
-    def generate_unique_markers(self):
-        """Generate unique markers for request tracking"""
-        return {
-            'uuid': ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)),
-            'timestamp': str(int(time.time())),
-            'sequence': str(random.randint(100000, 999999))
-        }
-
-    def find_forbidden_endpoint(self):
-        """Find an endpoint that returns 403/401 for bypass testing"""
-        print("\n🔍 Phase 0: Finding Forbidden Endpoint for Testing")
-        # Browser-like headers per evitare detection WAF/anti-bot
-        browser_headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'it,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
-        }
-
-        
-        # If specified by user, verify it's actually forbidden
-        if self.forbidden_endpoint:
-            try:
-                # Per cross-domain, aggiungere Referer
-                test_headers = browser_headers.copy()
-                forbidden_parsed = urlparse(self.forbidden_endpoint)
-                if forbidden_parsed.netloc != self.parsed_url.netloc:
-                    test_headers['Referer'] = self.target_url
-
-                response = self.session.get(self.forbidden_endpoint, timeout=5)
-                if response.status_code in [401, 403]:
-                    self.discovered_forbidden_endpoint = self.forbidden_endpoint
-                    self.log_discovery("Setup", "Forbidden Endpoint", f"User-provided: {self.forbidden_endpoint} ({response.status_code})")
-                    return self.forbidden_endpoint
-                else:
-                    print(f"  ⚠️ Provided endpoint returned {response.status_code}, not 403/401. Searching for alternatives...")
-            except Exception as e:
-                print(f"  ⚠️ Error checking provided endpoint: {e}")
-        
-        # Search for common protected endpoints
-        common_protected = [
-            '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
-            '/manage', '/console', '/portal', '/control', '/private',
-            '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
-            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer', '/users'
-            '/pages', '/root', '/uploads', '/includes', 'cgi-bin'
-        ]
-        
-        for endpoint in common_protected:
-            try:
-                url = self.target_url + endpoint
-                response = self.session.get(url, headers=browser_headers, timeout=5, allow_redirects=False)
-                if response.status_code in [401, 403]:
-                    self.discovered_forbidden_endpoint = url
-                    self.log_discovery("Setup", "Forbidden Endpoint Found", f"{endpoint} ({response.status_code})")
-                    return url
-            except:
-                continue
-        
-        # If no forbidden endpoint found
-        if not self.skip_forbidden_tests:
-            print("  ⚠️ No forbidden endpoint found - some bypass tests will be limited")
-            print("  💡 Tip: Use --forbidden-endpoint to specify one, or --skip-forbidden-tests to skip these tests")
-        
-        return None
-        def create_fingerprint_payloads(self):
-            """Create payloads to fingerprint unlimited layers in the chain"""
-            markers = self.generate_unique_markers()
-            
-            # Sistema di detection esteso per tutti i possibili layer
-            return {
-                # Layer 1: Edge/CDN Detection
-                'edge_cdn_detection': {
-                    'priority': 1,
-                    'headers': {
-                        'X-CDN-Test': markers['uuid'],
-                        'Cache-Control': 'no-cache, no-store, must-revalidate',
-                        'Pragma': 'no-cache',
-                        'X-Edge-Test': markers['sequence'],
-                        'CF-Connecting-IP': f'127.0.0.1',  # Test Cloudflare
-                        'X-Forwarded-Proto': 'https',
-                        'X-Original-URL': f'/test-{markers["uuid"]}'
-                    },
-                    'expected_responses': [
-                        'cloudflare', 'cloudfront', 'fastly', 'akamai', 'maxcdn',
-                        'keycdn', 'bunnycdn', 'stackpath', 'quantil'
-                    ],
-                    'detection_headers': [
-                        'cf-ray', 'x-amz-cf-id', 'x-served-by', 'x-cache',
-                        'x-edge-location', 'x-cdn-pop'
-                    ],
-                    'timing_analysis': True,
-                    'geo_routing_test': True
-                },
-
-                # Layer 2: DDoS Protection Detection  
-                'ddos_protection_detection': {
-                    'priority': 2,
-                    'headers': {
-                        'X-DDoS-Test': markers['uuid'],
-                        'User-Agent': f'SecurityTest-{markers["sequence"]}',
-                        'X-Rate-Limit-Test': markers['uuid']
-                    },
-                    'rate_limit_tests': {
-                        'burst_requests': 50,
-                        'time_window': 10,
-                        'escalation_pattern': [1, 5, 10, 25, 50]
-                    },
-                    'challenge_detection': [
-                        'cloudflare_challenge', 'incapsula_challenge', 'sucuri_firewall',
-                        'akamai_bot_manager', 'imperva_challenge'
-                    ],
-                    'js_challenge_markers': [markers['uuid']],
-                    'captcha_detection': True
-                },
-
-                # Layer 3: WAF Detection (Multi-vendor)
-                'waf_detection': {
-                    'priority': 3,
-                    'payloads': {
-                        'xss_tests': [
-                            f"/?xss=<script>alert('{markers['uuid']}')</script>",
-                            f"/?xss=javascript:alert('{markers['uuid']}')",
-                            f"/?xss=<img src=x onerror=alert('{markers['uuid']}')>",
-                            f"/?xss=<svg onload=alert('{markers['uuid']}')>"
-                        ],
-                        'sqli_tests': [
-                            f"/?sql=' OR 1=1 -- {markers['uuid']}",
-                            f"/?sql=' UNION SELECT '{markers['uuid']}' --",
-                            f"/?sql=1'; DROP TABLE users; -- {markers['uuid']}",
-                            f"/?sql=1' AND SLEEP(5) -- {markers['uuid']}"
-                        ],
-                        'lfi_tests': [
-                            f"/?file=../../../etc/passwd#{markers['uuid']}",
-                            f"/?file=....//....//....//etc/passwd#{markers['uuid']}",
-                            f"/?file=/etc/passwd%00{markers['uuid']}",
-                            f"/?file=php://filter/resource=index.php#{markers['uuid']}"
-                        ],
-                        'rce_tests': [
-                            f"/?cmd=id;echo {markers['uuid']}",
-                            f"/?cmd=`id`;echo {markers['uuid']}",
-                            f"/?cmd=$(id);echo {markers['uuid']}",
-                            f"/?cmd=|id;echo {markers['uuid']}"
-                        ],
-                        'xxe_tests': [
-                            f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test "{markers['uuid']}">]><root>&test;</root>""",
-                            f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "file:///etc/passwd">]><root>&test;{markers['uuid']}</root>"""
-                        ]
-                    },
-                    'waf_signatures': {
-                        'cloudflare': ['cf-ray', 'cloudflare', 'ray id'],
-                        'aws_waf': ['x-amzn-trace-id', 'x-amzn-requestid'],
-                        'akamai': ['akamai', 'ak-', 'x-akamai'],
-                        'imperva': ['incap_ses', 'visid_incap', 'imperva'],
-                        'f5_asm': ['f5-bigip', 'bigip', 'f5'],
-                        'barracuda': ['barra', 'cuda'],
-                        'sucuri': ['sucuri', 'x-sucuri'],
-                        'fortinet': ['fortigate', 'fortiweb'],
-                        'citrix': ['netscaler', 'citrix'],
-                        'modsecurity': ['mod_security', 'modsec']
-                    },
-                    'headers': {
-                        'User-Agent': f'Mozilla/5.0 (WAF-Test-{markers["uuid"]})',
-                        'X-WAF-Test': markers['uuid'],
-                        'X-Attack-Test': markers['sequence']
-                    }
-                },
-
-                # Layer 4: API Gateway Detection
-                'api_gateway_detection': {
-                    'priority': 4,
-                    'headers': {
-                        'X-API-Gateway-Test': markers['uuid'],
-                        'Authorization': f'Bearer test-{markers["sequence"]}',
-                        'X-API-Key': f'test-key-{markers["uuid"]}',
-                        'X-Client-ID': markers['uuid']
-                    },
-                    'api_tests': {
-                        'rate_limiting': {
-                            'requests_per_second': [1, 5, 10, 50, 100],
-                            'burst_patterns': [10, 20, 50, 100]
-                        },
-                        'auth_mechanisms': [
-                            'bearer_token', 'api_key', 'oauth2', 'jwt', 'basic_auth'
-                        ],
-                        'routing_tests': [
-                            f'/api/v1/test-{markers["uuid"]}',
-                            f'/api/v2/test-{markers["uuid"]}',
-                            f'/graphql?query={{test(id:"{markers["uuid"]}")}}',
-                            f'/rest/test/{markers["uuid"]}',
-                            f'/gateway/test/{markers["uuid"]}'
-                        ]
-                    },
-                    'gateway_signatures': {
-                        'kong': ['x-kong', 'kong-'],
-                        'zuul': ['x-zuul', 'zuul-'],
-                        'ambassador': ['x-ambassador'],
-                        'istio': ['x-envoy', 'istio-'],
-                        'aws_api_gateway': ['x-amzn-requestid', 'x-amz-apigw'],
-                        'azure_apim': ['x-ms-request-id', 'apim-'],
-                        'google_cloud': ['x-goog-', 'x-cloud-']
-                    },
-                    'response_analysis': {
-                        'json_structure': True,
-                        'error_formats': True,
-                        'cors_headers': True
-                    }
-                },
-
-                # Layer 5: Load Balancer Detection
-                'load_balancer_detection': {
-                    'priority': 5,
-                    'headers': {
-                        'X-LB-Test': markers['uuid'],
-                        'X-Session-Test': markers['sequence'],
-                        'Connection': 'keep-alive'
-                    },
-                    'lb_tests': {
-                        'session_persistence': {
-                            'cookie_tests': ['JSESSIONID', 'AWSALB', 'server-id'],
-                            'ip_hash_tests': True,
-                            'header_based_routing': ['X-User-Type', 'X-Version']
-                        },
-                        'health_checks': [
-                            f'/health?test={markers["uuid"]}',
-                            f'/lb-status?test={markers["uuid"]}',
-                            f'/haproxy?stats&test={markers["uuid"]}'
-                        ],
-                        'backend_detection': {
-                            'multiple_requests': 20,
-                            'response_variation_analysis': True,
-                            'server_header_analysis': True
-                        }
-                    },
-                    'lb_signatures': {
-                        'haproxy': ['haproxy', 'x-haproxy'],
-                        'nginx': ['nginx', 'x-nginx'],
-                        'aws_alb': ['awsalb', 'x-amzn-trace-id'],
-                        'f5_bigip': ['f5-bigip', 'bigip'],
-                        'citrix': ['netscaler', 'citrix'],
-                        'traefik': ['traefik', 'x-traefik']
-                    }
-                },
-
-                # Layer 6: Service Mesh Detection
-                'service_mesh_detection': {
-                    'priority': 6,
-                    'headers': {
-                        'X-Service-Mesh-Test': markers['uuid'],
-                        'X-Trace-Test': markers['sequence'],
-                        'X-B3-TraceId': markers['uuid'],
-                        'X-B3-SpanId': markers['sequence']
-                    },
-                    'mesh_tests': {
-                        'sidecar_detection': {
-                            'admin_endpoints': [
-                                f'/stats?test={markers["uuid"]}',
-                                f'/config_dump?test={markers["uuid"]}',
-                                f'/clusters?test={markers["uuid"]}',
-                                f'/server_info?test={markers["uuid"]}'
-                            ],
-                            'envoy_specific': True,
-                            'istio_specific': True
-                        },
-                        'mtls_detection': {
-                            'cert_headers': ['x-forwarded-client-cert'],
-                            'tls_version_tests': True
-                        },
-                        'traffic_policies': {
-                            'circuit_breaker_tests': True,
-                            'retry_policy_tests': True,
-                            'timeout_tests': [1, 5, 10, 30]
-                        }
-                    },
-                    'mesh_signatures': {
-                        'istio_envoy': ['x-envoy', 'istio', 'x-b3-'],
-                        'linkerd': ['l5d-', 'linkerd'],
-                        'consul_connect': ['x-consul'],
-                        'traefik_mesh': ['x-traefik']
-                    }
-                },
-
-                # Layer 7: Container Orchestration Detection
-                'container_detection': {
-                    'priority': 7,
-                    'headers': {
-                        'X-Container-Test': markers['uuid'],
-                        'X-K8s-Test': markers['sequence'],
-                        'X-Docker-Test': markers['uuid']
-                    },
-                    'container_tests': {
-                        'kubernetes': {
-                            'service_discovery': [
-                                'service.namespace.svc.cluster.local',
-                                'internal.service.discovery'
-                            ],
-                            'endpoints': [
-                                f'/metrics?test={markers["uuid"]}',
-                                f'/healthz?test={markers["uuid"]}',
-                                f'/readyz?test={markers["uuid"]}',
-                                f'/livez?test={markers["uuid"]}'
-                            ],
-                            'dns_patterns': ['.svc.cluster.local', '.internal']
-                        },
-                        'docker_swarm': {
-                            'service_discovery': ['tasks.service-name'],
-                            'overlay_networks': True
-                        },
-                        'ecs_fargate': {
-                            'task_metadata': [
-                                f'/v2/metadata?test={markers["uuid"]}',
-                                f'/v2/stats?test={markers["uuid"]}'
-                            ],
-                            'aws_specific': True
-                        }
-                    },
-                    'container_signatures': {
-                        'kubernetes': ['x-kubernetes', 'x-k8s', 'x-pod-name'],
-                        'docker': ['x-docker', 'x-container-id'],
-                        'ecs': ['x-ecs-task', 'x-amzn-trace-id'],
-                        'openshift': ['x-openshift']
-                    }
-                },
-
-                # Layer 8: Application Runtime Detection
-                # Layer 8: Application Runtime Detection (Enhanced)
-                'runtime_detection': {
-                    'priority': 8,
-                    'headers': {
-                        'X-Runtime-Test': markers['uuid'],
-                        'X-Framework-Test': markers['sequence'],
-                        'X-Language-Test': markers['timestamp'],
-                        'X-Version-Test': markers['random_id']
-                    },
-                    'runtime_tests': {
-                        'language_detection': {
-                            'java': [
-                                f'/actuator/health?test={markers["uuid"]}',
-                                f'/jolokia?test={markers["uuid"]}',
-                                f'/hawtio?test={markers["uuid"]}',
-                                f'/micrometer?test={markers["uuid"]}',
-                                f'/management/metrics?test={markers["uuid"]}',
-                                f'/jmx-console?test={markers["uuid"]}'
-                            ],
-                            'nodejs': [
-                                f'/debug?test={markers["uuid"]}',
-                                f'/status?test={markers["uuid"]}',
-                                f'/healthcheck?test={markers["uuid"]}',
-                                f'/.well-known/health?test={markers["uuid"]}',
-                                f'/metrics?test={markers["uuid"]}'
-                            ],
-                            'python': [
-                                f'/debug?test={markers["uuid"]}',
-                                f'/__debug__?test={markers["uuid"]}',
-                                f'/health?test={markers["uuid"]}',
-                                f'/metrics?test={markers["uuid"]}',
-                                f'/status?test={markers["uuid"]}'
-                            ],
-                            'dotnet': [
-                                f'/health?test={markers["uuid"]}',
-                                f'/info?test={markers["uuid"]}',
-                                f'/metrics?test={markers["uuid"]}',
-                                f'/swagger?test={markers["uuid"]}',
-                                f'/weatherforecast?test={markers["uuid"]}'  # Default ASP.NET template
-                            ],
-                            'php': [
-                                f'/phpinfo.php?test={markers["uuid"]}',
-                                f'/info.php?test={markers["uuid"]}',
-                                f'/status.php?test={markers["uuid"]}',
-                                f'/health.php?test={markers["uuid"]}',
-                                f'/server-status?test={markers["uuid"]}'
-                            ],
-                            'go': [
-                                f'/debug/pprof?test={markers["uuid"]}',
-                                f'/health?test={markers["uuid"]}',
-                                f'/metrics?test={markers["uuid"]}',
-                                f'/debug/vars?test={markers["uuid"]}',
-                                f'/healthz?test={markers["uuid"]}'
-                            ],
-                            'rust': [
-                                f'/health?test={markers["uuid"]}',
-                                f'/metrics?test={markers["uuid"]}',
-                                f'/debug?test={markers["uuid"]}',
-                                f'/status?test={markers["uuid"]}'
-                            ],
-                            'ruby': [
-                                f'/health?test={markers["uuid"]}',
-                                f'/status?test={markers["uuid"]}',
-                                f'/debug?test={markers["uuid"]}',
-                                f'/rails/info/routes?test={markers["uuid"]}'
-                            ],
-                            'scala': [
-                                f'/actuator/health?test={markers["uuid"]}',
-                                f'/healthcheck?test={markers["uuid"]}',
-                                f'/metrics?test={markers["uuid"]}',
-                                f'/management/health?test={markers["uuid"]}'
-                            ],
-                            'kotlin': [
-                                f'/actuator/health?test={markers["uuid"]}',
-                                f'/health?test={markers["uuid"]}',
-                                f'/metrics?test={markers["uuid"]}'
-                            ]
-                        },
-                        'framework_detection': {
-                            # Java Frameworks
-                            'spring_boot': [
-                                '/actuator/', '/management/', '/beans', '/configprops',
-                                '/actuator/env', '/actuator/metrics', '/actuator/loggers'
-                            ],
-                            'quarkus': [
-                                '/q/health/', '/q/metrics/', '/q/openapi/',
-                                '/q/health/live', '/q/health/ready', '/q/dev/'
-                            ],
-                            'micronaut': [
-                                '/health/', '/beans/', '/routes/', '/info/',
-                                '/metrics/', '/loggers/'
-                            ],
-                            'vertx': [
-                                '/eventbus/', '/health/', '/metrics/',
-                                '/sockjs/', '/vertx/'
-                            ],
-                            'dropwizard': [
-                                '/healthcheck', '/metrics', '/ping',
-                                '/threads', '/tasks'
-                            ],
-                            
-                            # JavaScript/Node.js Frameworks
-                            'express_js': [
-                                '/api/', '/debug/', '/status/',
-                                '/health/', '/metrics/'
-                            ],
-                            'nestjs': [
-                                '/health/', '/swagger/', '/metrics/',
-                                '/docs/', '/api/', '/graphql'
-                            ],
-                            'koa': ['/health/', '/status/', '/api/'],
-                            'fastify': [
-                                '/health/', '/metrics/', '/documentation/',
-                                '/swagger/', '/api/'
-                            ],
-                            'next_js': [
-                                '/_next/', '/api/', '/__next/',
-                                '/api/health', '/_next/static/'
-                            ],
-                            'nuxt': [
-                                '/_nuxt/', '/api/', '/.nuxt/',
-                                '/api/health'
-                            ],
-                            'meteor': [
-                                '/sockjs/', '/__meteor__/', '/api/',
-                                '/health/'
-                            ],
-                            
-                            # Python Frameworks
-                            'django': [
-                                '/__debug__/', '/admin/', '/api/',
-                                '/debug/', '/health/', '/static/admin/'
-                            ],
-                            'flask': [
-                                '/debug/', '/status/', '/health/',
-                                '/api/', '/metrics/'
-                            ],
-                            'fastapi': [
-                                '/docs/', '/openapi.json', '/health/',
-                                '/redoc/', '/api/', '/metrics/'
-                            ],
-                            'tornado': ['/health/', '/status/', '/api/'],
-                            'pyramid': ['/debug/', '/health/', '/api/'],
-                            'bottle': ['/debug/', '/status/', '/api/'],
-                            'cherrypy': ['/status/', '/health/', '/api/'],
-                            
-                            # .NET Frameworks
-                            'aspnet_core': [
-                                '/health/', '/swagger/', '/api/',
-                                '/weatherforecast', '/hubs/', '/metrics/'
-                            ],
-                            'aspnet_mvc': [
-                                '/health/', '/api/', '/trace.axd',
-                                '/elmah.axd'
-                            ],
-                            'blazor': [
-                                '/_blazor/', '/api/', '/health/',
-                                '/_framework/'
-                            ],
-                            
-                            # PHP Frameworks
-                            'laravel': [
-                                '/telescope/', '/horizon/', '/health/',
-                                '/api/', '/docs/', '/nova/'
-                            ],
-                            'symfony': [
-                                '/debug/', '/_wdt/', '/_profiler/',
-                                '/api/', '/health/', '/_error/'
-                            ],
-                            'codeigniter': [
-                                '/debug/', '/system/', '/api/',
-                                '/index.php/welcome/'
-                            ],
-                            'zend': ['/debug/', '/status/', '/api/'],
-                            'cakephp': [
-                                '/debug/', '/api/', '/health/',
-                                '/debug_kit/'
-                            ],
-                            
-                            # Go Frameworks
-                            'gin': [
-                                '/debug/pprof/', '/health/', '/metrics/',
-                                '/api/', '/ping'
-                            ],
-                            'echo': ['/health/', '/metrics/', '/api/'],
-                            'fiber': ['/health/', '/metrics/', '/api/'],
-                            'beego': [
-                                '/healthcheck/', '/task/', '/api/',
-                                '/swagger/'
-                            ],
-                            'buffalo': ['/health/', '/api/', '/debug/'],
-                            
-                            # Ruby Frameworks
-                            'rails': [
-                                '/rails/info/', '/health/', '/debug/',
-                                '/api/', '/cable/', '/rails/mailers/'
-                            ],
-                            'sinatra': ['/health/', '/status/', '/api/'],
-                            'grape': ['/api/', '/swagger/', '/health/'],
-                            
-                            # Rust Frameworks
-                            'actix_web': ['/health/', '/metrics/', '/api/'],
-                            'warp': ['/health/', '/metrics/', '/api/'],
-                            'rocket': ['/health/', '/metrics/', '/api/'],
-                            'axum': ['/health/', '/metrics/', '/api/'],
-                            
-                            # Scala Frameworks
-                            'play': [
-                                '/health/', '/metrics/', '/api/',
-                                '/assets/', '/docs/'
-                            ],
-                            'akka_http': [
-                                '/health/', '/metrics/', '/api/',
-                                '/system/'
-                            ]
-                        },
-                        'runtime_version_detection': {
-                            'version_endpoints': [
-                                '/version', '/v1/version', '/api/version',
-                                '/build-info', '/info', '/about',
-                                '/actuator/info', '/management/info',
-                                '/api/v1/version', '/.well-known/version'
-                            ],
-                            'build_info_endpoints': [
-                                '/build', '/build-info', '/actuator/info',
-                                '/api/build', '/version.json', '/manifest.json'
-                            ]
-                        },
-                        'runtime_specific_paths': {
-                            'java_specific': [
-                                '/WEB-INF/', '/META-INF/', '/classes/',
-                                '/lib/', '/resources/', '/static/'
-                            ],
-                            'nodejs_specific': [
-                                '/node_modules/', '/public/', '/dist/',
-                                '/build/', '/assets/'
-                            ],
-                            'python_specific': [
-                                '/__pycache__/', '/static/', '/media/',
-                                '/templates/', '/locale/'
-                            ],
-                            'php_specific': [
-                                '/vendor/', '/public/', '/storage/',
-                                '/bootstrap/', '/config/'
-                            ],
-                            'dotnet_specific': [
-                                '/bin/', '/obj/', '/wwwroot/',
-                                '/Views/', '/Controllers/'
-                            ]
-                        },
-                        'error_page_fingerprinting': {
-                            'test_paths': [
-                                '/nonexistent-page-404',
-                                '/error-test-500',
-                                '/forbidden-403',
-                                '/method-not-allowed-405'
-                            ],
-                            'framework_error_signatures': {
-                                'spring_boot': ['Whitelabel Error Page', 'Spring Boot', 'org.springframework'],
-                                'django': ['DisallowedHost', 'Django', 'django.core'],
-                                'flask': ['werkzeug', 'Flask', 'Werkzeug Debugger'],
-                                'express': ['Cannot GET', 'Express', 'express'],
-                                'laravel': ['Illuminate\\', 'Laravel', 'Whoops'],
-                                'asp_net': ['ASP.NET', 'System.Web', 'Server Error'],
-                                'rails': ['ActionController', 'Rails', 'We\'re sorry'],
-                                'fastapi': ['FastAPI', 'detail', 'Swagger UI'],
-                                'gin': ['404 page not found', 'gin-gonic'],
-                                'actix': ['actix-web', 'Not Found']
-                            }
-                        }
-                    },
-                    'runtime_signatures': {
-                        'java': [
-                            'java', 'jvm', 'spring', 'tomcat', 'jetty', 'undertow',
-                            'quarkus', 'micronaut', 'vertx', 'dropwizard'
-                        ],
-                        'nodejs': [
-                            'node', 'express', 'v8', 'npm', 'yarn', 'nestjs',
-                            'next', 'nuxt', 'meteor', 'socket.io'
-                        ],
-                        'python': [
-                            'python', 'django', 'flask', 'wsgi', 'fastapi',
-                            'gunicorn', 'uvicorn', 'tornado', 'pyramid', 'bottle'
-                        ],
-                        'dotnet': [
-                            'asp.net', 'iis', '.net', 'kestrel', 'blazor',
-                            'signalr', 'entity-framework'
-                        ],
-                        'php': [
-                            'php', 'apache', 'nginx-php', 'laravel', 'symfony',
-                            'codeigniter', 'zend', 'cakephp'
-                        ],
-                        'go': [
-                            'go', 'golang', 'gin', 'echo', 'fiber',
-                            'beego', 'buffalo', 'gorilla'
-                        ],
-                        'rust': [
-                            'rust', 'cargo', 'actix', 'warp', 'rocket',
-                            'axum', 'hyper'
-                        ],
-                        'ruby': [
-                            'ruby', 'rails', 'sinatra', 'puma', 'unicorn',
-                            'grape', 'roda'
-                        ],
-                        'scala': [
-                            'scala', 'akka', 'play', 'sbt', 'finatra',
-                            'http4s'
-                        ],
-                        'kotlin': [
-                            'kotlin', 'ktor', 'spring-kotlin', 'exposed'
-                        ],
-                        'clojure': [
-                            'clojure', 'ring', 'compojure', 'leiningen',
-                            'pedestal'
-                        ]
-                    },
-                    'response_analysis': {
-                        'header_patterns': [
-                            'Server', 'X-Powered-By', 'X-AspNet-Version',
-                            'X-Runtime', 'X-Version', 'X-Framework',
-                            'X-Generator', 'X-Drupal-Cache', 'X-Pingback'
-                        ],
-                        'content_analysis': {
-                            'meta_tags': ['generator', 'framework', 'powered-by'],
-                            'script_sources': ['jquery', 'bootstrap', 'react', 'vue', 'angular'],
-                            'css_frameworks': ['bootstrap', 'tailwind', 'bulma', 'material-ui']
-                        },
-                        'timing_analysis': {
-                            'cold_start_detection': True,
-                            'response_time_profiling': True,
-                            'jit_compilation_detection': True
-                        }
-                    }
-                },
-
-                # Layer 9: Database/Storage Detection (Enhanced)
-                'database_detection': {
-                    'priority': 9,
-                    'headers': {
-                        'X-Database-Test': markers['uuid'],
-                        'X-Storage-Test': markers['sequence'],
-                        'X-Cache-Test': markers['timestamp'],
-                        'X-Analytics-Test': markers['random_id']
-                    },
-                    'db_tests': {
-                        'relational_databases': {
-                            'postgresql': [
-                                f'/pg_stat_activity?test={markers["uuid"]}',
-                                f'/pg_stat_database?test={markers["uuid"]}',
-                                f'/pg_isready?test={markers["uuid"]}',
-                                f'/postgres/health?test={markers["uuid"]}'
-                            ],
-                            'mysql': [
-                                f'/mysql/status?test={markers["uuid"]}',
-                                f'/mysql/variables?test={markers["uuid"]}',
-                                f'/mysql/health?test={markers["uuid"]}',
-                                f'/phpmyadmin?test={markers["uuid"]}'
-                            ],
-                            'mariadb': [
-                                f'/mariadb/status?test={markers["uuid"]}',
-                                f'/mariadb/health?test={markers["uuid"]}'
-                            ],
-                            'oracle': [
-                                f'/oracle/health?test={markers["uuid"]}',
-                                f'/em/console?test={markers["uuid"]}',
-                                f'/apex?test={markers["uuid"]}'
-                            ],
-                            'mssql': [
-                                f'/mssql/health?test={markers["uuid"]}',
-                                f'/sql/health?test={markers["uuid"]}'
-                            ],
-                            'sqlite': [
-                                f'/sqlite/health?test={markers["uuid"]}',
-                                f'/db.sqlite3?test={markers["uuid"]}'
-                            ]
-                        },
-                        'nosql_databases': {
-                            'mongodb': [
-                                f'/mongo/status?test={markers["uuid"]}',
-                                f'/mongo/health?test={markers["uuid"]}',
-                                f'/admin/buildinfo?test={markers["uuid"]}',
-                                f'/mongoexpress?test={markers["uuid"]}'
-                            ],
-                            'cassandra': [
-                                f'/cassandra/health?test={markers["uuid"]}',
-                                f'/cassandra/status?test={markers["uuid"]}',
-                                f'/jolokia/read/org.apache.cassandra.metrics?test={markers["uuid"]}'
-                            ],
-                            'couchdb': [
-                                f'/couchdb/_up?test={markers["uuid"]}',
-                                f'/couchdb/_utils?test={markers["uuid"]}',
-                                f'/_up?test={markers["uuid"]}'
-                            ],
-                            'dynamodb': [
-                                f'/dynamodb/health?test={markers["uuid"]}',
-                                f'/dynamodb-local?test={markers["uuid"]}'
-                            ],
-                            'neo4j': [
-                                f'/db/data?test={markers["uuid"]}',
-                                f'/browser?test={markers["uuid"]}',
-                                f'/neo4j/health?test={markers["uuid"]}'
-                            ]
-                        },
-                        'database_proxies': [
-                            f'/db-status?test={markers["uuid"]}',
-                            f'/pgbouncer?test={markers["uuid"]}',
-                            f'/pgpool?test={markers["uuid"]}',
-                            f'/mysql-proxy?test={markers["uuid"]}',
-                            f'/proxysql?test={markers["uuid"]}',
-                            f'/haproxy/stats?test={markers["uuid"]}',
-                            f'/pgcat?test={markers["uuid"]}'
-                        ],
-                        'cache_layers': {
-                            'redis': [
-                                f'/redis/info?test={markers["uuid"]}',
-                                f'/redis/ping?test={markers["uuid"]}',
-                                f'/redis/health?test={markers["uuid"]}',
-                                f'/redis-commander?test={markers["uuid"]}',
-                                f'/redisinsight?test={markers["uuid"]}'
-                            ],
-                            'memcached': [
-                                f'/memcached/stats?test={markers["uuid"]}',
-                                f'/memcached/health?test={markers["uuid"]}'
-                            ],
-                            'hazelcast': [
-                                f'/hazelcast/health?test={markers["uuid"]}',
-                                f'/hazelcast/cluster?test={markers["uuid"]}'
-                            ],
-                            'ehcache': [
-                                f'/ehcache/statistics?test={markers["uuid"]}',
-                                f'/ehcache/health?test={markers["uuid"]}'
-                            ]
-                        },
-                        'search_engines': {
-                            'elasticsearch': [
-                                f'/_cluster/health?test={markers["uuid"]}',
-                                f'/_cat/health?test={markers["uuid"]}',
-                                f'/_cat/nodes?test={markers["uuid"]}',
-                                f'/elasticsearch/health?test={markers["uuid"]}',
-                                f'/_plugin/head?test={markers["uuid"]}'
-                            ],
-                            'opensearch': [
-                                f'/_cluster/health?test={markers["uuid"]}',
-                                f'/_cat/health?test={markers["uuid"]}',
-                                f'/_dashboards?test={markers["uuid"]}'
-                            ],
-                            'solr': [
-                                f'/solr/admin/cores?test={markers["uuid"]}',
-                                f'/solr/admin/info/system?test={markers["uuid"]}',
-                                f'/solr/#/?test={markers["uuid"]}'
-                            ],
-                            'sphinx': [
-                                f'/sphinx/status?test={markers["uuid"]}',
-                                f'/sphinx/health?test={markers["uuid"]}'
-                            ]
-                        },
-                        'message_queues': {
-                            'rabbitmq': [
-                                f'/rabbitmq/api/overview?test={markers["uuid"]}',
-                                f'/rabbitmq/#/?test={markers["uuid"]}',
-                                f'/api/overview?test={markers["uuid"]}'
-                            ],
-                            'kafka': [
-                                f'/kafka/health?test={markers["uuid"]}',
-                                f'/kafka/topics?test={markers["uuid"]}',
-                                f'/kafka-ui?test={markers["uuid"]}'
-                            ],
-                            'activemq': [
-                                f'/admin?test={markers["uuid"]}',
-                                f'/activemq/admin?test={markers["uuid"]}'
-                            ],
-                            'nats': [
-                                f'/varz?test={markers["uuid"]}',
-                                f'/connz?test={markers["uuid"]}',
-                                f'/routez?test={markers["uuid"]}'
-                            ],
-                            'pulsar': [
-                                f'/admin/v2/brokers/health?test={markers["uuid"]}',
-                                f'/pulsar-manager?test={markers["uuid"]}'
-                            ]
-                        },
-                        'storage_apis': {
-                            's3_compatible': [
-                                f'/api/storage?test={markers["uuid"]}',
-                                f'/s3-status?test={markers["uuid"]}',
-                                f'/minio/health/live?test={markers["uuid"]}',
-                                f'/minio/health/ready?test={markers["uuid"]}',
-                                f'/.well-known/s3?test={markers["uuid"]}'
-                            ],
-                            'azure_storage': [
-                                f'/blob-storage?test={markers["uuid"]}',
-                                f'/azure/storage/health?test={markers["uuid"]}'
-                            ],
-                            'gcs': [
-                                f'/gcs/health?test={markers["uuid"]}',
-                                f'/storage/v1?test={markers["uuid"]}'
-                            ],
-                            'hdfs': [
-                                f'/webhdfs/v1?test={markers["uuid"]}',
-                                f'/dfshealth.html?test={markers["uuid"]}'
-                            ]
-                        },
-                        'analytics_databases': {
-                            'clickhouse': [
-                                f'/ping?test={markers["uuid"]}',
-                                f'/?query=SELECT%201?test={markers["uuid"]}',
-                                f'/play?test={markers["uuid"]}'
-                            ],
-                            'influxdb': [
-                                f'/ping?test={markers["uuid"]}',
-                                f'/health?test={markers["uuid"]}',
-                                f'/query?test={markers["uuid"]}'
-                            ],
-                            'prometheus': [
-                                f'/-/healthy?test={markers["uuid"]}',
-                                f'/-/ready?test={markers["uuid"]}',
-                                f'/api/v1/status/config?test={markers["uuid"]}'
-                            ],
-                            'grafana': [
-                                f'/api/health?test={markers["uuid"]}',
-                                f'/login?test={markers["uuid"]}',
-                                f'/public/build?test={markers["uuid"]}'
-                            ]
-                        },
-                        'time_series_databases': {
-                            'influxdb': [
-                                f'/ping?test={markers["uuid"]}',
-                                f'/health?test={markers["uuid"]}'
-                            ],
-                            'timescaledb': [
-                                f'/timescale/health?test={markers["uuid"]}'
-                            ],
-                            'victoriametrics': [
-                                f'/health?test={markers["uuid"]}',
-                                f'/-/healthy?test={markers["uuid"]}'
-                            ]
-                        },
-                        'admin_interfaces': {
-                            'phpmyadmin': [
-                                f'/phpmyadmin?test={markers["uuid"]}',
-                                f'/pma?test={markers["uuid"]}',
-                                f'/phpMyAdmin?test={markers["uuid"]}'
-                            ],
-                            'adminer': [
-                                f'/adminer.php?test={markers["uuid"]}',
-                                f'/adminer?test={markers["uuid"]}'
-                            ],
-                            'pgadmin': [
-                                f'/pgadmin?test={markers["uuid"]}',
-                                f'/pgadmin4?test={markers["uuid"]}'
-                            ],
-                            'mongo_express': [
-                                f'/mongo-express?test={markers["uuid"]}',
-                                f'/mongoexpress?test={markers["uuid"]}'
-                            ]
-                        }
-                    },
-                    'db_signatures': {
-                        'postgresql': ['postgresql', 'postgres', 'pgbouncer', 'pgpool', 'pg_', 'psql'],
-                        'mysql': ['mysql', 'mariadb', 'percona', 'mysql-connector'],
-                        'oracle': ['oracle', 'ora_', 'sqlplus', 'tnsnames'],
-                        'mssql': ['sqlserver', 'mssql', 'sql-server', 'microsoft-sql'],
-                        'sqlite': ['sqlite', 'sqlite3'],
-                        
-                        'mongodb': ['mongodb', 'mongo', 'bson', 'mongoose'],
-                        'cassandra': ['cassandra', 'datastax', 'cql'],
-                        'couchdb': ['couchdb', 'couch', '_design'],
-                        'dynamodb': ['dynamodb', 'dynamo', 'aws-dynamodb'],
-                        'neo4j': ['neo4j', 'cypher', 'graph-db'],
-                        
-                        'redis': ['redis', 'x-redis', 'redis-cli', 'redis-server'],
-                        'memcached': ['memcached', 'x-memcached', 'memcache'],
-                        'hazelcast': ['hazelcast', 'hz', 'imap'],
-                        'ehcache': ['ehcache', 'terracotta'],
-                        
-                        'elasticsearch': ['elasticsearch', 'elastic', 'lucene', 'kibana'],
-                        'opensearch': ['opensearch', 'opensearch-dashboards'],
-                        'solr': ['solr', 'lucene', 'solrcloud'],
-                        'sphinx': ['sphinx', 'sphinxsearch'],
-                        
-                        'rabbitmq': ['rabbitmq', 'amqp', 'erlang'],
-                        'kafka': ['kafka', 'zookeeper', 'confluent'],
-                        'activemq': ['activemq', 'artemis', 'jms'],
-                        'nats': ['nats', 'nats-streaming'],
-                        'pulsar': ['pulsar', 'bookkeeper'],
-                        
-                        's3_compatible': ['s3', 'minio', 'ceph', 'aws-s3'],
-                        'azure_storage': ['azure-storage', 'blob-storage'],
-                        'gcs': ['google-cloud-storage', 'gcs'],
-                        'hdfs': ['hdfs', 'hadoop'],
-                        
-                        'clickhouse': ['clickhouse', 'ch'],
-                        'influxdb': ['influxdb', 'influx', 'flux'],
-                        'prometheus': ['prometheus', 'prom'],
-                        'grafana': ['grafana'],
-                        'victoriametrics': ['victoriametrics', 'vm']
-                    },
-                    'connection_pool_detection': {
-                        'java_pools': [
-                            'hikaricp', 'c3p0', 'dbcp', 'tomcat-jdbc',
-                            'connection-pool', 'datasource'
-                        ],
-                        'nodejs_pools': [
-                            'pg-pool', 'mysql-pool', 'connection-pool',
-                            'knex', 'sequelize', 'typeorm'
-                        ],
-                        'python_pools': [
-                            'psycopg2-pool', 'sqlalchemy-pool', 'pymongo-pool',
-                            'connection-pool'
-                        ],
-                        'dotnet_pools': [
-                            'connection-string', 'entity-framework', 'ado.net',
-                            'npgsql', 'mysql-connector'
-                        ]
-                    },
-                    'database_monitoring': {
-                        'health_endpoints': [
-                            '/db/health', '/database/status', '/db/ping',
-                            '/health/db', '/ready/db', '/live/db'
-                        ],
-                        'metrics_endpoints': [
-                            '/db/metrics', '/database/metrics', '/db/stats',
-                            '/metrics/database', '/prometheus/db'
-                        ],
-                        'performance_endpoints': [
-                            '/db/performance', '/database/slow-queries',
-                            '/db/explain', '/database/locks'
-                        ]
-                    },
-                    'orm_detection': {
-                        'java_orms': ['hibernate', 'jpa', 'mybatis', 'jooq'],
-                        'nodejs_orms': ['sequelize', 'typeorm', 'prisma', 'knex'],
-                        'python_orms': ['django-orm', 'sqlalchemy', 'peewee', 'tortoise'],
-                        'dotnet_orms': ['entity-framework', 'dapper', 'nhibernate'],
-                        'php_orms': ['eloquent', 'doctrine', 'propel'],
-                        'ruby_orms': ['active-record', 'sequel', 'datamapper']
-                    }
-                },
-
-                # Layer 10: Serverless/Function Detection
-                'serverless_detection': {
-                    'priority': 10,
-                    'headers': {
-                        'X-Serverless-Test': markers['uuid'],
-                        'X-Function-Test': markers['sequence']
-                    },
-                    'serverless_tests': {
-                        'cold_start_analysis': {
-                            'timing_tests': True,
-                            'initialization_detection': True
-                        },
-                        'execution_context': {
-                            'memory_limits': True,
-                            'timeout_detection': True,
-                            'concurrent_execution': True
-                        },
-                        'event_sources': [
-                            'api_gateway', 'sqs', 's3', 'dynamodb', 'eventbridge'
-                        ]
-                    },
-                    'serverless_signatures': {
-                        'aws_lambda': ['x-amzn-requestid', 'lambda'],
-                        'azure_functions': ['x-ms-invocation-id'],
-                        'google_functions': ['function-execution-id'],
-                        'vercel': ['x-vercel-'],
-                        'netlify': ['x-nf-']
-                    }
-                },
-
-                # Sistema di analisi dinamica per layer aggiuntivi
-                'dynamic_layer_detection': {
-                    'priority': 99,
-                    'adaptive_testing': True,
-                    'layer_chaining_analysis': True,
-                    'response_correlation': True,
-                    'timing_fingerprinting': True,
-                    'behavioral_analysis': True,
-                    'unknown_component_detection': {
-                        'header_pattern_analysis': True,
-                        'response_pattern_analysis': True,
-                        'timing_pattern_analysis': True,
-                        'error_pattern_analysis': True
-                    }
-                }
-            }
-
-    # def create_fingerprint_payloads(self):
-    #     """Create payloads to fingerprint each layer in the chain"""
-    #     markers = self.generate_unique_markers()
-        
-    #     return {
-    #         'cdn_detection': {
-    #             'headers': {
-    #                 'X-CDN-Test': markers['uuid'],
-    #                 'Cache-Control': 'no-cache',
-    #                 'Pragma': 'no-cache'
-    #             },
-    #             'expected_responses': ['cloudflare', 'cloudfront', 'fastly', 'akamai']
-    #         },
-            
-    #         'waf_detection': {
-    #             'payloads': [
-    #                 f"/?test=<script>alert('{markers['uuid']}')</script>",
-    #                 f"/?test=' OR 1=1 -- {markers['uuid']}",
-    #                 f"/?test=../../../etc/passwd#{markers['uuid']}"
-    #             ],
-    #             'headers': {'User-Agent': f'Mozilla/5.0 (test-{markers["uuid"]})'}
-    #         },
-            
-    #         'proxy_detection': {
-    #             'headers': {
-    #                 'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
-    #                 'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
-    #                 'X-Proxy-Test': markers['uuid']
-    #             }
-    #         },
-            
-    #         'backend_detection': {
-    #             'paths': [
-    #                 f'/server-info?test={markers["uuid"]}',
-    #                 f'/server-status?test={markers["uuid"]}',
-    #                 f'/.env?test={markers["uuid"]}',
-    #                 f'/phpinfo.php?test={markers["uuid"]}'
-    #             ]
-    #         }
-    #     }
-
     async def protocol_discovery(self):
         """Discover supported protocols"""
         print("\n🔍 Phase 1: Protocol Discovery")
@@ -3131,6 +3150,7 @@ class ApplicationTraceroute:
                 self.log_discovery("Protocol", "WebSocket", "Upgrade supported")
         except:
             pass
+
     def infrastructure_fingerprinting(self):
         """Fingerprint complete infrastructure stack - All 10+ Layers"""
         print("\n🔍 Phase 2: Complete Infrastructure Fingerprinting")
