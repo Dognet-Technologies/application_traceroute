@@ -2656,46 +2656,6 @@ class ApplicationTraceroute:
             }
         }
 
-    # def create_fingerprint_payloads(self):
-    #     """Create payloads to fingerprint each layer in the chain"""
-    #     markers = self.generate_unique_markers()
-        
-    #     return {
-    #         'cdn_detection': {
-    #             'headers': {
-    #                 'X-CDN-Test': markers['uuid'],
-    #                 'Cache-Control': 'no-cache',
-    #                 'Pragma': 'no-cache'
-    #             },
-    #             'expected_responses': ['cloudflare', 'cloudfront', 'fastly', 'akamai']
-    #         },
-            
-    #         'waf_detection': {
-    #             'payloads': [
-    #                 f"/?test=<script>alert('{markers['uuid']}')</script>",
-    #                 f"/?test=' OR 1=1 -- {markers['uuid']}",
-    #                 f"/?test=../../../etc/passwd#{markers['uuid']}"
-    #             ],
-    #             'headers': {'User-Agent': f'Mozilla/5.0 (test-{markers["uuid"]})'}
-    #         },
-            
-    #         'proxy_detection': {
-    #             'headers': {
-    #                 'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
-    #                 'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
-    #                 'X-Proxy-Test': markers['uuid']
-    #             }
-    #         },
-            
-    #         'backend_detection': {
-    #             'paths': [
-    #                 f'/server-info?test={markers["uuid"]}',
-    #                 f'/server-status?test={markers["uuid"]}',
-    #                 f'/.env?test={markers["uuid"]}',
-    #                 f'/phpinfo.php?test={markers["uuid"]}'
-    #             ]
-    #         }
-    #     }
     def waf_fingerprinting_extended(self, waf_payloads):
         """Advanced WAF fingerprinting - EXTENDED VERSION"""
         print("  🛡️ WAF Detection...")
@@ -3230,51 +3190,6 @@ class ApplicationTraceroute:
         print("  [-] Layer 11: Backend Detection")
         self.backend_fingerprinting_extended(fingerprints['backend_detection'])
 
-    # def infrastructure_fingerprinting(self):
-    #     """Fingerprint infrastructure components"""
-    #     print("\n🔍 Phase 2: Infrastructure Fingerprinting")
-        
-    #     fingerprints = self.create_fingerprint_payloads()
-        
-    #     # CDN Detection
-    #     try:
-    #         response = self.session.get(self.target_url, headers=fingerprints['cdn_detection']['headers'])
-            
-    #         # Analyze response headers for CDN signatures
-    #         cdn_indicators = {
-    #             'cloudflare': ['cf-ray', 'cf-cache-status', 'server.*cloudflare'],
-    #             'cloudfront': ['x-amz-cf', 'x-cache.*cloudfront'],
-    #             'fastly': ['fastly-debug', 'x-served-by.*fastly'],
-    #             'akamai': ['akamai-origin-hop', 'x-akamai'],
-    #             'incapsula': ['x-iinfo', 'incap_ses'],
-    #             'sucuri': ['x-sucuri', 'server.*sucuri']
-    #         }
-            
-    #         detected_cdn = None
-    #         for cdn, indicators in cdn_indicators.items():
-    #             for indicator in indicators:
-    #                 for header, value in response.headers.items():
-    #                     if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
-    #                         detected_cdn = cdn
-    #                         break
-    #             if detected_cdn:
-    #                 break
-            
-    #         if detected_cdn:
-    #             self.log_discovery("CDN", "Detection", detected_cdn)
-    #             self.chain_map['layers'].append(f"CDN-{detected_cdn}")
-            
-    #     except Exception as e:
-    #         self.log_discovery("CDN", "Error", str(e))
-        
-    #     # WAF Detection
-    #     self.waf_fingerprinting(fingerprints['waf_detection'])
-        
-    #     # Proxy Detection  
-    #     self.proxy_fingerprinting(fingerprints['proxy_detection'])
-        
-    #     # Backend Detection
-    #     self.backend_fingerprinting(fingerprints['backend_detection'])
 
     def _detect_stack_type(self, endpoint: str) -> Optional[str]:
         """Detect the stack type for a given endpoint"""
