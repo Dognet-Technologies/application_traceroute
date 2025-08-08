@@ -1887,7 +1887,7 @@ class ApplicationTraceroute:
                     f'/phpinfo.php?test={markers["uuid"]}'
                 ]
             },
-            
+
             # Layer 6: Service Mesh Detection
             'service_mesh_detection': {
                 'priority': 6,
@@ -3190,40 +3190,43 @@ class ApplicationTraceroute:
             self.log_discovery("CDN", "Error", str(e))
 
         # Layer 2: WAF Detection (Using your existing function - EXTENDED)
+        print("  [-] Layer 2: WAF Detection")
         self.waf_fingerprinting_extended(fingerprints['waf_detection'])
         
         # Layer 3: Load Balancer Detection (NEW)
-        print("  ⚖️ Layer 3: Load Balancer Detection")
+        print("  [-] Layer 3: Load Balancer Detection")
         self.load_balancer_fingerprinting(fingerprints['load_balancer_detection'])
         
         # Layer 4: Proxy Detection (Using your existing function - EXTENDED)
+        print("  [-] Layer 4: Proxy Detection")
         self.proxy_fingerprinting_extended(fingerprints['proxy_detection'])
         
         # Layer 5: API Gateway Detection (NEW)
-        print("  🚪 Layer 5: API Gateway Detection")
+        print("  [-] Layer 5: API Gateway Detection")
         self.api_gateway_fingerprinting(fingerprints['api_gateway_detection'])
         
         # Layer 6: Service Mesh Detection (NEW)
-        print("  🕸️ Layer 6: Service Mesh Detection")
+        print("  [-] Layer 6: Service Mesh Detection")
         self.service_mesh_fingerprinting(fingerprints['service_mesh_detection'])
         
         # Layer 7: Container Detection (NEW)
-        print("  📦 Layer 7: Container Orchestration Detection")
+        print("  [-] Layer 7: Container Orchestration Detection")
         self.container_fingerprinting(fingerprints['container_detection'])
         
         # Layer 8: Runtime Detection (NEW)
-        print("  🚀 Layer 8: Application Runtime Detection")
+        print("  [-] Layer 8: Application Runtime Detection")
         self.runtime_fingerprinting(fingerprints['runtime_detection'])
         
         # Layer 9: Database Detection (NEW)
-        print("  💾 Layer 9: Database/Storage Detection")
+        print("  [-] Layer 9: Database/Storage Detection")
         self.database_fingerprinting(fingerprints['database_detection'])
         
         # Layer 10: Serverless Detection (NEW)
-        print("  ☁️ Layer 10: Serverless/Function Detection")
+        print("  [-] Layer 10: Serverless/Function Detection")
         self.serverless_fingerprinting(fingerprints['serverless_detection'])
         
         # Layer 11: Backend Detection (Using your existing function - EXTENDED)
+        print("  [-] Layer 11: Backend Detection")
         self.backend_fingerprinting_extended(fingerprints['backend_detection'])
 
     # def infrastructure_fingerprinting(self):
@@ -5251,8 +5254,8 @@ def main():
     parser.add_argument('--skip-forbidden-tests', action='store_true', help='Skip tests requiring forbidden endpoint')
     
     args = parser.parse_args()
-    
-    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION")
+    print("\n")
+    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION 2.3.c")
     print("🎯 Next-Generation Infrastructure Analysis with Advanced Bypass Techniques")
     print("=" * 70)
     
