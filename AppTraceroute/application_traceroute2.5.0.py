@@ -5175,7 +5175,7 @@ def main():
     
     args = parser.parse_args()
     print("\n")
-    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION 2.3.c")
+    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION 2.5.0")
     print("🎯 Next-Generation Infrastructure Analysis with Advanced Bypass Techniques")
     print("=" * 70)
     
