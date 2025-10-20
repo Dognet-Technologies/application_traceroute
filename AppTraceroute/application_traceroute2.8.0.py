@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Application Stack Traceroute & Bypass Generator
-Next-Generation WAF/Proxy/Backend Chain Analysis Tool
+Next-Generation Chain Analysis Tool
 
 Innovative Features:
 - Maps complete request processing chain (WAF->CDN->Proxy->Backend)
@@ -51,7 +51,7 @@ warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
 
 class ServiceDiscoveryEnhanced:
-    def __init__(self):
+     def __init__(self):
         self.discovered_services = set()
         self.service_tree = {}
         self.behavioral_cache = {}
@@ -122,517 +122,517 @@ class ServiceDiscoveryEnhanced:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
         
-        # Advanced detection patterns
-        # Miglioramenti per service_signatures mantenendo la struttura originale
+    #     # Advanced detection patterns
+    #     # Miglioramenti per service_signatures mantenendo la struttura originale
 
-        self.service_signatures = {
-            'microservice': {
-                'headers': [
-                    'x-service-name', 'x-microservice', 'x-service-id', 'x-service-version',
-                    'x-app-name', 'x-component', 'x-instance-id', 'service-name',
-                    'x-correlation-id', 'x-trace-id', 'x-span-id'
-                ],
-                'paths': [
-                    '/health', '/actuator/health', '/actuator/info', '/actuator/metrics',
-                    '/metrics', '/status', '/ping', '/ready', '/live', '/healthz',
-                    '/info', '/version', '/build-info', '/api/health', '/monitoring/health'
-                ],
-                'response_patterns': [
-                    r'service.*running', r'microservice', r'api.*version', r'spring.*boot',
-                    r'application.*name', r'build.*version', r'commit.*hash', r'instance.*id',
-                    r'uptime', r'status.*up', r'healthy', r'node.*js', r'express.*js'
-                ]
-            },
+    #     self.service_signatures = {
+    #         'microservice': {
+    #             'headers': [
+    #                 'x-service-name', 'x-microservice', 'x-service-id', 'x-service-version',
+    #                 'x-app-name', 'x-component', 'x-instance-id', 'service-name',
+    #                 'x-correlation-id', 'x-trace-id', 'x-span-id'
+    #             ],
+    #             'paths': [
+    #                 '/health', '/actuator/health', '/actuator/info', '/actuator/metrics',
+    #                 '/metrics', '/status', '/ping', '/ready', '/live', '/healthz',
+    #                 '/info', '/version', '/build-info', '/api/health', '/monitoring/health'
+    #             ],
+    #             'response_patterns': [
+    #                 r'service.*running', r'microservice', r'api.*version', r'spring.*boot',
+    #                 r'application.*name', r'build.*version', r'commit.*hash', r'instance.*id',
+    #                 r'uptime', r'status.*up', r'healthy', r'node.*js', r'express.*js'
+    #             ]
+    #         },
             
-            'api-gateway': {
-                'headers': [
-                    'x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul', 'x-ambassador',
-                    'x-tyk-gateway', 'x-apigateway', 'gateway-version', 'x-gateway-version',
-                    'x-apigee', 'x-mashery', 'x-amazon-apigateway', 'x-azure-apim',
-                    'x-gravitee', 'x-wso2'
-                ],
-                'behavioral': {
-                    'rate_limiting': {
-                        'headers': ['x-ratelimit', 'x-rate-limit', 'retry-after', 'x-ratelimit-remaining',
-                                  'x-ratelimit-reset', 'x-rate-limit-limit', 'x-throttle'],
-                        'response_codes': [429, 503],
-                        'response_patterns': [r'rate.*limit.*exceeded', r'too.*many.*requests', 
-                                            r'quota.*exceeded', r'throttled']
-                    },
-                    'request_id_propagation': {
-                        'headers': ['x-request-id', 'x-correlation-id', 'x-trace-id', 'request-id',
-                                  'x-amzn-requestid', 'x-ms-request-id', 'x-goog-request-id']
-                    },
-                    'cors_handling': {
-                        'headers': ['access-control-allow-origin', 'access-control-allow-methods',
-                                  'access-control-allow-headers', 'access-control-expose-headers'],
-                        'preflight_support': True
-                    },
-                    'auth_delegation': {
-                        'headers': ['www-authenticate', 'authorization', 'x-auth-token',
-                                  'x-api-key', 'x-client-id'],
-                        'oauth_patterns': [r'bearer.*token', r'oauth.*', r'jwt.*']
-                    },
-                    'response_transformation': True,
-                    'request_routing': True,
-                    'circuit_breaker': {
-                        'response_patterns': [r'circuit.*breaker.*open', r'service.*unavailable',
-                                            r'upstream.*error', r'backend.*timeout']
-                    }
-                },
-                'paths': [
-                    '/gateway', '/api/v1', '/api/v2', '/api/v3', '/graphql', '/.well-known/',
-                    '/swagger', '/openapi', '/docs', '/api-docs', '/spec', '/schema',
-                    '/admin', '/management', '/actuator', '/gateway/routes', '/routes'
-                ],
-                'response_patterns': [
-                    r'gateway.*version', r'api.*documentation', r'swagger.*ui', r'openapi.*spec',
-                    r'rate.*limit.*exceeded', r'upstream.*timeout', r'backend.*error',
-                    r'routing.*error', r'service.*discovery', r'load.*balancer',
-                    r'kong.*gateway', r'zuul.*proxy', r'ambassador.*gateway'
-                ],
-                'timing_signatures': {
-                    'consistent_overhead': (50, 200),
-                    'timeout_behavior': (5000, 30000),
-                    'cache_layer_timing': (10, 100),
-                    'auth_validation_time': (20, 500)
-                },
-                'version_patterns': {
-                    'kong': r'kong/(\d+\.\d+\.\d+)',
-                    'zuul': r'zuul.*(\d+\.\d+\.\d+)',
-                    'envoy': r'envoy/(\d+\.\d+\.\d+)'
-                }
-            },
+    #         'api-gateway': {
+    #             'headers': [
+    #                 'x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul', 'x-ambassador',
+    #                 'x-tyk-gateway', 'x-apigateway', 'gateway-version', 'x-gateway-version',
+    #                 'x-apigee', 'x-mashery', 'x-amazon-apigateway', 'x-azure-apim',
+    #                 'x-gravitee', 'x-wso2'
+    #             ],
+    #             'behavioral': {
+    #                 'rate_limiting': {
+    #                     'headers': ['x-ratelimit', 'x-rate-limit', 'retry-after', 'x-ratelimit-remaining',
+    #                               'x-ratelimit-reset', 'x-rate-limit-limit', 'x-throttle'],
+    #                     'response_codes': [429, 503],
+    #                     'response_patterns': [r'rate.*limit.*exceeded', r'too.*many.*requests', 
+    #                                         r'quota.*exceeded', r'throttled']
+    #                 },
+    #                 'request_id_propagation': {
+    #                     'headers': ['x-request-id', 'x-correlation-id', 'x-trace-id', 'request-id',
+    #                               'x-amzn-requestid', 'x-ms-request-id', 'x-goog-request-id']
+    #                 },
+    #                 'cors_handling': {
+    #                     'headers': ['access-control-allow-origin', 'access-control-allow-methods',
+    #                               'access-control-allow-headers', 'access-control-expose-headers'],
+    #                     'preflight_support': True
+    #                 },
+    #                 'auth_delegation': {
+    #                     'headers': ['www-authenticate', 'authorization', 'x-auth-token',
+    #                               'x-api-key', 'x-client-id'],
+    #                     'oauth_patterns': [r'bearer.*token', r'oauth.*', r'jwt.*']
+    #                 },
+    #                 'response_transformation': True,
+    #                 'request_routing': True,
+    #                 'circuit_breaker': {
+    #                     'response_patterns': [r'circuit.*breaker.*open', r'service.*unavailable',
+    #                                         r'upstream.*error', r'backend.*timeout']
+    #                 }
+    #             },
+    #             'paths': [
+    #                 '/gateway', '/api/v1', '/api/v2', '/api/v3', '/graphql', '/.well-known/',
+    #                 '/swagger', '/openapi', '/docs', '/api-docs', '/spec', '/schema',
+    #                 '/admin', '/management', '/actuator', '/gateway/routes', '/routes'
+    #             ],
+    #             'response_patterns': [
+    #                 r'gateway.*version', r'api.*documentation', r'swagger.*ui', r'openapi.*spec',
+    #                 r'rate.*limit.*exceeded', r'upstream.*timeout', r'backend.*error',
+    #                 r'routing.*error', r'service.*discovery', r'load.*balancer',
+    #                 r'kong.*gateway', r'zuul.*proxy', r'ambassador.*gateway'
+    #             ],
+    #             'timing_signatures': {
+    #                 'consistent_overhead': (50, 200),
+    #                 'timeout_behavior': (5000, 30000),
+    #                 'cache_layer_timing': (10, 100),
+    #                 'auth_validation_time': (20, 500)
+    #             },
+    #             'version_patterns': {
+    #                 'kong': r'kong/(\d+\.\d+\.\d+)',
+    #                 'zuul': r'zuul.*(\d+\.\d+\.\d+)',
+    #                 'envoy': r'envoy/(\d+\.\d+\.\d+)'
+    #             }
+    #         },
 
-            'cdn_edge': {
-                'headers': [
-                    # Cloudflare
-                    'cf-ray', 'cf-cache-status', 'cf-request-id', 'cf-visitor', 'cf-connecting-ip',
-                    'cf-ipcountry', 'cf-ew-via', 'cf-polished', 'cf-bgj',
-                    # AWS CloudFront
-                    'x-amz-cf-id', 'x-amz-cf-pop', 'x-cache', 'x-amz-request-id',
-                    'cloudfront-viewer-country', 'cloudfront-is-mobile-viewer',
-                    # Fastly
-                    'fastly-debug-path', 'fastly-debug-ttl', 'x-served-by', 'x-cache-hits',
-                    'x-timer', 'fastly-restarts', 'x-cache-grace',
-                    # Akamai
-                    'x-akamai-transformed', 'x-akamai-request-id', 'akamai-origin-hop',
-                    # Generic CDN
-                    'x-edge-location', 'x-cdn-pop', 'x-edge-response-result-type',
-                    'x-cache-status', 'x-cdn-cache-status'
-                ],
-                'behavioral': {
-                    'cache_behavior': {
-                        'cache_headers': ['cache-control', 'expires', 'etag', 'last-modified'],
-                        'cache_status_values': ['HIT', 'MISS', 'EXPIRED', 'STALE', 'UPDATING', 'BYPASS'],
-                        'ttl_headers': ['x-cache-ttl', 'x-ttl', 'age']
-                    },
-                    'geo_routing': {
-                        'country_headers': ['cf-ipcountry', 'x-country-code', 'cloudfront-viewer-country'],
-                        'pop_headers': ['x-pop', 'cf-ray', 'x-amz-cf-pop']
-                    },
-                    'ddos_protection': {
-                        'challenge_patterns': [r'ddos.*protection', r'checking.*browser', r'cloudflare.*challenge'],
-                        'security_headers': ['cf-ray', 'x-frame-options', 'x-content-type-options']
-                    },
-                    'compression': {
-                        'encoding_headers': ['content-encoding', 'x-original-content-length'],
-                        'compression_types': ['gzip', 'brotli', 'deflate']
-                    },
-                    'ssl_termination': True,
-                    'waf_integration': True
-                },
-                'paths': [
-                    '/cdn-cgi/', '/__cf_chl_jschl_tk__/', '/favicon.ico', '/robots.txt',
-                    '/cache-status', '/edge-status', '/akamai/sureroute-test-object.html'
-                ],
-                'response_patterns': [
-                    r'cloudflare', r'fastly.*error', r'cloudfront', r'akamai',
-                    r'cache.*hit', r'cache.*miss', r'edge.*server', r'pop.*server',
-                    r'cdn.*cache', r'origin.*server', r'edge.*location'
-                ],
-                'timing_signatures': {
-                    'cache_hit': (5, 50),
-                    'cache_miss': (100, 2000),
-                    'edge_processing': (10, 100),
-                    'origin_fetch': (200, 5000),
-                    'ssl_handshake': (50, 300)
-                },
-                'error_patterns': {
-                    'origin_errors': [r'origin.*unreachable', r'backend.*error', r'upstream.*error'],
-                    'cache_errors': [r'cache.*error', r'storage.*error'],
-                    'ddos_patterns': [r'rate.*limited', r'blocked.*request', r'suspicious.*activity']
-                }
-            },
+    #         'cdn_edge': {
+    #             'headers': [
+    #                 # Cloudflare
+    #                 'cf-ray', 'cf-cache-status', 'cf-request-id', 'cf-visitor', 'cf-connecting-ip',
+    #                 'cf-ipcountry', 'cf-ew-via', 'cf-polished', 'cf-bgj',
+    #                 # AWS CloudFront
+    #                 'x-amz-cf-id', 'x-amz-cf-pop', 'x-cache', 'x-amz-request-id',
+    #                 'cloudfront-viewer-country', 'cloudfront-is-mobile-viewer',
+    #                 # Fastly
+    #                 'fastly-debug-path', 'fastly-debug-ttl', 'x-served-by', 'x-cache-hits',
+    #                 'x-timer', 'fastly-restarts', 'x-cache-grace',
+    #                 # Akamai
+    #                 'x-akamai-transformed', 'x-akamai-request-id', 'akamai-origin-hop',
+    #                 # Generic CDN
+    #                 'x-edge-location', 'x-cdn-pop', 'x-edge-response-result-type',
+    #                 'x-cache-status', 'x-cdn-cache-status'
+    #             ],
+    #             'behavioral': {
+    #                 'cache_behavior': {
+    #                     'cache_headers': ['cache-control', 'expires', 'etag', 'last-modified'],
+    #                     'cache_status_values': ['HIT', 'MISS', 'EXPIRED', 'STALE', 'UPDATING', 'BYPASS'],
+    #                     'ttl_headers': ['x-cache-ttl', 'x-ttl', 'age']
+    #                 },
+    #                 'geo_routing': {
+    #                     'country_headers': ['cf-ipcountry', 'x-country-code', 'cloudfront-viewer-country'],
+    #                     'pop_headers': ['x-pop', 'cf-ray', 'x-amz-cf-pop']
+    #                 },
+    #                 'ddos_protection': {
+    #                     'challenge_patterns': [r'ddos.*protection', r'checking.*browser', r'cloudflare.*challenge'],
+    #                     'security_headers': ['cf-ray', 'x-frame-options', 'x-content-type-options']
+    #                 },
+    #                 'compression': {
+    #                     'encoding_headers': ['content-encoding', 'x-original-content-length'],
+    #                     'compression_types': ['gzip', 'brotli', 'deflate']
+    #                 },
+    #                 'ssl_termination': True,
+    #                 'waf_integration': True
+    #             },
+    #             'paths': [
+    #                 '/cdn-cgi/', '/__cf_chl_jschl_tk__/', '/favicon.ico', '/robots.txt',
+    #                 '/cache-status', '/edge-status', '/akamai/sureroute-test-object.html'
+    #             ],
+    #             'response_patterns': [
+    #                 r'cloudflare', r'fastly.*error', r'cloudfront', r'akamai',
+    #                 r'cache.*hit', r'cache.*miss', r'edge.*server', r'pop.*server',
+    #                 r'cdn.*cache', r'origin.*server', r'edge.*location'
+    #             ],
+    #             'timing_signatures': {
+    #                 'cache_hit': (5, 50),
+    #                 'cache_miss': (100, 2000),
+    #                 'edge_processing': (10, 100),
+    #                 'origin_fetch': (200, 5000),
+    #                 'ssl_handshake': (50, 300)
+    #             },
+    #             'error_patterns': {
+    #                 'origin_errors': [r'origin.*unreachable', r'backend.*error', r'upstream.*error'],
+    #                 'cache_errors': [r'cache.*error', r'storage.*error'],
+    #                 'ddos_patterns': [r'rate.*limited', r'blocked.*request', r'suspicious.*activity']
+    #             }
+    #         },
 
-            'container_orchestration': {
-                'headers': [
-                    # Kubernetes
-                    'x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace', 'x-node-name',
-                    'x-cluster-name', 'x-service-account', 'x-deployment-name',
-                    # Docker Swarm
-                    'x-docker', 'x-container-id', 'x-service-name', 'x-task-id',
-                    'x-network-id', 'x-swarm-node-id',
-                    # ECS/Fargate
-                    'x-ecs-task', 'x-ecs-container-name', 'x-aws-region', 'x-amzn-trace-id',
-                    'x-ecs-cluster', 'x-fargate-task-arn',
-                    # OpenShift
-                    'x-openshift-build', 'x-openshift-project'
-                ],
-                'behavioral': {
-                    'health_checks': {
-                        'paths': ['/health', '/healthz', '/ready', '/live', '/readiness', '/liveness'],
-                        'probe_types': ['readiness', 'liveness', 'startup']
-                    },
-                    'metrics_exposure': {
-                        'paths': ['/metrics', '/prometheus', '/stats', '/monitoring'],
-                        'formats': ['prometheus', 'json', 'text']
-                    },
-                    'service_discovery': {
-                        'dns_patterns': [r'.*\.svc\.cluster\.local', r'.*\.internal', r'.*\.mesh'],
-                        'consul_patterns': [r'.*\.service\.consul'],
-                        'eureka_patterns': [r'.*\.eureka']
-                    },
-                    'rolling_updates': {
-                        'version_headers': ['x-app-version', 'x-build-version', 'x-git-commit'],
-                        'deployment_headers': ['x-deployment-id', 'x-rollout-id']
-                    },
-                    'load_balancing': {
-                        'session_affinity': ['x-session-id', 'jsessionid', 'server-id'],
-                        'load_balancer_headers': ['x-forwarded-for', 'x-real-ip']
-                    },
-                    'auto_scaling': True,
-                    'resource_limits': True
-                },
-                'dns_patterns': [
-                    r'.*\.svc\.cluster\.local',      # Kubernetes
-                    r'.*\.internal',                 # Internal DNS
-                    r'.*\.mesh',                     # Service mesh
-                    r'.*\.swarm',                    # Docker Swarm
-                    r'.*\.ecs\.internal',            # ECS internal
-                    r'.*\.compute\.internal'         # AWS internal
-                ],
-                'paths': [
-                    '/metrics', '/healthz', '/readyz', '/livez', '/status',
-                    '/actuator/health', '/actuator/info', '/actuator/prometheus',
-                    '/debug/pprof', '/debug/vars', '/stats', '/info'
-                ],
-                'response_patterns': [
-                    r'kubernetes', r'k8s', r'pod.*name', r'namespace',
-                    r'docker.*container', r'container.*id', r'deployment',
-                    r'replica.*set', r'stateful.*set', r'daemon.*set',
-                    r'fargate', r'ecs.*task', r'cluster.*arn'
-                ],
-                'timing_signatures': {
-                    'startup_time': (1000, 30000),
-                    'shutdown_graceful': (1000, 30000),
-                    'health_check_interval': (1000, 60000),
-                    'rolling_update_time': (10000, 300000)
-                }
-            },
+    #         'container_orchestration': {
+    #             'headers': [
+    #                 # Kubernetes
+    #                 'x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace', 'x-node-name',
+    #                 'x-cluster-name', 'x-service-account', 'x-deployment-name',
+    #                 # Docker Swarm
+    #                 'x-docker', 'x-container-id', 'x-service-name', 'x-task-id',
+    #                 'x-network-id', 'x-swarm-node-id',
+    #                 # ECS/Fargate
+    #                 'x-ecs-task', 'x-ecs-container-name', 'x-aws-region', 'x-amzn-trace-id',
+    #                 'x-ecs-cluster', 'x-fargate-task-arn',
+    #                 # OpenShift
+    #                 'x-openshift-build', 'x-openshift-project'
+    #             ],
+    #             'behavioral': {
+    #                 'health_checks': {
+    #                     'paths': ['/health', '/healthz', '/ready', '/live', '/readiness', '/liveness'],
+    #                     'probe_types': ['readiness', 'liveness', 'startup']
+    #                 },
+    #                 'metrics_exposure': {
+    #                     'paths': ['/metrics', '/prometheus', '/stats', '/monitoring'],
+    #                     'formats': ['prometheus', 'json', 'text']
+    #                 },
+    #                 'service_discovery': {
+    #                     'dns_patterns': [r'.*\.svc\.cluster\.local', r'.*\.internal', r'.*\.mesh'],
+    #                     'consul_patterns': [r'.*\.service\.consul'],
+    #                     'eureka_patterns': [r'.*\.eureka']
+    #                 },
+    #                 'rolling_updates': {
+    #                     'version_headers': ['x-app-version', 'x-build-version', 'x-git-commit'],
+    #                     'deployment_headers': ['x-deployment-id', 'x-rollout-id']
+    #                 },
+    #                 'load_balancing': {
+    #                     'session_affinity': ['x-session-id', 'jsessionid', 'server-id'],
+    #                     'load_balancer_headers': ['x-forwarded-for', 'x-real-ip']
+    #                 },
+    #                 'auto_scaling': True,
+    #                 'resource_limits': True
+    #             },
+    #             'dns_patterns': [
+    #                 r'.*\.svc\.cluster\.local',      # Kubernetes
+    #                 r'.*\.internal',                 # Internal DNS
+    #                 r'.*\.mesh',                     # Service mesh
+    #                 r'.*\.swarm',                    # Docker Swarm
+    #                 r'.*\.ecs\.internal',            # ECS internal
+    #                 r'.*\.compute\.internal'         # AWS internal
+    #             ],
+    #             'paths': [
+    #                 '/metrics', '/healthz', '/readyz', '/livez', '/status',
+    #                 '/actuator/health', '/actuator/info', '/actuator/prometheus',
+    #                 '/debug/pprof', '/debug/vars', '/stats', '/info'
+    #             ],
+    #             'response_patterns': [
+    #                 r'kubernetes', r'k8s', r'pod.*name', r'namespace',
+    #                 r'docker.*container', r'container.*id', r'deployment',
+    #                 r'replica.*set', r'stateful.*set', r'daemon.*set',
+    #                 r'fargate', r'ecs.*task', r'cluster.*arn'
+    #             ],
+    #             'timing_signatures': {
+    #                 'startup_time': (1000, 30000),
+    #                 'shutdown_graceful': (1000, 30000),
+    #                 'health_check_interval': (1000, 60000),
+    #                 'rolling_update_time': (10000, 300000)
+    #             }
+    #         },
 
-            'serverless_function': {
-                'headers': [
-                    # AWS Lambda
-                    'x-amzn-requestid', 'x-amzn-trace-id', 'x-lambda-request-id',
-                    'x-amz-invocation-type', 'x-amz-function-version', 'x-amz-function-name',
-                    'x-amzn-remapped-content-length', 'x-amzn-remapped-connection',
-                    # Google Cloud Functions
-                    'function-execution-id', 'x-cloud-trace-context', 'x-goog-', 'x-appengine-',
-                    'x-cloud-run-revision', 'x-serverless-runtime-version',
-                    # Azure Functions
-                    'x-azure-requestid', 'x-ms-request-id', 'x-ms-invocation-id',
-                    'x-azure-functions-', 'x-ms-execution-context-invocationid',
-                    # Vercel/Netlify
-                    'x-vercel-', 'x-now-', 'x-nf-', 'x-netlify-'
-                ],
-                'behavioral': {
-                    'cold_start_detection': {
-                        'timing_variance': True,
-                        'initialization_patterns': [r'cold.*start', r'function.*init', r'runtime.*init']
-                    },
-                    'execution_time_patterns': {
-                        'timeout_headers': ['x-amzn-timeout', 'x-function-timeout'],
-                        'execution_time_headers': ['x-execution-time', 'x-duration']
-                    },
-                    'memory_constraints': {
-                        'memory_headers': ['x-max-memory', 'x-memory-limit'],
-                        'oom_patterns': [r'memory.*limit', r'out.*of.*memory', r'heap.*exhausted']
-                    },
-                    'concurrent_execution': {
-                        'concurrency_headers': ['x-concurrency-limit', 'x-reserved-concurrency'],
-                        'throttling_patterns': [r'throttled', r'concurrent.*limit', r'rate.*exceeded']
-                    },
-                    'event_sources': {
-                        'triggers': ['api-gateway', 'sqs', 's3', 'dynamodb', 'eventbridge', 'http']
-                    }
-                },
-                'paths': [
-                    '/api/', '/function/', '/.netlify/functions/', '/api/v1/',
-                    '/.vercel/output/functions/', '/lambda/', '/azure-functions/',
-                    '/gcf/', '/cloud-function/'
-                ],
-                'response_patterns': [
-                    r'lambda.*timeout', r'function.*invocation', r'cold.*start',
-                    r'execution.*time', r'memory.*limit', r'concurrent.*execution',
-                    r'serverless.*runtime', r'function.*error', r'handler.*error',
-                    r'cloud.*function', r'azure.*function', r'vercel.*function'
-                ],
-                'timing_signatures': {
-                    'cold_start_penalty': (100, 3000),
-                    'warm_execution': (5, 100),
-                    'timeout_behavior': (15000, 900000),  # 15s to 15min
-                    'billed_duration': (100, 900000)
-                },
-                'error_patterns': {
-                    'timeout_errors': [r'task.*timed.*out', r'function.*timeout', r'execution.*timeout'],
-                    'memory_errors': [r'memory.*exhausted', r'out.*of.*memory', r'heap.*limit'],
-                    'runtime_errors': [r'runtime.*error', r'handler.*not.*found', r'module.*error']
-                }
-            },
+    #         'serverless_function': {
+    #             'headers': [
+    #                 # AWS Lambda
+    #                 'x-amzn-requestid', 'x-amzn-trace-id', 'x-lambda-request-id',
+    #                 'x-amz-invocation-type', 'x-amz-function-version', 'x-amz-function-name',
+    #                 'x-amzn-remapped-content-length', 'x-amzn-remapped-connection',
+    #                 # Google Cloud Functions
+    #                 'function-execution-id', 'x-cloud-trace-context', 'x-goog-', 'x-appengine-',
+    #                 'x-cloud-run-revision', 'x-serverless-runtime-version',
+    #                 # Azure Functions
+    #                 'x-azure-requestid', 'x-ms-request-id', 'x-ms-invocation-id',
+    #                 'x-azure-functions-', 'x-ms-execution-context-invocationid',
+    #                 # Vercel/Netlify
+    #                 'x-vercel-', 'x-now-', 'x-nf-', 'x-netlify-'
+    #             ],
+    #             'behavioral': {
+    #                 'cold_start_detection': {
+    #                     'timing_variance': True,
+    #                     'initialization_patterns': [r'cold.*start', r'function.*init', r'runtime.*init']
+    #                 },
+    #                 'execution_time_patterns': {
+    #                     'timeout_headers': ['x-amzn-timeout', 'x-function-timeout'],
+    #                     'execution_time_headers': ['x-execution-time', 'x-duration']
+    #                 },
+    #                 'memory_constraints': {
+    #                     'memory_headers': ['x-max-memory', 'x-memory-limit'],
+    #                     'oom_patterns': [r'memory.*limit', r'out.*of.*memory', r'heap.*exhausted']
+    #                 },
+    #                 'concurrent_execution': {
+    #                     'concurrency_headers': ['x-concurrency-limit', 'x-reserved-concurrency'],
+    #                     'throttling_patterns': [r'throttled', r'concurrent.*limit', r'rate.*exceeded']
+    #                 },
+    #                 'event_sources': {
+    #                     'triggers': ['api-gateway', 'sqs', 's3', 'dynamodb', 'eventbridge', 'http']
+    #                 }
+    #             },
+    #             'paths': [
+    #                 '/api/', '/function/', '/.netlify/functions/', '/api/v1/',
+    #                 '/.vercel/output/functions/', '/lambda/', '/azure-functions/',
+    #                 '/gcf/', '/cloud-function/'
+    #             ],
+    #             'response_patterns': [
+    #                 r'lambda.*timeout', r'function.*invocation', r'cold.*start',
+    #                 r'execution.*time', r'memory.*limit', r'concurrent.*execution',
+    #                 r'serverless.*runtime', r'function.*error', r'handler.*error',
+    #                 r'cloud.*function', r'azure.*function', r'vercel.*function'
+    #             ],
+    #             'timing_signatures': {
+    #                 'cold_start_penalty': (100, 3000),
+    #                 'warm_execution': (5, 100),
+    #                 'timeout_behavior': (15000, 900000),  # 15s to 15min
+    #                 'billed_duration': (100, 900000)
+    #             },
+    #             'error_patterns': {
+    #                 'timeout_errors': [r'task.*timed.*out', r'function.*timeout', r'execution.*timeout'],
+    #                 'memory_errors': [r'memory.*exhausted', r'out.*of.*memory', r'heap.*limit'],
+    #                 'runtime_errors': [r'runtime.*error', r'handler.*not.*found', r'module.*error']
+    #             }
+    #         },
 
-            'load-balancer': {
-                'headers': [
-                    'X-Load-Balancer', 'X-Forwarded-By', 'x-lb', 'x-lb-name',
-                    'X-haproxy', 'x-nginx-lb', 'X-real-ip', 'X-Forwarded-For',
-                    'X-Forwarded-Proto', 'X-Forwarded-Host', 'X-Forwarded-Port',
-                    'X-original-forwarded-for', 'X-cluster-client-ip',
-                    'X-aws-alb-target-group-arn', 'X-amzn-trace-id'
-                ],
-                'behavioral': {
-                    'session_persistence': {
-                        'cookies': ['AWSALB', 'AWSALBCORS', 'lb-session', 'server-id'],
-                        'headers': ['x-session-affinity', 'x-sticky-session']
-                    },
-                    'health_checking': {
-                        'paths': ['/lb-status', '/health', '/check'],
-                        'response_patterns': [r'healthy', r'available', r'up']
-                    },
-                    'ssl_termination': {
-                        'headers': ['x-forwarded-proto', 'x-scheme'],
-                        'termination_patterns': [r'ssl.*terminated', r'https.*offload']
-                    },
-                    'load_balancing_algorithms': ['round-robin', 'least-connections', 'ip-hash', 'weighted'],
-                    'failover_behavior': True
-                },
-                'paths': [
-                    '/lb-status', '/haproxy?stats', '/nginx_status', '/status',
-                    '/health', '/load-balancer/health', '/elb-status'
-                ],
-                'response_patterns': [
-                    r'load.*balance', r'upstream', r'backend.*pool', r'server.*pool',
-                    r'haproxy', r'nginx.*lb', r'aws.*application.*load.*balancer',
-                    r'target.*group', r'health.*check', r'failover'
-                ],
-                'timing_signatures': {
-                    'health_check_interval': (5000, 30000),
-                    'failover_detection': (1000, 10000),
-                    'connection_draining': (5000, 300000)
-                }
-            },
+    #         'load-balancer': {
+    #             'headers': [
+    #                 'X-Load-Balancer', 'X-Forwarded-By', 'x-lb', 'x-lb-name',
+    #                 'X-haproxy', 'x-nginx-lb', 'X-real-ip', 'X-Forwarded-For',
+    #                 'X-Forwarded-Proto', 'X-Forwarded-Host', 'X-Forwarded-Port',
+    #                 'X-original-forwarded-for', 'X-cluster-client-ip',
+    #                 'X-aws-alb-target-group-arn', 'X-amzn-trace-id'
+    #             ],
+    #             'behavioral': {
+    #                 'session_persistence': {
+    #                     'cookies': ['AWSALB', 'AWSALBCORS', 'lb-session', 'server-id'],
+    #                     'headers': ['x-session-affinity', 'x-sticky-session']
+    #                 },
+    #                 'health_checking': {
+    #                     'paths': ['/lb-status', '/health', '/check'],
+    #                     'response_patterns': [r'healthy', r'available', r'up']
+    #                 },
+    #                 'ssl_termination': {
+    #                     'headers': ['x-forwarded-proto', 'x-scheme'],
+    #                     'termination_patterns': [r'ssl.*terminated', r'https.*offload']
+    #                 },
+    #                 'load_balancing_algorithms': ['round-robin', 'least-connections', 'ip-hash', 'weighted'],
+    #                 'failover_behavior': True
+    #             },
+    #             'paths': [
+    #                 '/lb-status', '/haproxy?stats', '/nginx_status', '/status',
+    #                 '/health', '/load-balancer/health', '/elb-status'
+    #             ],
+    #             'response_patterns': [
+    #                 r'load.*balance', r'upstream', r'backend.*pool', r'server.*pool',
+    #                 r'haproxy', r'nginx.*lb', r'aws.*application.*load.*balancer',
+    #                 r'target.*group', r'health.*check', r'failover'
+    #             ],
+    #             'timing_signatures': {
+    #                 'health_check_interval': (5000, 30000),
+    #                 'failover_detection': (1000, 10000),
+    #                 'connection_draining': (5000, 300000)
+    #             }
+    #         },
 
-            'service-mesh': {
-                'headers': [
-                    # Istio/Envoy
-                    'x-envoy', 'x-envoy-upstream-service-time', 'x-envoy-original-path',
-                    'x-envoy-decorator-operation', 'x-envoy-peer-metadata',
-                    'x-istio-attributes', 'istio-mtls',
-                    # Linkerd
-                    'l5d-dst-service', 'l5d-dst-client', 'l5d-request-id',
-                    'l5d-ctx-trace', 'x-linkerd-', 'linkerd-',
-                    # Consul Connect
-                    'x-consul-', 'consul-', 'x-consul-token', 'x-consul-index',
-                    # Generic tracing
-                    'x-b3-traceid', 'x-b3-spanid', 'x-b3-parentspanid', 'x-b3-sampled',
-                    'x-ot-span-context', 'x-trace-id', 'x-span-id'
-                ],
-                'behavioral': {
-                    'mtls_termination': {
-                        'cert_headers': ['x-forwarded-client-cert', 'x-ssl-client-cert'],
-                        'mtls_patterns': [r'mtls.*enabled', r'mutual.*tls', r'client.*cert']
-                    },
-                    'circuit_breaking': {
-                        'response_patterns': [r'circuit.*breaker', r'upstream.*failure', r'max.*retries'],
-                        'status_codes': [503, 504]
-                    },
-                    'retry_policies': {
-                        'retry_headers': ['x-envoy-retry-on', 'x-envoy-max-retries'],
-                        'retry_patterns': [r'retry.*policy', r'max.*retries', r'retry.*timeout']
-                    },
-                    'canary_routing': {
-                        'routing_headers': ['x-canary-weight', 'x-traffic-split'],
-                        'version_headers': ['x-version', 'x-variant']
-                    },
-                    'fault_injection': {
-                        'fault_headers': ['x-envoy-fault-', 'x-chaos-'],
-                        'fault_patterns': [r'fault.*injection', r'chaos.*engineering']
-                    },
-                    'observability': {
-                        'metrics_collection': True,
-                        'distributed_tracing': True,
-                        'access_logging': True
-                    }
-                },
-                'admin_paths': [
-                    '/stats', '/clusters', '/config_dump', '/server_info',
-                    '/listeners', '/runtime', '/certs', '/memory', '/cpuprofiler',
-                    '/ready', '/stats/prometheus', '/hot_restart_version'
-                ],
-                'response_patterns': [
-                    r'envoy.*proxy', r'istio', r'linkerd', r'consul.*connect',
-                    r'service.*mesh', r'sidecar.*proxy', r'data.*plane',
-                    r'control.*plane', r'xds.*config', r'pilot.*discovery'
-                ],
-                'timing_signatures': {
-                    'proxy_overhead': (1, 50),
-                    'circuit_breaker_trip': (100, 1000),
-                    'retry_backoff': (100, 5000),
-                    'config_reload': (1000, 30000)
-                }
-            },
+    #         'service-mesh': {
+    #             'headers': [
+    #                 # Istio/Envoy
+    #                 'x-envoy', 'x-envoy-upstream-service-time', 'x-envoy-original-path',
+    #                 'x-envoy-decorator-operation', 'x-envoy-peer-metadata',
+    #                 'x-istio-attributes', 'istio-mtls',
+    #                 # Linkerd
+    #                 'l5d-dst-service', 'l5d-dst-client', 'l5d-request-id',
+    #                 'l5d-ctx-trace', 'x-linkerd-', 'linkerd-',
+    #                 # Consul Connect
+    #                 'x-consul-', 'consul-', 'x-consul-token', 'x-consul-index',
+    #                 # Generic tracing
+    #                 'x-b3-traceid', 'x-b3-spanid', 'x-b3-parentspanid', 'x-b3-sampled',
+    #                 'x-ot-span-context', 'x-trace-id', 'x-span-id'
+    #             ],
+    #             'behavioral': {
+    #                 'mtls_termination': {
+    #                     'cert_headers': ['x-forwarded-client-cert', 'x-ssl-client-cert'],
+    #                     'mtls_patterns': [r'mtls.*enabled', r'mutual.*tls', r'client.*cert']
+    #                 },
+    #                 'circuit_breaking': {
+    #                     'response_patterns': [r'circuit.*breaker', r'upstream.*failure', r'max.*retries'],
+    #                     'status_codes': [503, 504]
+    #                 },
+    #                 'retry_policies': {
+    #                     'retry_headers': ['x-envoy-retry-on', 'x-envoy-max-retries'],
+    #                     'retry_patterns': [r'retry.*policy', r'max.*retries', r'retry.*timeout']
+    #                 },
+    #                 'canary_routing': {
+    #                     'routing_headers': ['x-canary-weight', 'x-traffic-split'],
+    #                     'version_headers': ['x-version', 'x-variant']
+    #                 },
+    #                 'fault_injection': {
+    #                     'fault_headers': ['x-envoy-fault-', 'x-chaos-'],
+    #                     'fault_patterns': [r'fault.*injection', r'chaos.*engineering']
+    #                 },
+    #                 'observability': {
+    #                     'metrics_collection': True,
+    #                     'distributed_tracing': True,
+    #                     'access_logging': True
+    #                 }
+    #             },
+    #             'admin_paths': [
+    #                 '/stats', '/clusters', '/config_dump', '/server_info',
+    #                 '/listeners', '/runtime', '/certs', '/memory', '/cpuprofiler',
+    #                 '/ready', '/stats/prometheus', '/hot_restart_version'
+    #             ],
+    #             'response_patterns': [
+    #                 r'envoy.*proxy', r'istio', r'linkerd', r'consul.*connect',
+    #                 r'service.*mesh', r'sidecar.*proxy', r'data.*plane',
+    #                 r'control.*plane', r'xds.*config', r'pilot.*discovery'
+    #             ],
+    #             'timing_signatures': {
+    #                 'proxy_overhead': (1, 50),
+    #                 'circuit_breaker_trip': (100, 1000),
+    #                 'retry_backoff': (100, 5000),
+    #                 'config_reload': (1000, 30000)
+    #             }
+    #         },
 
-            'database-proxy': {
-                'headers': [
-                    'x-db-proxy', 'x-pgbouncer', 'x-mysql-proxy', 'x-redis-proxy',
-                    'x-connection-pool', 'x-db-connection-id', 'x-query-cache',
-                    'x-db-server', 'x-shard-key'
-                ],
-                'behavioral': {
-                    'connection_pooling': {
-                        'pool_headers': ['x-pool-size', 'x-active-connections', 'x-idle-connections'],
-                        'pool_patterns': [r'connection.*pool', r'max.*connections', r'pool.*exhausted']
-                    },
-                    'query_caching': {
-                        'cache_headers': ['x-query-cache-hit', 'x-cache-ttl'],
-                        'cache_patterns': [r'query.*cache', r'cache.*hit', r'cache.*miss']
-                    },
-                    'sharding': {
-                        'shard_headers': ['x-shard-id', 'x-partition-key'],
-                        'shard_patterns': [r'shard.*key', r'partition.*strategy']
-                    },
-                    'read_write_split': True,
-                    'failover_support': True
-                },
-                'paths': [
-                    '/db-status', '/pool-status', '/pgbouncer', '/mysql-proxy/status',
-                    '/redis-info', '/connection-stats', '/query-stats'
-                ],
-                'response_patterns': [
-                    r'database.*proxy', r'connection.*pool', r'pgbouncer', r'mysql.*proxy',
-                    r'redis.*proxy', r'db.*connection', r'query.*cache', r'shard.*info'
-                ],
-                'timing_signatures': {
-                    'connection_setup': (10, 100),
-                    'query_execution': (1, 5000),
-                    'pool_checkout': (1, 50)
-                }
-            },
+    #         'database-proxy': {
+    #             'headers': [
+    #                 'x-db-proxy', 'x-pgbouncer', 'x-mysql-proxy', 'x-redis-proxy',
+    #                 'x-connection-pool', 'x-db-connection-id', 'x-query-cache',
+    #                 'x-db-server', 'x-shard-key'
+    #             ],
+    #             'behavioral': {
+    #                 'connection_pooling': {
+    #                     'pool_headers': ['x-pool-size', 'x-active-connections', 'x-idle-connections'],
+    #                     'pool_patterns': [r'connection.*pool', r'max.*connections', r'pool.*exhausted']
+    #                 },
+    #                 'query_caching': {
+    #                     'cache_headers': ['x-query-cache-hit', 'x-cache-ttl'],
+    #                     'cache_patterns': [r'query.*cache', r'cache.*hit', r'cache.*miss']
+    #                 },
+    #                 'sharding': {
+    #                     'shard_headers': ['x-shard-id', 'x-partition-key'],
+    #                     'shard_patterns': [r'shard.*key', r'partition.*strategy']
+    #                 },
+    #                 'read_write_split': True,
+    #                 'failover_support': True
+    #             },
+    #             'paths': [
+    #                 '/db-status', '/pool-status', '/pgbouncer', '/mysql-proxy/status',
+    #                 '/redis-info', '/connection-stats', '/query-stats'
+    #             ],
+    #             'response_patterns': [
+    #                 r'database.*proxy', r'connection.*pool', r'pgbouncer', r'mysql.*proxy',
+    #                 r'redis.*proxy', r'db.*connection', r'query.*cache', r'shard.*info'
+    #             ],
+    #             'timing_signatures': {
+    #                 'connection_setup': (10, 100),
+    #                 'query_execution': (1, 5000),
+    #                 'pool_checkout': (1, 50)
+    #             }
+    #         },
 
-            'cache-layer': {
-                'headers': [
-                    'x-cache', 'x-redis', 'x-memcached', 'x-varnish', 'x-cache-status',
-                    'x-cache-key', 'x-cache-ttl', 'x-cache-hits', 'x-cache-age',
-                    'varnish-age', 'varnish-cache', 'x-drupal-cache'
-                ],
-                'behavioral': {
-                    'cache_strategies': {
-                        'strategies': ['write-through', 'write-behind', 'cache-aside'],
-                        'invalidation_patterns': [r'cache.*invalidate', r'purge.*cache', r'flush.*cache']
-                    },
-                    'cache_warming': {
-                        'warming_patterns': [r'cache.*warm', r'preload.*cache'],
-                        'warming_headers': ['x-cache-warmed', 'x-preload-status']
-                    },
-                    'distributed_cache': {
-                        'cluster_headers': ['x-cache-node', 'x-cluster-id'],
-                        'replication_patterns': [r'cache.*replica', r'sync.*status']
-                    },
-                    'compression': True,
-                    'serialization': ['json', 'binary', 'protobuf']
-                },
-                'paths': [
-                    '/cache-status', '/redis-info', '/memcached-stats', '/varnish-stats',
-                    '/cache-stats', '/hit-ratio', '/memory-usage'
-                ],
-                'response_patterns': [
-                    r'redis', r'memcached', r'varnish', r'cache.*hit', r'cache.*miss',
-                    r'cache.*server', r'key.*value', r'cache.*cluster', r'hit.*ratio'
-                ],
-                'timing_signatures': {
-                    'cache_hit': (1, 10),
-                    'cache_miss': (10, 1000),
-                    'cache_write': (1, 50),
-                    'eviction_time': (1, 100)
-                }
-            },
+    #         'cache-layer': {
+    #             'headers': [
+    #                 'x-cache', 'x-redis', 'x-memcached', 'x-varnish', 'x-cache-status',
+    #                 'x-cache-key', 'x-cache-ttl', 'x-cache-hits', 'x-cache-age',
+    #                 'varnish-age', 'varnish-cache', 'x-drupal-cache'
+    #             ],
+    #             'behavioral': {
+    #                 'cache_strategies': {
+    #                     'strategies': ['write-through', 'write-behind', 'cache-aside'],
+    #                     'invalidation_patterns': [r'cache.*invalidate', r'purge.*cache', r'flush.*cache']
+    #                 },
+    #                 'cache_warming': {
+    #                     'warming_patterns': [r'cache.*warm', r'preload.*cache'],
+    #                     'warming_headers': ['x-cache-warmed', 'x-preload-status']
+    #                 },
+    #                 'distributed_cache': {
+    #                     'cluster_headers': ['x-cache-node', 'x-cluster-id'],
+    #                     'replication_patterns': [r'cache.*replica', r'sync.*status']
+    #                 },
+    #                 'compression': True,
+    #                 'serialization': ['json', 'binary', 'protobuf']
+    #             },
+    #             'paths': [
+    #                 '/cache-status', '/redis-info', '/memcached-stats', '/varnish-stats',
+    #                 '/cache-stats', '/hit-ratio', '/memory-usage'
+    #             ],
+    #             'response_patterns': [
+    #                 r'redis', r'memcached', r'varnish', r'cache.*hit', r'cache.*miss',
+    #                 r'cache.*server', r'key.*value', r'cache.*cluster', r'hit.*ratio'
+    #             ],
+    #             'timing_signatures': {
+    #                 'cache_hit': (1, 10),
+    #                 'cache_miss': (10, 1000),
+    #                 'cache_write': (1, 50),
+    #                 'eviction_time': (1, 100)
+    #             }
+    #         },
 
-            'message-queue': {
-                'headers': [
-                    'x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs', 'x-pubsub',
-                    'x-message-id', 'x-correlation-id', 'x-delivery-tag',
-                    'x-queue-name', 'x-topic-name', 'x-partition'
-                ],
-                'behavioral': {
-                    'async_processing': {
-                        'async_patterns': [r'async.*process', r'background.*job', r'queued.*task'],
-                        'callback_headers': ['x-callback-url', 'x-webhook-url']
-                    },
-                    'message_ordering': {
-                        'order_headers': ['x-sequence-number', 'x-message-order'],
-                        'fifo_patterns': [r'fifo.*queue', r'ordered.*delivery']
-                    },
-                    'dead_letter_queues': {
-                        'dlq_headers': ['x-dlq-retry-count', 'x-dead-letter-queue'],
-                        'dlq_patterns': [r'dead.*letter', r'retry.*exhausted', r'poison.*message']
-                    },
-                    'batch_processing': {
-                        'batch_headers': ['x-batch-size', 'x-batch-id'],
-                        'batch_patterns': [r'batch.*process', r'bulk.*operation']
-                    },
-                    'message_persistence': True,
-                    'acknowledgment_modes': ['auto', 'manual', 'duplicates-ok']
-                },
-                'paths': [
-                    '/queue-status', '/rabbitmq/api', '/kafka/topics', '/sqs/stats',
-                    '/pubsub/topics', '/messages', '/queues', '/topics'
-                ],
-                'response_patterns': [
-                    r'rabbitmq', r'kafka', r'amazon.*sqs', r'google.*pubsub',
-                    r'message.*queue', r'topic.*partition', r'consumer.*group',
-                    r'producer', r'subscriber', r'dead.*letter'
-                ],
-                'timing_signatures': {
-                    'queue_processing': (10, 5000),
-                    'batch_delay': (100, 10000),
-                    'message_latency': (1, 1000),
-                    'consumer_lag': (0, 300000)
-                }
-            }
-        }        
-        # Container orchestration signatures
-        self.container_patterns = {
-            'kubernetes': {
-                'headers': ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace'],
-                'dns_patterns': [r'.*\.svc\.cluster\.local'],
-                'paths': ['/metrics', '/healthz'],
-                'env_indicators': ['KUBERNETES_SERVICE', 'POD_NAME', 'NAMESPACE']
-            },
-            'docker': {
-                'headers': ['x-container-id', 'x-docker', 'x-container-name'],
-                'paths': ['/docker-health', '/container-info'],
-                'response_patterns': ['container.*id', 'docker.*image']
-            },
-            'ecs': {
-                'headers': ['x-amzn-trace-id', 'x-ecs-task', 'x-aws-region'],
-                'paths': ['/task-metadata', '/stats'],
-                'response_patterns': ['ecs.*task', 'aws.*fargate']
-            },
-            'cloud-run': {
-                'headers': ['x-cloud-run', 'x-goog-', 'function-execution-id'],
-                'paths': ['/metadata', '/health'],
-                'response_patterns': ['cloud.*run', 'google.*cloud']
-            }
-        }
+    #         'message-queue': {
+    #             'headers': [
+    #                 'x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs', 'x-pubsub',
+    #                 'x-message-id', 'x-correlation-id', 'x-delivery-tag',
+    #                 'x-queue-name', 'x-topic-name', 'x-partition'
+    #             ],
+    #             'behavioral': {
+    #                 'async_processing': {
+    #                     'async_patterns': [r'async.*process', r'background.*job', r'queued.*task'],
+    #                     'callback_headers': ['x-callback-url', 'x-webhook-url']
+    #                 },
+    #                 'message_ordering': {
+    #                     'order_headers': ['x-sequence-number', 'x-message-order'],
+    #                     'fifo_patterns': [r'fifo.*queue', r'ordered.*delivery']
+    #                 },
+    #                 'dead_letter_queues': {
+    #                     'dlq_headers': ['x-dlq-retry-count', 'x-dead-letter-queue'],
+    #                     'dlq_patterns': [r'dead.*letter', r'retry.*exhausted', r'poison.*message']
+    #                 },
+    #                 'batch_processing': {
+    #                     'batch_headers': ['x-batch-size', 'x-batch-id'],
+    #                     'batch_patterns': [r'batch.*process', r'bulk.*operation']
+    #                 },
+    #                 'message_persistence': True,
+    #                 'acknowledgment_modes': ['auto', 'manual', 'duplicates-ok']
+    #             },
+    #             'paths': [
+    #                 '/queue-status', '/rabbitmq/api', '/kafka/topics', '/sqs/stats',
+    #                 '/pubsub/topics', '/messages', '/queues', '/topics'
+    #             ],
+    #             'response_patterns': [
+    #                 r'rabbitmq', r'kafka', r'amazon.*sqs', r'google.*pubsub',
+    #                 r'message.*queue', r'topic.*partition', r'consumer.*group',
+    #                 r'producer', r'subscriber', r'dead.*letter'
+    #             ],
+    #             'timing_signatures': {
+    #                 'queue_processing': (10, 5000),
+    #                 'batch_delay': (100, 10000),
+    #                 'message_latency': (1, 1000),
+    #                 'consumer_lag': (0, 300000)
+    #             }
+    #         }
+    #     }        
+    #     # Container orchestration signatures
+    #     self.container_patterns = {
+    #         'kubernetes': {
+    #             'headers': ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace'],
+    #             'dns_patterns': [r'.*\.svc\.cluster\.local'],
+    #             'paths': ['/metrics', '/healthz'],
+    #             'env_indicators': ['KUBERNETES_SERVICE', 'POD_NAME', 'NAMESPACE']
+    #         },
+    #         'docker': {
+    #             'headers': ['x-container-id', 'x-docker', 'x-container-name'],
+    #             'paths': ['/docker-health', '/container-info'],
+    #             'response_patterns': ['container.*id', 'docker.*image']
+    #         },
+    #         'ecs': {
+    #             'headers': ['x-amzn-trace-id', 'x-ecs-task', 'x-aws-region'],
+    #             'paths': ['/task-metadata', '/stats'],
+    #             'response_patterns': ['ecs.*task', 'aws.*fargate']
+    #         },
+    #         'cloud-run': {
+    #             'headers': ['x-cloud-run', 'x-goog-', 'function-execution-id'],
+    #             'paths': ['/metadata', '/health'],
+    #             'response_patterns': ['cloud.*run', 'google.*cloud']
+    #         }
+    #     }
 
     def discover_backend_chain(self, entry_point: str, depth: int = 0) -> Dict:
         if depth >= self.max_depth or entry_point in self.discovered_services:
@@ -752,376 +752,374 @@ class ServiceDiscoveryEnhanced:
         except Exception as e:
             return 'error'
 
-    def _get_container_info(self, endpoint: str) -> Dict:
-        """Advanced container orchestration detection with scoring"""
-        container_info = {
-            'orchestrator': 'unknown',
-            'container_id': None,
-            'image': None,
-            'namespace': None,
-            'cluster': None,
-            'bypass_hints': []
-        }
+    # def _get_container_info(self, endpoint: str) -> Dict:
+    #     """Advanced container orchestration detection with scoring"""
+    #     container_info = {
+    #         'orchestrator': 'unknown',
+    #         'container_id': None,
+    #         'image': None,
+    #         'namespace': None,
+    #         'cluster': None,
+    #         'bypass_hints': []
+    #     }
 
-        try:
-            response = self._safe_request('GET', endpoint, timeout=5)
-            if not response:
-                return container_info
+    #     try:
+    #         response = self._safe_request('GET', endpoint, timeout=5)
+    #         if not response:
+    #             return container_info
 
-            headers = self._normalize_headers(response.headers)
-            body = response.text.lower()
-            parsed_url = urlparse(endpoint)
-            hostname = parsed_url.hostname or ""
+    #         headers = self._normalize_headers(response.headers)
+    #         body = response.text.lower()
+    #         parsed_url = urlparse(endpoint)
+    #         hostname = parsed_url.hostname or ""
 
-            score_map = {
-                'kubernetes': 0,
-                'docker': 0,
-                'ecs': 0
-            }
+    #         score_map = {
+    #             'kubernetes': 0,
+    #             'docker': 0,
+    #             'ecs': 0
+    #         }
 
-            # Header-based detection
-            header_checks = {
-                'kubernetes': ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace'],
-                'docker': ['x-container-id', 'x-docker'],
-                'ecs': ['x-ecs-task', 'x-amzn-trace-id']
-            }
+    #         # Header-based detection
+    #         header_checks = {
+    #             'kubernetes': ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace'],
+    #             'docker': ['x-container-id', 'x-docker'],
+    #             'ecs': ['x-ecs-task', 'x-amzn-trace-id']
+    #         }
 
-            for kind, patterns in header_checks.items():
-                for pattern in patterns:
-                    if pattern.lower() in headers:
-                        score_map[kind] += 10
-                        if kind == 'kubernetes':
-                            if 'pod-name' in pattern.lower():
-                                container_info['container_id'] = headers[pattern.lower()]['value']
-                            if 'namespace' in pattern.lower():
-                                container_info['namespace'] = headers[pattern.lower()]['value']
-                        elif kind == 'docker':
-                            if 'container-id' in pattern.lower():
-                                container_info['container_id'] = headers[pattern.lower()]['value']
+    #         for kind, patterns in header_checks.items():
+    #             for pattern in patterns:
+    #                 if pattern.lower() in headers:
+    #                     score_map[kind] += 10
+    #                     if kind == 'kubernetes':
+    #                         if 'pod-name' in pattern.lower():
+    #                             container_info['container_id'] = headers[pattern.lower()]['value']
+    #                         if 'namespace' in pattern.lower():
+    #                             container_info['namespace'] = headers[pattern.lower()]['value']
+    #                     elif kind == 'docker':
+    #                         if 'container-id' in pattern.lower():
+    #                             container_info['container_id'] = headers[pattern.lower()]['value']
 
-            # DNS pattern (Kubernetes)
-            if '.svc.cluster.local' in hostname:
-                score_map['kubernetes'] += 15
-                container_info['cluster'] = 'detected'
-                parts = hostname.split('.')
-                if len(parts) >= 3:
-                    container_info['namespace'] = parts[1]
+    #         # DNS pattern (Kubernetes)
+    #         if '.svc.cluster.local' in hostname:
+    #             score_map['kubernetes'] += 15
+    #             container_info['cluster'] = 'detected'
+    #             parts = hostname.split('.')
+    #             if len(parts) >= 3:
+    #                 container_info['namespace'] = parts[1]
 
-            # Body pattern detection
-            body_patterns = {
-                'kubernetes': [r'kubernetes', r'pod.*name', r'namespace', r'cluster'],
-                'docker': [r'docker.*container', r'container.*id'],
-                'ecs': [r'ecs.*task', r'fargate', r'taskarn', r'aws.*region']
-            }
+    #         # Body pattern detection
+    #         body_patterns = {
+    #             'kubernetes': [r'kubernetes', r'pod.*name', r'namespace', r'cluster'],
+    #             'docker': [r'docker.*container', r'container.*id'],
+    #             'ecs': [r'ecs.*task', r'fargate', r'taskarn', r'aws.*region']
+    #         }
 
-            for kind, patterns in body_patterns.items():
-                for pattern in patterns:
-                    if re.search(pattern, body):
-                        score_map[kind] += 5
+    #         for kind, patterns in body_patterns.items():
+    #             for pattern in patterns:
+    #                 if re.search(pattern, body):
+    #                     score_map[kind] += 5
 
-            # Health/metrics endpoints
-            probe_paths = {
-                'kubernetes': ['/metrics', '/healthz', '/readyz', '/livez'],
-                'docker': ['/docker-health', '/container-info'],
-                'ecs': ['/task-metadata', '/stats']
-            }
+    #         # Health/metrics endpoints
+    #         probe_paths = {
+    #             'kubernetes': ['/metrics', '/healthz', '/readyz', '/livez'],
+    #             'docker': ['/docker-health', '/container-info'],
+    #             'ecs': ['/task-metadata', '/stats']
+    #         }
 
-            for kind, paths in probe_paths.items():
-                for path in paths:
-                    probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", path)
-                    probe_response = self._safe_request('GET', probe_url, timeout=3)
-                    if probe_response and probe_response.status_code == 200:
-                        score_map[kind] += 5
-                        if 'prometheus' in probe_response.text.lower() or '# TYPE' in probe_response.text:
-                            score_map[kind] += 5
+    #         for kind, paths in probe_paths.items():
+    #             for path in paths:
+    #                 probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", path)
+    #                 probe_response = self._safe_request('GET', probe_url, timeout=3)
+    #                 if probe_response and probe_response.status_code == 200:
+    #                     score_map[kind] += 5
+    #                     if 'prometheus' in probe_response.text.lower() or '# TYPE' in probe_response.text:
+    #                         score_map[kind] += 5
 
-            # Final decision
-            detected = max(score_map.items(), key=lambda x: x[1])
-            if detected[1] >= 10:
-                container_info['orchestrator'] = detected[0]
+    #         # Final decision
+    #         detected = max(score_map.items(), key=lambda x: x[1])
+    #         if detected[1] >= 10:
+    #             container_info['orchestrator'] = detected[0]
 
-            # Bypass hints
-            hints = {
-                'kubernetes': [
-                    'internal_service_communication',
-                    'cluster_internal_dns',
-                    'service_mesh_bypass',
-                    'pod_to_pod_direct'
-                ],
-                'docker': [
-                    'container_network_bypass',
-                    'docker_api_exposure',
-                    'container_escape_vectors'
-                ],
-                'ecs': [
-                    'aws_metadata_service',
-                    'task_role_assumption',
-                    'ecs_service_discovery'
-                ]
-            }
+    #         # Bypass hints
+    #         hints = {
+    #             'kubernetes': [
+    #                 'internal_service_communication',
+    #                 'cluster_internal_dns',
+    #                 'service_mesh_bypass',
+    #                 'pod_to_pod_direct'
+    #             ],
+    #             'docker': [
+    #                 'container_network_bypass',
+    #                 'docker_api_exposure',
+    #                 'container_escape_vectors'
+    #             ],
+    #             'ecs': [
+    #                 'aws_metadata_service',
+    #                 'task_role_assumption',
+    #                 'ecs_service_discovery'
+    #             ]
+    #         }
 
-            container_info['bypass_hints'] = hints.get(container_info['orchestrator'], [])
-            return container_info
+    #         container_info['bypass_hints'] = hints.get(container_info['orchestrator'], [])
+    #         return container_info
 
-        except Exception as e:
-            container_info['error'] = str(e)
-            return container_info
+    #     except Exception as e:
+    #         container_info['error'] = str(e)
+    #         return container_info
 
+    # def _get_service_mesh_info(self, endpoint: str) -> Dict:
+    #     """Detect service mesh layer with enhanced fingerprinting"""
+    #     mesh_info = {
+    #         'service_mesh': 'unknown',
+    #         'sidecar': None,
+    #         'version': None,
+    #         'bypass_hints': []
+    #     }
 
-    def _get_service_mesh_info(self, endpoint: str) -> Dict:
-        """Detect service mesh layer with enhanced fingerprinting"""
-        mesh_info = {
-            'service_mesh': 'unknown',
-            'sidecar': None,
-            'version': None,
-            'bypass_hints': []
-        }
+    #     try:
+    #         response = self._safe_request('GET', endpoint, timeout=5)
+    #         if not response:
+    #             return mesh_info
 
-        try:
-            response = self._safe_request('GET', endpoint, timeout=5)
-            if not response:
-                return mesh_info
+    #         headers = self._normalize_headers(response.headers)
+    #         body = response.text.lower()
+    #         score_map = {
+    #             'istio': 0,
+    #             'linkerd': 0,
+    #             'consul': 0
+    #         }
 
-            headers = self._normalize_headers(response.headers)
-            body = response.text.lower()
-            score_map = {
-                'istio': 0,
-                'linkerd': 0,
-                'consul': 0
-            }
+    #         # --- Header detection ---
+    #         header_patterns = {
+    #             'istio': ['x-envoy-peer-metadata', 'x-envoy-attempt-count', 'x-request-id', 'x-b3-traceid'],
+    #             'linkerd': ['l5d-ctx-trace', 'l5d-dst-override'],
+    #             'consul': ['x-consul-default', 'x-consul-trace']
+    #         }
 
-            # --- Header detection ---
-            header_patterns = {
-                'istio': ['x-envoy-peer-metadata', 'x-envoy-attempt-count', 'x-request-id', 'x-b3-traceid'],
-                'linkerd': ['l5d-ctx-trace', 'l5d-dst-override'],
-                'consul': ['x-consul-default', 'x-consul-trace']
-            }
+    #         for mesh, patterns in header_patterns.items():
+    #             for pattern in patterns:
+    #                 if pattern in headers:
+    #                     score_map[mesh] += 5
 
-            for mesh, patterns in header_patterns.items():
-                for pattern in patterns:
-                    if pattern in headers:
-                        score_map[mesh] += 5
+    #         # --- Body-based detection ---
+    #         body_patterns = {
+    #             'istio': [r'istio', r'envoy', r'pilot', r'istiod', r'mesh'],
+    #             'linkerd': [r'linkerd', r'outbound', r'proxy', r'service-profile'],
+    #             'consul': [r'consul', r'sidecar', r'connect', r'envoy']
+    #         }
 
-            # --- Body-based detection ---
-            body_patterns = {
-                'istio': [r'istio', r'envoy', r'pilot', r'istiod', r'mesh'],
-                'linkerd': [r'linkerd', r'outbound', r'proxy', r'service-profile'],
-                'consul': [r'consul', r'sidecar', r'connect', r'envoy']
-            }
+    #         for mesh, patterns in body_patterns.items():
+    #             for pattern in patterns:
+    #                 if re.search(pattern, body):
+    #                     score_map[mesh] += 2
 
-            for mesh, patterns in body_patterns.items():
-                for pattern in patterns:
-                    if re.search(pattern, body):
-                        score_map[mesh] += 2
+    #         # --- Probe endpoints for control planes ---
+    #         control_plane_probes = {
+    #             'istio': ['/stats', '/config_dump'],
+    #             'linkerd': ['/metrics', '/proxy-log-level'],
+    #             'consul': ['/v1/agent/self', '/v1/catalog/nodes']
+    #         }
 
-            # --- Probe endpoints for control planes ---
-            control_plane_probes = {
-                'istio': ['/stats', '/config_dump'],
-                'linkerd': ['/metrics', '/proxy-log-level'],
-                'consul': ['/v1/agent/self', '/v1/catalog/nodes']
-            }
+    #         parsed_url = urlparse(endpoint)
+    #         for mesh, paths in control_plane_probes.items():
+    #             for path in paths:
+    #                 probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", path)
+    #                 probe_response = self._safe_request('GET', probe_url, timeout=3)
+    #                 if probe_response and probe_response.status_code == 200:
+    #                     if mesh in probe_response.text.lower():
+    #                         score_map[mesh] += 4
 
-            parsed_url = urlparse(endpoint)
-            for mesh, paths in control_plane_probes.items():
-                for path in paths:
-                    probe_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", path)
-                    probe_response = self._safe_request('GET', probe_url, timeout=3)
-                    if probe_response and probe_response.status_code == 200:
-                        if mesh in probe_response.text.lower():
-                            score_map[mesh] += 4
+    #         # --- Decision ---
+    #         detected = max(score_map.items(), key=lambda x: x[1])
+    #         if detected[1] >= 5:
+    #             mesh_info['service_mesh'] = detected[0]
 
-            # --- Decision ---
-            detected = max(score_map.items(), key=lambda x: x[1])
-            if detected[1] >= 5:
-                mesh_info['service_mesh'] = detected[0]
+    #         # --- Bypass hints ---
+    #         hints = {
+    #             'istio': ['sidecar_bypass', 'outbound_rule_exfiltration', 'cluster_internal'],
+    #             'linkerd': ['l5d_header_injection', 'profile_route_fuzzing'],
+    #             'consul': ['envoy_config_exposure', 'consul_api_token_abuse']
+    #         }
 
-            # --- Bypass hints ---
-            hints = {
-                'istio': ['sidecar_bypass', 'outbound_rule_exfiltration', 'cluster_internal'],
-                'linkerd': ['l5d_header_injection', 'profile_route_fuzzing'],
-                'consul': ['envoy_config_exposure', 'consul_api_token_abuse']
-            }
+    #         mesh_info['bypass_hints'] = hints.get(mesh_info['service_mesh'], [])
 
-            mesh_info['bypass_hints'] = hints.get(mesh_info['service_mesh'], [])
+    #         return mesh_info
 
-            return mesh_info
+    #     except Exception as e:
+    #         mesh_info['error'] = str(e)
+    #         return mesh_info
 
-        except Exception as e:
-            mesh_info['error'] = str(e)
-            return mesh_info
-
-
-    def _find_next_service(self, service_info: Dict) -> Optional[str]:
-        """Intelligent next-hop discovery using multiple detection vectors"""
-        next_candidates = set()
-        endpoint = service_info.get('endpoint')
+    # def _find_next_service(self, service_info: Dict) -> Optional[str]:
+    #     """Intelligent next-hop discovery using multiple detection vectors"""
+    #     next_candidates = set()
+    #     endpoint = service_info.get('endpoint')
         
-        if not endpoint:
-            return None
+    #     if not endpoint:
+    #         return None
         
-        try:
-            response = self._safe_request('GET', endpoint, timeout=5)
-            if not response:
-                return None
+    #     try:
+    #         response = self._safe_request('GET', endpoint, timeout=5)
+    #         if not response:
+    #             return None
             
-            headers_normalized = self._normalize_headers(response.headers)
+    #         headers_normalized = self._normalize_headers(response.headers)
 
-            # Method 1: Direct forwarding headers
-            forwarding_headers = [
-                'X-Forwarded-For', 'X-Upstream-Server', 'X-Backend-Server',
-                'X-Real-Backend', 'X-Upstream-Addr', 'X-Forwarded-Proto', 
-                'X-Forwarded-Host', 'Front-End-Https', 'Max-Forwards',
-                'X-Forwarded-Port', 'Forwarded', 'Via', 'Max-Forwards'
-            ]
+    #         # Method 1: Direct forwarding headers
+    #         forwarding_headers = [
+    #             'X-Forwarded-For', 'X-Upstream-Server', 'X-Backend-Server',
+    #             'X-Real-Backend', 'X-Upstream-Addr', 'X-Forwarded-Proto', 
+    #             'X-Forwarded-Host', 'Front-End-Https', 'Max-Forwards',
+    #             'X-Forwarded-Port', 'Forwarded', 'Via', 'Max-Forwards'
+    #         ]
             
-            for header_name, header_value in headers.items():
-                if any(fwd_header in header_name for fwd_header in forwarding_headers):
-                    # Extract URL or hostname from header
-                    if '://' in header_value:
-                        next_candidates.add(header_value)
-                    elif ':' in header_value:  # hostname:port
-                        parsed_current = urlparse(endpoint)
-                        next_url = f"{parsed_current.scheme}://{header_value}"
-                        next_candidates.add(next_url)
+    #         for header_name, header_value in headers.items():
+    #             if any(fwd_header in header_name for fwd_header in forwarding_headers):
+    #                 # Extract URL or hostname from header
+    #                 if '://' in header_value:
+    #                     next_candidates.add(header_value)
+    #                 elif ':' in header_value:  # hostname:port
+    #                     parsed_current = urlparse(endpoint)
+    #                     next_url = f"{parsed_current.scheme}://{header_value}"
+    #                     next_candidates.add(next_url)
             
-            # Method 2: Service mesh upstream discovery
-            if service_info.get('service_mesh_info', {}).get('config_access'):
-                mesh_endpoints = service_info['service_mesh_info']['config_access']
+    #         # Method 2: Service mesh upstream discovery
+    #         if service_info.get('service_mesh_info', {}).get('config_access'):
+    #             mesh_endpoints = service_info['service_mesh_info']['config_access']
                 
-                if '/clusters' in mesh_endpoints:
-                    parsed_url = urlparse(endpoint)
-                    clusters_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", '/clusters')
-                    clusters_response = self._safe_request('GET', clusters_url, timeout=3)
+    #             if '/clusters' in mesh_endpoints:
+    #                 parsed_url = urlparse(endpoint)
+    #                 clusters_url = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", '/clusters')
+    #                 clusters_response = self._safe_request('GET', clusters_url, timeout=3)
                     
-                    if clusters_response:
-                        # Parse Envoy cluster config for upstream services
-                        cluster_text = clusters_response.text
-                        upstream_matches = re.findall(r'outbound\|\d+\|\|([^:]+)', cluster_text)
+    #                 if clusters_response:
+    #                     # Parse Envoy cluster config for upstream services
+    #                     cluster_text = clusters_response.text
+    #                     upstream_matches = re.findall(r'outbound\|\d+\|\|([^:]+)', cluster_text)
                         
-                        for upstream in upstream_matches:
-                            if upstream != parsed_url.hostname:  # Avoid self-reference
-                                next_url = f"{parsed_url.scheme}://{upstream}"
-                                next_candidates.add(next_url)
+    #                     for upstream in upstream_matches:
+    #                         if upstream != parsed_url.hostname:  # Avoid self-reference
+    #                             next_url = f"{parsed_url.scheme}://{upstream}"
+    #                             next_candidates.add(next_url)
             
-            # Method 3: API response analysis for service references
-            response_text = response.text
+    #         # Method 3: API response analysis for service references
+    #         response_text = response.text
             
-            # Look for API endpoints in responses (JSON APIs often reference other services)
-            api_url_patterns = [
-                r'"[a-zA-Z_]+_url":\s*"(https?://[^"]+)"',
-                r'"[a-zA-Z_]+_endpoint":\s*"(https?://[^"]+)"',
-                r'"service_url":\s*"(https?://[^"]+)"'
-            ]
+    #         # Look for API endpoints in responses (JSON APIs often reference other services)
+    #         api_url_patterns = [
+    #             r'"[a-zA-Z_]+_url":\s*"(https?://[^"]+)"',
+    #             r'"[a-zA-Z_]+_endpoint":\s*"(https?://[^"]+)"',
+    #             r'"service_url":\s*"(https?://[^"]+)"'
+    #         ]
             
-            for pattern in api_url_patterns:
-                matches = re.findall(pattern, response_text)
-                for match in matches:
-                    if match != endpoint:  # Avoid self-reference
-                        next_candidates.add(match)
+    #         for pattern in api_url_patterns:
+    #             matches = re.findall(pattern, response_text)
+    #             for match in matches:
+    #                 if match != endpoint:  # Avoid self-reference
+    #                     next_candidates.add(match)
             
-            # Method 4: DNS-based service discovery
-            parsed_url = urlparse(endpoint)
-            if parsed_url.hostname:
-                # Try common service discovery patterns
-                hostname_parts = parsed_url.hostname.split('.')
-                if len(hostname_parts) > 1:
-                    # Try different service variations
-                    service_variations = [
-                        f"api.{'.'.join(hostname_parts[1:])}",
-                        f"backend.{'.'.join(hostname_parts[1:])}",
-                        f"internal.{'.'.join(hostname_parts[1:])}",
-                        f"service.{'.'.join(hostname_parts[1:])}"
-                    ]
+    #         # Method 4: DNS-based service discovery
+    #         parsed_url = urlparse(endpoint)
+    #         if parsed_url.hostname:
+    #             # Try common service discovery patterns
+    #             hostname_parts = parsed_url.hostname.split('.')
+    #             if len(hostname_parts) > 1:
+    #                 # Try different service variations
+    #                 service_variations = [
+    #                     f"api.{'.'.join(hostname_parts[1:])}",
+    #                     f"backend.{'.'.join(hostname_parts[1:])}",
+    #                     f"internal.{'.'.join(hostname_parts[1:])}",
+    #                     f"service.{'.'.join(hostname_parts[1:])}"
+    #                 ]
                     
-                    for variation in service_variations:
-                        try:
-                            # Quick DNS resolution check
-                            socket.gethostbyname(variation)
-                            next_url = f"{parsed_url.scheme}://{variation}"
-                            if next_url != endpoint:
-                                next_candidates.add(next_url)
-                        except socket.gaierror:
-                            continue
+    #                 for variation in service_variations:
+    #                     try:
+    #                         # Quick DNS resolution check
+    #                         socket.gethostbyname(variation)
+    #                         next_url = f"{parsed_url.scheme}://{variation}"
+    #                         if next_url != endpoint:
+    #                             next_candidates.add(next_url)
+    #                     except socket.gaierror:
+    #                         continue
             
-            # Method 5: Container orchestration service discovery
-            container_info = service_info.get('container_info', {})
-            if container_info.get('orchestrator') == 'kubernetes':
-                # Try Kubernetes internal service patterns
-                if '.svc.cluster.local' in parsed_url.hostname:
-                    parts = parsed_url.hostname.split('.')
-                    if len(parts) >= 3:
-                        namespace = parts[1]
-                        # Try common service names in the same namespace
-                        common_services = ['api', 'backend', 'database', 'cache', 'auth']
-                        for service_name in common_services:
-                            k8s_url = f"{parsed_url.scheme}://{service_name}.{namespace}.svc.cluster.local"
-                            if k8s_url != endpoint:
-                                next_candidates.add(k8s_url)
+    #         # Method 5: Container orchestration service discovery
+    #         container_info = service_info.get('container_info', {})
+    #         if container_info.get('orchestrator') == 'kubernetes':
+    #             # Try Kubernetes internal service patterns
+    #             if '.svc.cluster.local' in parsed_url.hostname:
+    #                 parts = parsed_url.hostname.split('.')
+    #                 if len(parts) >= 3:
+    #                     namespace = parts[1]
+    #                     # Try common service names in the same namespace
+    #                     common_services = ['api', 'backend', 'database', 'cache', 'auth']
+    #                     for service_name in common_services:
+    #                         k8s_url = f"{parsed_url.scheme}://{service_name}.{namespace}.svc.cluster.local"
+    #                         if k8s_url != endpoint:
+    #                             next_candidates.add(k8s_url)
             
-            # Return the first valid candidate after basic validation
-            for candidate in next_candidates:
-                if self._validate_next_hop(candidate):
-                    return candidate
+    #         # Return the first valid candidate after basic validation
+    #         for candidate in next_candidates:
+    #             if self._validate_next_hop(candidate):
+    #                 return candidate
             
-            return None
+    #         return None
             
-        except Exception as e:
-            return None
+    #     except Exception as e:
+    #         return None
 
-    # Helper methods for advanced detection
-    def _safe_request(self, method: str, url: str, timeout: int = 5, **kwargs) -> Optional[requests.Response]:
-        """Safe HTTP request with error handling"""
-        try:
-            response = self.session.request(method, url, timeout=timeout, verify=False, **kwargs)
-            return response
-        except Exception:
-            return None
+    # # Helper methods for advanced detection
+    # def _safe_request(self, method: str, url: str, timeout: int = 5, **kwargs) -> Optional[requests.Response]:
+    #     """Safe HTTP request with error handling"""
+    #     try:
+    #         response = self.session.request(method, url, timeout=timeout, verify=False, **kwargs)
+    #         return response
+    #     except Exception:
+    #         return None
 
-    def _is_rest_api(self, endpoint: str) -> bool:
-        """Detect if endpoint is a REST API"""
-        try:
-            response = self._safe_request('OPTIONS', endpoint, timeout=3)
-            if response and 'allow' in response.headers:
-                allowed_methods = response.headers['allow'].upper()
-                rest_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
-                return sum(1 for method in rest_methods if method in allowed_methods) >= 3
-        except:
-            pass
-        return False
+    # def _is_rest_api(self, endpoint: str) -> bool:
+    #     """Detect if endpoint is a REST API"""
+    #     try:
+    #         response = self._safe_request('OPTIONS', endpoint, timeout=3)
+    #         if response and 'allow' in response.headers:
+    #             allowed_methods = response.headers['allow'].upper()
+    #             rest_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+    #             return sum(1 for method in rest_methods if method in allowed_methods) >= 3
+    #     except:
+    #         pass
+    #     return False
 
-    def _is_graphql(self, endpoint: str) -> bool:
-        """Detect GraphQL endpoint"""
-        try:
-            # Try GraphQL introspection query
-            graphql_query = {"query": "{ __schema { types { name } } }"}
-            response = self._safe_request('POST', endpoint, json=graphql_query, timeout=3)
+    # def _is_graphql(self, endpoint: str) -> bool:
+    #     """Detect GraphQL endpoint"""
+    #     try:
+    #         # Try GraphQL introspection query
+    #         graphql_query = {"query": "{ __schema { types { name } } }"}
+    #         response = self._safe_request('POST', endpoint, json=graphql_query, timeout=3)
             
-            if response and response.status_code == 200:
-                response_data = response.json()
-                return '__schema' in str(response_data)
+    #         if response and response.status_code == 200:
+    #             response_data = response.json()
+    #             return '__schema' in str(response_data)
                 
-            # Also check for GraphQL-specific paths
-            parsed_url = urlparse(endpoint)
-            graphql_paths = ['/graphql', '/graphiql', '/api/graphql']
-            return any(path in parsed_url.path for path in graphql_paths)
-        except:
-            pass
-        return False
+    #         # Also check for GraphQL-specific paths
+    #         parsed_url = urlparse(endpoint)
+    #         graphql_paths = ['/graphql', '/graphiql', '/api/graphql']
+    #         return any(path in parsed_url.path for path in graphql_paths)
+    #     except:
+    #         pass
+    #     return False
 
-    def _supports_websocket(self, endpoint: str) -> bool:
-        """Check WebSocket support"""
-        try:
-            headers = {
-                'Connection': 'Upgrade',
-                'Upgrade': 'websocket',
-                'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
-                'Sec-WebSocket-Version': '13'
-            }
-            response = self._safe_request('GET', endpoint, headers=headers, timeout=3)
-            return response and response.status_code == 101
-        except:
-            pass
-        return False
+    # def _supports_websocket(self, endpoint: str) -> bool:
+    #     """Check WebSocket support"""
+    #     try:
+    #         headers = {
+    #             'Connection': 'Upgrade',
+    #             'Upgrade': 'websocket',
+    #             'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+    #             'Sec-WebSocket-Version': '13'
+    #         }
+    #         response = self._safe_request('GET', endpoint, headers=headers, timeout=3)
+    #         return response and response.status_code == 101
+    #     except:
+    #         pass
+    #     return False
 
     def _validate_next_hop(self, candidate_url: str) -> bool:
         """Advanced validation with service fingerprinting"""
@@ -1181,37 +1179,37 @@ class ServiceDiscoveryEnhanced:
         except Exception:
             return False
 
-class ServiceMeshDetector:
-    def __init__(self):
-        self.mesh_signatures = {
-            'istio': ['x-istio-attributes', 'x-envoy', 'x-b3-traceid'],
-            'linkerd': ['l5d-dst-service', 'l5d-dst-client'],
-            'consul': ['x-consul-token', 'x-consul-index'],
-            'traefik': ['x-traefik-router', 'x-traefik-service']
-        }
+# class ServiceMeshDetector:
+#     def __init__(self):
+#         self.mesh_signatures = {
+#             'istio': ['x-istio-attributes', 'x-envoy', 'x-b3-traceid'],
+#             'linkerd': ['l5d-dst-service', 'l5d-dst-client'],
+#             'consul': ['x-consul-token', 'x-consul-index'],
+#             'traefik': ['x-traefik-router', 'x-traefik-service']
+#         }
 
-    def detect_mesh(self, headers: Dict, response_info: Dict) -> Dict:
-        mesh_data = {
-            'type': None,
-            'version': None,
-            'routing_info': {},
-            'metadata': {}
-        }
-        for mesh_type, signatures in self.mesh_signatures.items():
-            if any(sig in str(headers) for sig in signatures):
-                mesh_data['type'] = mesh_type
-                mesh_data['metadata'] = self._extract_mesh_metadata(mesh_type, headers)
-                break
-        return mesh_data
+#     def detect_mesh(self, headers: Dict, response_info: Dict) -> Dict:
+#         mesh_data = {
+#             'type': None,
+#             'version': None,
+#             'routing_info': {},
+#             'metadata': {}
+#         }
+#         for mesh_type, signatures in self.mesh_signatures.items():
+#             if any(sig in str(headers) for sig in signatures):
+#                 mesh_data['type'] = mesh_type
+#                 mesh_data['metadata'] = self._extract_mesh_metadata(mesh_type, headers)
+#                 break
+#         return mesh_data
 
-    def _extract_mesh_metadata(self, mesh_type: str, headers: Dict) -> Dict:
-        metadata = {}
-        if mesh_type == 'istio':
-            metadata['trace_id'] = headers.get('x-b3-traceid')
-            metadata['request_id'] = headers.get('x-request-id')
-        elif mesh_type == 'linkerd':
-            metadata['dst_service'] = headers.get('l5d-dst-service')
-            metadata['dst_client'] = headers.get('l5d-dst-client')
+#     def _extract_mesh_metadata(self, mesh_type: str, headers: Dict) -> Dict:
+#         metadata = {}
+#         if mesh_type == 'istio':
+#             metadata['trace_id'] = headers.get('x-b3-traceid')
+#             metadata['request_id'] = headers.get('x-request-id')
+#         elif mesh_type == 'linkerd':
+#             metadata['dst_service'] = headers.get('l5d-dst-service')
+#             metadata['dst_client'] = headers.get('l5d-dst-client')
         return metadata
 
 class RequestTracker:
@@ -1539,9 +1537,9 @@ class ApplicationTraceroute:
     def __init__(self, target_url, forbidden_endpoint=None, skip_forbidden_tests=False):
         self.target_url = target_url.rstrip('/')
         self.parsed_url = urlparse(target_url)
-        self.session = requests.Session()
-        self.service_discovery = ServiceDiscoveryEnhanced()
-        self.mesh_detector = ServiceMeshDetector()
+        #self.session = requests.Session()
+        #self.service_discovery = ServiceDiscoveryEnhanced()
+        #self.mesh_detector = ServiceMeshDetector()
         self.request_tracker = RequestTracker()
         self.payload_analyzer = PayloadAnalyzer()
         #self.stack_handler = StackHandler()
@@ -1808,7 +1806,6 @@ class ApplicationTraceroute:
         
         # Sistema di detection esteso per tutti i possibili layer
         return {
-            # Layer 1: Edge/CDN Detection
             # Sistema di detection esteso per tutti i possibili layer
             # Layer 1: Edge/CDN Detection
             'cdn_detection': {
@@ -2114,7 +2111,6 @@ class ApplicationTraceroute:
                 'captcha_detection': True
             },
 
-            # Layer 3: WAF Detection (Multi-vendor)
             # Layer 3: WAF Detection (Multi-vendor Extended)
             'waf_detection': {
                 'priority': 3,
@@ -3718,45 +3714,589 @@ class ApplicationTraceroute:
                 }
             },
 
-            # Layer 7: Container Orchestration Detection
+            # Layer 7: Container Orchestration Detection (Versione Espansa)
             'container_detection': {
                 'priority': 7,
                 'headers': {
                     'X-Container-Test': markers['uuid'],
                     'X-K8s-Test': markers['sequence'],
-                    'X-Docker-Test': markers['uuid']
+                    'X-Docker-Test': markers['uuid'],
+                    'X-Pod-Name': f'test-pod-{markers["sequence"]}',
+                    'X-Namespace': f'test-namespace-{markers["sequence"]}',
+                    'X-Service-Account': f'test-sa-{markers["sequence"]}',
+                    'X-Node-Name': f'test-node-{markers["sequence"]}',
+                    'X-Cluster-Name': f'test-cluster-{markers["sequence"]}',
+                    'X-Container-ID': markers['uuid'],
+                    'X-Task-Definition': f'test-task-{markers["sequence"]}',
+                    'X-Orchestrator-Test': markers['uuid'],
+                    'User-Agent': f'ContainerTest/1.0 ({markers["uuid"]})'
                 },
                 'container_tests': {
                     'kubernetes': {
-                        'service_discovery': [
-                            'service.namespace.svc.cluster.local',
-                            'internal.service.discovery'
-                        ],
-                        'endpoints': [
-                            f'/metrics?test={markers["uuid"]}',
-                            f'/healthz?test={markers["uuid"]}',
-                            f'/readyz?test={markers["uuid"]}',
-                            f'/livez?test={markers["uuid"]}'
-                        ],
-                        'dns_patterns': ['.svc.cluster.local', '.internal']
+                        'api_server_detection': {
+                            'endpoints': [
+                                '/api/v1',
+                                '/apis',
+                                '/version',
+                                '/healthz',
+                                '/readyz',
+                                '/livez',
+                                '/openapi/v2',
+                                '/swagger.json'
+                            ],
+                            'ports': [6443, 8080, 443, 80],
+                            'tls_detection': True,
+                            'certificate_analysis': True
+                        },
+                        'service_discovery': {
+                            'cluster_dns': [
+                                'kubernetes.default.svc.cluster.local',
+                                'kube-dns.kube-system.svc.cluster.local',
+                                'coredns.kube-system.svc.cluster.local'
+                            ],
+                            'dns_patterns': [
+                                '.svc.cluster.local',
+                                '.pod.cluster.local',
+                                '.internal',
+                                '.local'
+                            ],
+                            'headless_services': True,
+                            'endpoints_api': True
+                        },
+                        'workload_detection': {
+                            'pod_metadata': [
+                                f'/api/v1/namespaces/default/pods/{markers["uuid"]}',
+                                f'/api/v1/pods?labelSelector=test={markers["uuid"]}'
+                            ],
+                            'deployment_patterns': [
+                                'apps/v1/deployments',
+                                'apps/v1/replicasets',
+                                'apps/v1/daemonsets',
+                                'apps/v1/statefulsets',
+                                'batch/v1/jobs',
+                                'batch/v1/cronjobs'
+                            ],
+                            'custom_resources': True
+                        },
+                        'networking': {
+                            'service_types': ['ClusterIP', 'NodePort', 'LoadBalancer', 'ExternalName'],
+                            'ingress_controllers': [
+                                'nginx', 'traefik', 'istio', 'ambassador',
+                                'haproxy', 'contour', 'gloo'
+                            ],
+                            'network_policies': True,
+                            'cni_detection': [
+                                'calico', 'flannel', 'weave', 'cilium',
+                                'antrea', 'kube-router', 'canal'
+                            ]
+                        },
+                        'observability': {
+                            'metrics_endpoints': [
+                                f'/metrics?test={markers["uuid"]}',
+                                f'/healthz?test={markers["uuid"]}',
+                                f'/readyz?test={markers["uuid"]}',
+                                f'/livez?test={markers["uuid"]}',
+                                f'/debug/pprof?test={markers["uuid"]}'
+                            ],
+                            'monitoring_stack': [
+                                'prometheus', 'grafana', 'alertmanager',
+                                'jaeger', 'zipkin', 'fluentd'
+                            ]
+                        },
+                        'security': {
+                            'rbac_detection': True,
+                            'network_policies': True,
+                            'pod_security_policies': True,
+                            'pod_security_standards': True,
+                            'admission_controllers': [
+                                'ValidatingAdmissionWebhook',
+                                'MutatingAdmissionWebhook',
+                                'PodSecurityPolicy',
+                                'OPA Gatekeeper'
+                            ]
+                        }
                     },
                     'docker_swarm': {
-                        'service_discovery': ['tasks.service-name'],
-                        'overlay_networks': True
+                        'manager_nodes': {
+                            'endpoints': [
+                                '/v1.41/info',
+                                '/v1.41/swarm',
+                                '/v1.41/services',
+                                '/v1.41/nodes',
+                                '/v1.41/tasks'
+                            ],
+                            'ports': [2376, 2377, 7946, 4789],
+                            'tls_detection': True
+                        },
+                        'service_discovery': {
+                            'dns_patterns': ['tasks.service-name', 'service-name'],
+                            'vip_resolution': True,
+                            'service_mesh': True
+                        },
+                        'networking': {
+                            'overlay_networks': ['ingress', 'docker_gwbridge'],
+                            'encrypted_networks': True,
+                            'load_balancing': 'vip',
+                            'routing_mesh': True
+                        },
+                        'secrets_management': True,
+                        'config_management': True,
+                        'stack_deployments': True
                     },
                     'ecs_fargate': {
-                        'task_metadata': [
-                            f'/v2/metadata?test={markers["uuid"]}',
-                            f'/v2/stats?test={markers["uuid"]}'
+                        'task_metadata': {
+                            'endpoints_v2': [
+                                '/v2/metadata',
+                                '/v2/metadata/taskArn',
+                                '/v2/stats',
+                                '/v2/credentials',
+                                '/v2/metadata/task/stats'
+                            ],
+                            'endpoints_v3': [
+                                '/v3/metadata',
+                                '/v3/containers',
+                                '/v3/task/metadata',
+                                '/v3/task/stats'
+                            ],
+                            'endpoints_v4': [
+                                '/v4/metadata',
+                                '/v4/task/metadata',
+                                '/v4/task/stats',
+                                '/v4/credentials'
+                            ]
+                        },
+                        'aws_integration': {
+                            'cloudwatch_logs': True,
+                            'xray_tracing': True,
+                            'secrets_manager': True,
+                            'parameter_store': True,
+                            'iam_roles': True
+                        },
+                        'service_discovery': {
+                            'cloud_map': True,
+                            'route53': True,
+                            'load_balancers': ['ALB', 'NLB', 'CLB']
+                        },
+                        'capacity_providers': ['FARGATE', 'EC2', 'FARGATE_SPOT']
+                    },
+                    'azure_container_instances': {
+                        'metadata_endpoints': [
+                            '/metadata/instance',
+                            '/metadata/identity',
+                            '/metadata/network'
                         ],
-                        'aws_specific': True
+                        'azure_integration': {
+                            'virtual_networks': True,
+                            'azure_files': True,
+                            'key_vault': True,
+                            'container_registry': True
+                        }
+                    },
+                    'google_cloud_run': {
+                        'metadata_endpoints': [
+                            '/computeMetadata/v1/instance/',
+                            '/computeMetadata/v1/project/'
+                        ],
+                        'cloud_integration': {
+                            'cloud_sql_proxy': True,
+                            'secret_manager': True,
+                            'cloud_storage': True,
+                            'stackdriver': True
+                        }
+                    },
+                    'nomad': {
+                        'api_endpoints': [
+                            '/v1/status/leader',
+                            '/v1/agent/self',
+                            '/v1/jobs',
+                            '/v1/allocations',
+                            '/v1/nodes'
+                        ],
+                        'service_discovery': {
+                            'consul_integration': True,
+                            'dns_interface': True
+                        },
+                        'networking': {
+                            'bridge_networks': True,
+                            'host_networks': True,
+                            'cni_plugins': True
+                        }
+                    },
+                    'mesos_marathon': {
+                        'marathon_endpoints': [
+                            '/v2/apps',
+                            '/v2/deployments',
+                            '/v2/tasks',
+                            '/v2/info'
+                        ],
+                        'mesos_endpoints': [
+                            '/state',
+                            '/metrics/snapshot',
+                            '/flags'
+                        ],
+                        'frameworks': ['marathon', 'chronos', 'aurora']
+                    },
+                    'openshift': {
+                        'api_extensions': [
+                            'apps.openshift.io/v1',
+                            'build.openshift.io/v1',
+                            'image.openshift.io/v1',
+                            'route.openshift.io/v1'
+                        ],
+                        'build_detection': {
+                            'source_to_image': True,
+                            'docker_builds': True,
+                            'custom_builds': True,
+                            'pipeline_builds': True
+                        },
+                        'route_detection': True,
+                        'imagestream_detection': True,
+                        'security_context_constraints': True
+                    },
+                    'rancher': {
+                        'api_endpoints': [
+                            '/v3',
+                            '/v3/clusters',
+                            '/v3/projects',
+                            '/v3/workloads'
+                        ],
+                        'cluster_management': True,
+                        'catalog_management': True,
+                        'pipeline_integration': True
                     }
                 },
                 'container_signatures': {
-                    'kubernetes': ['x-kubernetes', 'x-k8s', 'x-pod-name'],
-                    'docker': ['x-docker', 'x-container-id'],
-                    'ecs': ['x-ecs-task', 'x-amzn-trace-id'],
-                    'openshift': ['x-openshift']
+                    # Kubernetes Distributions
+                    'kubernetes_vanilla': {
+                        'headers': ['x-kubernetes-', 'x-k8s-'],
+                        'server_headers': ['kube-apiserver'],
+                        'version_patterns': ['kubernetes/v'],
+                        'components': ['kube-apiserver', 'kube-scheduler', 'kube-controller-manager']
+                    },
+                    'openshift': {
+                        'headers': ['x-openshift-', 'openshift-'],
+                        'server_headers': ['openshift-apiserver'],
+                        'version_patterns': ['openshift/v'],
+                        'routes_api': True,
+                        'builds_api': True
+                    },
+                    'rancher_kubernetes': {
+                        'headers': ['x-rancher-', 'rancher-'],
+                        'server_headers': ['rancher'],
+                        'cluster_management': True,
+                        'cattle_system': True
+                    },
+                    'eks': {
+                        'headers': ['x-amzn-', 'x-aws-'],
+                        'server_headers': ['eks'],
+                        'aws_integration': True,
+                        'fargate_support': True
+                    },
+                    'gke': {
+                        'headers': ['x-goog-', 'x-cloud-'],
+                        'server_headers': ['gke'],
+                        'google_integration': True,
+                        'autopilot_mode': True
+                    },
+                    'aks': {
+                        'headers': ['x-ms-', 'x-azure-'],
+                        'server_headers': ['aks'],
+                        'azure_integration': True,
+                        'virtual_nodes': True
+                    },
+                    'digital_ocean_kubernetes': {
+                        'headers': ['x-do-', 'digitalocean-'],
+                        'server_headers': ['doks'],
+                        'managed_service': True
+                    },
+                    'linode_kubernetes': {
+                        'headers': ['x-linode-', 'linode-'],
+                        'server_headers': ['lke'],
+                        'managed_service': True
+                    },
+                    
+                    # Container Runtimes
+                    'docker': {
+                        'headers': ['x-docker-', 'docker-'],
+                        'server_headers': ['docker'],
+                        'version_patterns': ['docker/'],
+                        'engine_api': True
+                    },
+                    'containerd': {
+                        'headers': ['x-containerd-', 'containerd-'],
+                        'server_headers': ['containerd'],
+                        'cri_interface': True,
+                        'gRPC_api': True
+                    },
+                    'cri_o': {
+                        'headers': ['x-crio-', 'cri-o-'],
+                        'server_headers': ['cri-o'],
+                        'oci_compliant': True,
+                        'kubernetes_focused': True
+                    },
+                    'podman': {
+                        'headers': ['x-podman-', 'podman-'],
+                        'server_headers': ['podman'],
+                        'daemonless': True,
+                        'rootless_support': True
+                    },
+                    
+                    # Docker Orchestrators
+                    'docker_swarm': {
+                        'headers': ['x-docker-swarm-', 'swarm-'],
+                        'server_headers': ['docker-swarm'],
+                        'overlay_networks': True,
+                        'secrets_api': True
+                    },
+                    'docker_compose': {
+                        'headers': ['x-compose-', 'compose-'],
+                        'server_headers': ['docker-compose'],
+                        'yaml_definitions': True,
+                        'development_focused': True
+                    },
+                    
+                    # Cloud Container Services
+                    'ecs': {
+                        'headers': ['x-ecs-', 'x-amzn-trace-id'],
+                        'server_headers': ['ecs-agent'],
+                        'task_metadata': True,
+                        'aws_integration': True
+                    },
+                    'fargate': {
+                        'headers': ['x-fargate-', 'x-amzn-'],
+                        'server_headers': ['fargate'],
+                        'serverless_containers': True,
+                        'task_metadata_v4': True
+                    },
+                    'aci': {
+                        'headers': ['x-ms-', 'x-azure-'],
+                        'server_headers': ['azure-container-instances'],
+                        'serverless_containers': True,
+                        'virtual_network_integration': True
+                    },
+                    'cloud_run': {
+                        'headers': ['x-goog-', 'x-cloud-run-'],
+                        'server_headers': ['cloud-run'],
+                        'serverless_containers': True,
+                        'knative_based': True
+                    },
+                    
+                    # Alternative Orchestrators
+                    'nomad': {
+                        'headers': ['x-nomad-', 'nomad-'],
+                        'server_headers': ['nomad'],
+                        'consul_integration': True,
+                        'vault_integration': True
+                    },
+                    'mesos_marathon': {
+                        'headers': ['x-mesos-', 'x-marathon-'],
+                        'server_headers': ['mesos', 'marathon'],
+                        'two_level_scheduler': True,
+                        'framework_based': True
+                    },
+                    'yarn': {
+                        'headers': ['x-yarn-', 'yarn-'],
+                        'server_headers': ['hadoop-yarn'],
+                        'hadoop_ecosystem': True,
+                        'resource_manager': True
+                    }
+                },
+                'runtime_detection': {
+                    'container_engines': {
+                        'docker_engine': {
+                            'api_version': 'v1.41+',
+                            'buildkit_support': True,
+                            'swarm_mode': True,
+                            'desktop_edition': True
+                        },
+                        'containerd': {
+                            'cri_plugin': True,
+                            'snapshotter': ['overlayfs', 'btrfs', 'zfs'],
+                            'runtime': ['runc', 'kata', 'gvisor']
+                        },
+                        'cri_o': {
+                            'oci_runtime': ['runc', 'crun'],
+                            'image_registry': True,
+                            'pod_sandboxes': True
+                        },
+                        'podman': {
+                            'rootless_mode': True,
+                            'systemd_integration': True,
+                            'pods_support': True
+                        }
+                    },
+                    'low_level_runtimes': {
+                        'runc': {
+                            'oci_compliant': True,
+                            'cgroup_v1_v2': True,
+                            'seccomp_support': True
+                        },
+                        'kata_containers': {
+                            'vm_isolation': True,
+                            'qemu_backend': True,
+                            'firecracker_backend': True
+                        },
+                        'gvisor': {
+                            'runsc_runtime': True,
+                            'user_space_kernel': True,
+                            'syscall_interception': True
+                        },
+                        'firecracker': {
+                            'microvm': True,
+                            'serverless_optimized': True,
+                            'minimal_overhead': True
+                        }
+                    }
+                },
+                'networking_detection': {
+                    'kubernetes_cni': {
+                        'calico': {
+                            'network_policies': True,
+                            'bgp_routing': True,
+                            'felix_agent': True
+                        },
+                        'flannel': {
+                            'overlay_network': True,
+                            'vxlan_backend': True,
+                            'host_gateway': True
+                        },
+                        'weave': {
+                            'mesh_network': True,
+                            'encryption': True,
+                            'network_policy': True
+                        },
+                        'cilium': {
+                            'ebpf_based': True,
+                            'hubble_observability': True,
+                            'service_mesh': True
+                        },
+                        'antrea': {
+                            'ovs_based': True,
+                            'network_policies': True,
+                            'traceflow': True
+                        }
+                    },
+                    'service_mesh_integration': {
+                        'istio_sidecar': True,
+                        'linkerd_proxy': True,
+                        'consul_connect': True,
+                        'app_mesh': True
+                    },
+                    'ingress_controllers': {
+                        'nginx_ingress': True,
+                        'traefik': True,
+                        'haproxy_ingress': True,
+                        'ambassador': True,
+                        'contour': True,
+                        'gloo': True
+                    }
+                },
+                'storage_detection': {
+                    'volume_types': {
+                        'persistent_volumes': ['hostPath', 'nfs', 'iscsi', 'rbd', 'cephfs'],
+                        'cloud_volumes': ['awsElasticBlockStore', 'azureDisk', 'gcePersistentDisk'],
+                        'distributed_storage': ['ceph', 'glusterfs', 'portworx', 'storageos']
+                    },
+                    'storage_classes': {
+                        'dynamic_provisioning': True,
+                        'volume_expansion': True,
+                        'topology_awareness': True
+                    },
+                    'csi_drivers': {
+                        'aws_ebs_csi': True,
+                        'azure_disk_csi': True,
+                        'gce_pd_csi': True,
+                        'ceph_csi': True
+                    }
+                },
+                'security_analysis': {
+                    'pod_security': {
+                        'security_contexts': True,
+                        'runAsNonRoot': True,
+                        'readOnlyRootFilesystem': True,
+                        'allowPrivilegeEscalation': False
+                    },
+                    'network_security': {
+                        'network_policies': True,
+                        'default_deny': True,
+                        'egress_control': True
+                    },
+                    'image_security': {
+                        'image_scanning': True,
+                        'admission_controllers': ['ImagePolicyWebhook', 'OPA Gatekeeper'],
+                        'signed_images': True
+                    },
+                    'runtime_security': {
+                        'apparmor': True,
+                        'selinux': True,
+                        'seccomp': True,
+                        'falco_integration': True
+                    }
+                },
+                'observability_stack': {
+                    'metrics': {
+                        'prometheus': True,
+                        'node_exporter': True,
+                        'kube_state_metrics': True,
+                        'cadvisor': True
+                    },
+                    'logging': {
+                        'fluentd': True,
+                        'fluent_bit': True,
+                        'logstash': True,
+                        'vector': True
+                    },
+                    'tracing': {
+                        'jaeger': True,
+                        'zipkin': True,
+                        'opentelemetry': True
+                    },
+                    'visualization': {
+                        'grafana': True,
+                        'kibana': True,
+                        'kiali': True,
+                        'weave_scope': True
+                    }
+                },
+                'deployment_patterns': {
+                    'workload_types': {
+                        'stateless_apps': ['Deployment', 'ReplicaSet'],
+                        'stateful_apps': ['StatefulSet'],
+                        'daemon_processes': ['DaemonSet'],
+                        'batch_jobs': ['Job', 'CronJob']
+                    },
+                    'update_strategies': {
+                        'rolling_update': True,
+                        'recreate': True,
+                        'blue_green': True,
+                        'canary': True
+                    },
+                    'scaling': {
+                        'horizontal_pod_autoscaler': True,
+                        'vertical_pod_autoscaler': True,
+                        'cluster_autoscaler': True,
+                        'custom_metrics_scaling': True
+                    }
+                },
+                'development_tools': {
+                    'local_development': {
+                        'minikube': True,
+                        'kind': True,
+                        'k3s': True,
+                        'docker_desktop': True
+                    },
+                    'ci_cd_integration': {
+                        'jenkins_x': True,
+                        'tekton': True,
+                        'argo_cd': True,
+                        'flux': True
+                    },
+                    'debugging_tools': {
+                        'kubectl_debug': True,
+                        'stern': True,
+                        'kubectx_kubens': True,
+                        'k9s': True
+                    }
                 }
             },
 
@@ -4029,8 +4569,8 @@ class ApplicationTraceroute:
                             'gin': ['404 page not found', 'gin-gonic'],
                             'actix': ['actix-web', 'Not Found']
                         }
-                    }
-                },
+                    },
+
                 'runtime_signatures': {
                     'java': [
                         'java', 'jvm', 'spring', 'tomcat', 'jetty', 'undertow',
@@ -4076,6 +4616,7 @@ class ApplicationTraceroute:
                         'pedestal'
                     ]
                 },
+
                 'response_analysis': {
                     'header_patterns': [
                         'Server', 'X-Powered-By', 'X-AspNet-Version',
@@ -4093,6 +4634,7 @@ class ApplicationTraceroute:
                         'jit_compilation_detection': True
                     }
                 }
+            }
             },
 
             # Layer 9: Database/Storage Detection (Enhanced)
@@ -4399,66 +4941,1239 @@ class ApplicationTraceroute:
                 }
             },
 
-            # Layer 10: Serverless/Function Detection
+            # Layer 10: Serverless/Function Detection (Versione Espansa)
             'serverless_detection': {
                 'priority': 10,
                 'headers': {
                     'X-Serverless-Test': markers['uuid'],
-                    'X-Function-Test': markers['sequence']
+                    'X-Function-Test': markers['sequence'],
+                    'X-Cold-Start-Test': markers['uuid'],
+                    'X-Runtime-Test': markers['sequence'],
+                    'X-Event-Source': f'test-event-{markers["sequence"]}',
+                    'X-Request-Context': markers['uuid'],
+                    'X-Execution-Environment': f'test-env-{markers["sequence"]}',
+                    'X-Function-Version': f'v{markers["sequence"]}',
+                    'X-Function-Memory': '128',
+                    'X-Function-Timeout': '30',
+                    'User-Agent': f'ServerlessTest/1.0 ({markers["uuid"]})',
+                    'Authorization': f'Bearer serverless-{markers["sequence"]}',
+                    'X-API-Key': f'serverless-key-{markers["uuid"]}'
                 },
                 'serverless_tests': {
                     'cold_start_analysis': {
-                        'timing_tests': True,
-                        'initialization_detection': True
+                        'timing_tests': {
+                            'initial_request': True,
+                            'subsequent_requests': True,
+                            'idle_timeout_detection': [1, 5, 15, 30, 60],  # minutes
+                            'warm_up_strategies': True
+                        },
+                        'initialization_detection': {
+                            'container_reuse': True,
+                            'runtime_startup': True,
+                            'dependency_loading': True,
+                            'connection_pooling': True
+                        },
+                        'provisioned_concurrency': {
+                            'detection': True,
+                            'scaling_behavior': True,
+                            'reserved_instances': True
+                        }
                     },
                     'execution_context': {
-                        'memory_limits': True,
-                        'timeout_detection': True,
-                        'concurrent_execution': True
+                        'memory_limits': [128, 256, 512, 1024, 1536, 2048, 3008, 10240],  # MB
+                        'timeout_detection': [1, 3, 5, 15, 30, 60, 300, 900],  # seconds
+                        'concurrent_execution': {
+                            'burst_limits': [1000, 3000, 10000],
+                            'reserved_concurrency': True,
+                            'throttling_detection': True
+                        },
+                        'cpu_allocation': {
+                            'proportional_cpu': True,
+                            'vcpu_detection': True,
+                            'performance_scaling': True
+                        },
+                        'ephemeral_storage': [512, 1024, 2048, 5120, 10240],  # MB
+                        'environment_variables': True,
+                        'secrets_integration': True
                     },
-                    'event_sources': [
-                        'api_gateway', 'sqs', 's3', 'dynamodb', 'eventbridge'
-                    ]
+                    'runtime_detection': {
+                        'supported_runtimes': [
+                            'nodejs18.x', 'nodejs16.x', 'nodejs14.x',
+                            'python3.9', 'python3.8', 'python3.7',
+                            'java17', 'java11', 'java8',
+                            'dotnet6', 'dotnetcore3.1',
+                            'go1.x', 'ruby2.7', 'ruby3.2',
+                            'provided.al2', 'custom_runtime'
+                        ],
+                        'container_support': True,
+                        'custom_images': True,
+                        'layer_support': True
+                    },
+                    'event_sources': {
+                        'http_triggers': [
+                            'api_gateway_v1', 'api_gateway_v2', 'application_load_balancer',
+                            'cloudfront', 'lambda_function_urls'
+                        ],
+                        'storage_triggers': [
+                            's3', 'azure_blob', 'google_storage', 'cloudflare_r2'
+                        ],
+                        'database_triggers': [
+                            'dynamodb_streams', 'documentdb', 'rds_proxy',
+                            'cosmosdb', 'firestore', 'mongodb_atlas'
+                        ],
+                        'messaging_triggers': [
+                            'sqs', 'sns', 'eventbridge', 'kinesis', 'msk',
+                            'azure_service_bus', 'google_pubsub', 'rabbitmq'
+                        ],
+                        'iot_triggers': [
+                            'iot_core', 'iot_events', 'azure_iot_hub', 'google_iot_core'
+                        ],
+                        'scheduled_triggers': [
+                            'cloudwatch_events', 'eventbridge_scheduler', 
+                            'azure_timer', 'google_scheduler'
+                        ],
+                        'auth_triggers': [
+                            'cognito', 'azure_ad', 'firebase_auth', 'auth0'
+                        ],
+                        'workflow_triggers': [
+                            'step_functions', 'azure_logic_apps', 'google_workflows'
+                        ]
+                    },
+                    'scaling_behavior': {
+                        'auto_scaling': True,
+                        'burst_capacity': True,
+                        'scaling_metrics': ['requests', 'cpu', 'memory', 'custom'],
+                        'scale_to_zero': True,
+                        'minimum_instances': [0, 1, 5, 10],
+                        'maximum_instances': [100, 1000, 10000, 'unlimited']
+                    },
+                    'deployment_models': {
+                        'zip_deployment': True,
+                        'container_image': True,
+                        'source_code_deployment': True,
+                        'git_integration': True,
+                        'ci_cd_integration': True
+                    }
                 },
                 'serverless_signatures': {
-                    'aws_lambda': ['x-amzn-requestid', 'lambda'],
-                    'azure_functions': ['x-ms-invocation-id'],
-                    'google_functions': ['function-execution-id'],
-                    'vercel': ['x-vercel-'],
-                    'netlify': ['x-nf-']
+                    # AWS Serverless Platform
+                    'aws_lambda': {
+                        'headers': [
+                            'x-amzn-requestid', 'x-amzn-trace-id', 'lambda-runtime-',
+                            'x-amz-function-error', 'x-amz-log-result', 'x-amz-executed-version'
+                        ],
+                        'server_headers': ['lambda-runtime', 'aws-lambda'],
+                        'runtime_api': '/2018-06-01/runtime/',
+                        'extensions_api': '/2020-01-01/extension/',
+                        'logs_api': '/2021-02-04/logs/',
+                        'environment_vars': [
+                            'AWS_LAMBDA_FUNCTION_NAME', 'AWS_LAMBDA_FUNCTION_VERSION',
+                            'AWS_LAMBDA_RUNTIME_API', '_HANDLER', 'LAMBDA_TASK_ROOT'
+                        ],
+                        'execution_context': True,
+                        'provisioned_concurrency': True
+                    },
+                    'aws_lambda_edge': {
+                        'headers': ['x-amz-cf-id', 'cloudfront-viewer-country'],
+                        'edge_locations': True,
+                        'viewer_request': True,
+                        'origin_response': True
+                    },
+                    
+                    # Microsoft Azure Functions
+                    'azure_functions': {
+                        'headers': [
+                            'x-ms-invocation-id', 'x-ms-request-id', 'x-ms-client-request-id',
+                            'x-ms-execution-context', 'x-azure-functions-'
+                        ],
+                        'server_headers': ['azure-functions'],
+                        'runtime_versions': ['~4', '~3', '~2'],
+                        'consumption_plan': True,
+                        'premium_plan': True,
+                        'dedicated_plan': True,
+                        'container_support': True
+                    },
+                    'azure_container_apps': {
+                        'headers': ['x-ms-', 'x-azure-'],
+                        'server_headers': ['azure-container-apps'],
+                        'dapr_integration': True,
+                        'keda_scaling': True,
+                        'revision_management': True
+                    },
+                    
+                    # Google Cloud Functions
+                    'google_cloud_functions': {
+                        'headers': [
+                            'function-execution-id', 'x-cloud-trace-context',
+                            'x-goog-', 'google-cloud-function'
+                        ],
+                        'server_headers': ['google-cloud-functions'],
+                        'gen1_functions': True,
+                        'gen2_functions': True,
+                        'cloud_run_integration': True,
+                        'eventarc_triggers': True
+                    },
+                    'google_cloud_run': {
+                        'headers': [
+                            'x-cloud-run-', 'x-goog-trace', 'knative-serving-'
+                        ],
+                        'server_headers': ['cloud-run'],
+                        'knative_based': True,
+                        'fully_managed': True,
+                        'anthos_integration': True,
+                        'concurrency_control': True
+                    },
+                    
+                    # Vercel Functions
+                    'vercel': {
+                        'headers': [
+                            'x-vercel-', 'x-deployment-id', 'x-vercel-cache',
+                            'x-matched-path', 'x-vercel-id'
+                        ],
+                        'server_headers': ['vercel'],
+                        'edge_functions': True,
+                        'serverless_functions': True,
+                        'edge_runtime': 'edge-runtime',
+                        'node_runtime': True
+                    },
+                    
+                    # Netlify Functions
+                    'netlify': {
+                        'headers': [
+                            'x-nf-', 'netlify-', 'x-netlify-id',
+                            'x-nf-request-id', 'x-language'
+                        ],
+                        'server_headers': ['netlify'],
+                        'edge_functions': True,
+                        'background_functions': True,
+                        'scheduled_functions': True,
+                        'deno_runtime': True
+                    },
+                    
+                    # Cloudflare Workers
+                    'cloudflare_workers': {
+                        'headers': [
+                            'cf-ray', 'cf-worker', 'cf-cache-status',
+                            'x-workers-', 'cf-connecting-ip'
+                        ],
+                        'server_headers': ['cloudflare-workers'],
+                        'edge_computing': True,
+                        'v8_isolates': True,
+                        'durable_objects': True,
+                        'kv_storage': True,
+                        'r2_integration': True
+                    },
+                    
+                    # Firebase Functions
+                    'firebase_functions': {
+                        'headers': [
+                            'x-firebase-', 'firebase-instance-id',
+                            'x-cloud-trace-context'
+                        ],
+                        'server_headers': ['firebase-functions'],
+                        'cloud_functions_integration': True,
+                        'realtime_triggers': True,
+                        'firestore_triggers': True,
+                        'auth_triggers': True
+                    },
+                    
+                    # Supabase Edge Functions
+                    'supabase': {
+                        'headers': [
+                            'x-supabase-', 'sb-gateway-version',
+                            'x-sb-edge-function'
+                        ],
+                        'server_headers': ['supabase-edge-functions'],
+                        'deno_runtime': True,
+                        'postgres_integration': True,
+                        'realtime_integration': True
+                    },
+                    
+                    # Deno Deploy
+                    'deno_deploy': {
+                        'headers': ['x-deno-', 'deno-deployment-id'],
+                        'server_headers': ['deno-deploy'],
+                        'typescript_native': True,
+                        'web_standards': True,
+                        'edge_runtime': True
+                    },
+                    
+                    # Railway Functions
+                    'railway': {
+                        'headers': ['x-railway-', 'railway-deployment-id'],
+                        'server_headers': ['railway'],
+                        'git_integration': True,
+                        'database_integration': True
+                    },
+                    
+                    # Begin Functions
+                    'begin': {
+                        'headers': ['x-begin-', 'begin-'],
+                        'server_headers': ['begin'],
+                        'aws_primitives': True,
+                        'infrastructure_as_code': True
+                    },
+                    
+                    # OpenFaaS
+                    'openfaas': {
+                        'headers': ['x-function-', 'x-call-id', 'x-start-time'],
+                        'server_headers': ['openfaas'],
+                        'kubernetes_native': True,
+                        'docker_swarm': True,
+                        'prometheus_metrics': True,
+                        'auto_scaling': True
+                    },
+                    
+                    # Knative Serving
+                    'knative': {
+                        'headers': [
+                            'knative-serving-', 'k-revision', 'k-configuration'
+                        ],
+                        'server_headers': ['knative'],
+                        'kubernetes_based': True,
+                        'scale_to_zero': True,
+                        'traffic_splitting': True,
+                        'blue_green_deployment': True
+                    },
+                    
+                    # Apache OpenWhisk
+                    'openwhisk': {
+                        'headers': ['x-openwhisk-', 'x-request-id'],
+                        'server_headers': ['openwhisk'],
+                        'action_based': True,
+                        'sequence_support': True,
+                        'rule_based_triggers': True
+                    },
+                    
+                    # Fission
+                    'fission': {
+                        'headers': ['x-fission-', 'fission-'],
+                        'server_headers': ['fission'],
+                        'kubernetes_native': True,
+                        'environment_pooling': True,
+                        'workflow_support': True
+                    },
+                    
+                    # Kubeless (Archived)
+                    'kubeless': {
+                        'headers': ['x-kubeless-', 'kubeless-'],
+                        'server_headers': ['kubeless'],
+                        'kubernetes_native': True,
+                        'serverless_framework': True
+                    }
+                },
+                'runtime_analysis': {
+                    'performance_metrics': {
+                        'cold_start_latency': {
+                            'measurement_points': ['container_init', 'runtime_init', 'handler_init'],
+                            'runtime_comparison': True,
+                            'optimization_detection': True
+                        },
+                        'warm_execution': {
+                            'response_times': True,
+                            'memory_usage': True,
+                            'cpu_utilization': True,
+                            'network_latency': True
+                        },
+                        'scaling_performance': {
+                            'concurrency_handling': True,
+                            'throughput_limits': True,
+                            'queue_depth': True,
+                            'throttling_behavior': True
+                        }
+                    },
+                    'cost_optimization': {
+                        'billing_models': ['per_request', 'per_duration', 'per_gb_second'],
+                        'pricing_tiers': True,
+                        'reserved_capacity': True,
+                        'spot_pricing': True
+                    },
+                    'resource_limits': {
+                        'memory_constraints': True,
+                        'cpu_constraints': True,
+                        'disk_constraints': True,
+                        'network_constraints': True,
+                        'execution_duration': True
+                    }
+                },
+                'integration_analysis': {
+                    'api_gateways': {
+                        'aws_api_gateway': ['REST', 'HTTP', 'WebSocket'],
+                        'azure_api_management': True,
+                        'google_api_gateway': True,
+                        'kong_gateway': True,
+                        'ambassador': True
+                    },
+                    'databases': {
+                        'serverless_databases': [
+                            'aurora_serverless', 'cosmosdb_serverless',
+                            'firestore', 'dynamodb', 'neon', 'planetscale'
+                        ],
+                        'connection_pooling': True,
+                        'connection_limits': True
+                    },
+                    'storage_services': {
+                        'object_storage': ['s3', 'blob_storage', 'cloud_storage'],
+                        'file_systems': ['efs', 'azure_files', 'filestore'],
+                        'caching': ['elasticache', 'memorystore', 'redis']
+                    },
+                    'messaging_services': {
+                        'event_streaming': ['kinesis', 'event_hubs', 'pubsub'],
+                        'message_queues': ['sqs', 'service_bus', 'cloud_tasks'],
+                        'event_buses': ['eventbridge', 'event_grid', 'eventarc']
+                    },
+                    'monitoring_observability': {
+                        'logging': ['cloudwatch', 'azure_monitor', 'stackdriver'],
+                        'metrics': ['cloudwatch_metrics', 'azure_metrics', 'cloud_monitoring'],
+                        'tracing': ['x_ray', 'application_insights', 'cloud_trace'],
+                        'alerting': ['cloudwatch_alarms', 'azure_alerts', 'cloud_alerting']
+                    }
+                },
+                'security_analysis': {
+                    'authentication_authorization': {
+                        'iam_roles': True,
+                        'managed_identity': True,
+                        'service_accounts': True,
+                        'api_keys': True,
+                        'jwt_validation': True
+                    },
+                    'network_security': {
+                        'vpc_integration': True,
+                        'private_endpoints': True,
+                        'security_groups': True,
+                        'network_acls': True
+                    },
+                    'data_protection': {
+                        'encryption_at_rest': True,
+                        'encryption_in_transit': True,
+                        'key_management': True,
+                        'secrets_management': True
+                    },
+                    'compliance': {
+                        'gdpr_compliance': True,
+                        'hipaa_compliance': True,
+                        'pci_compliance': True,
+                        'soc2_compliance': True
+                    }
+                },
+                'deployment_analysis': {
+                    'deployment_methods': {
+                        'infrastructure_as_code': [
+                            'terraform', 'cloudformation', 'arm_templates',
+                            'deployment_manager', 'pulumi', 'cdk'
+                        ],
+                        'serverless_frameworks': [
+                            'serverless', 'sam', 'chalice', 'zappa',
+                            'arc', 'sls', 'up'
+                        ],
+                        'ci_cd_integration': [
+                            'github_actions', 'azure_devops', 'google_cloud_build',
+                            'jenkins', 'gitlab_ci', 'circleci'
+                        ]
+                    },
+                    'versioning_strategies': {
+                        'blue_green': True,
+                        'canary_deployment': True,
+                        'rolling_deployment': True,
+                        'feature_flags': True,
+                        'traffic_shifting': True
+                    },
+                    'environment_management': {
+                        'multi_stage_deployment': True,
+                        'environment_variables': True,
+                        'configuration_management': True,
+                        'secrets_injection': True
+                    }
+                },
+                'edge_computing_analysis': {
+                    'edge_locations': {
+                        'global_distribution': True,
+                        'regional_deployment': True,
+                        'latency_optimization': True,
+                        'cdn_integration': True
+                    },
+                    'edge_capabilities': {
+                        'compute_at_edge': True,
+                        'storage_at_edge': True,
+                        'caching_at_edge': True,
+                        'security_at_edge': True
+                    },
+                    'mobile_backend': {
+                        'offline_support': True,
+                        'sync_capabilities': True,
+                        'push_notifications': True,
+                        'real_time_features': True
+                    }
+                },
+                'development_experience': {
+                    'local_development': {
+                        'emulation_tools': ['sam_local', 'azure_functions_core_tools', 'functions_framework'],
+                        'testing_frameworks': True,
+                        'debugging_support': True,
+                        'hot_reloading': True
+                    },
+                    'ide_integration': {
+                        'vscode_extensions': True,
+                        'intellij_plugins': True,
+                        'cloud_ide_support': True,
+                        'remote_debugging': True
+                    },
+                    'documentation_tools': {
+                        'openapi_generation': True,
+                        'auto_documentation': True,
+                        'api_testing': True,
+                        'mock_services': True
+                    }
                 }
             },
 
-            # Layer 11: Backend Detection
+            # Layer 11: Backend Detection (Versione Completa)
             'backend_detection': {
                 'priority': 11,
-                'paths': [
-                    f'/server-info?test={markers["uuid"]}',
-                    f'/server-status?test={markers["uuid"]}',
-                    f'/.env?test={markers["uuid"]}',
-                    f'/phpinfo.php?test={markers["uuid"]}'
-                ]
+                'headers': {
+                    'X-Backend-Test': markers['uuid'],
+                    'X-Server-Test': markers['sequence'],
+                    'X-Application-Test': markers['uuid'],
+                    'User-Agent': f'BackendScanner/1.0 ({markers["uuid"]})',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml,application/json,*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                'paths': {
+                    'server_info': [
+                        f'/server-info?test={markers["uuid"]}',
+                        f'/server-status?test={markers["uuid"]}',
+                        f'/info?test={markers["uuid"]}',
+                        f'/status?test={markers["uuid"]}',
+                        f'/health?test={markers["uuid"]}',
+                        f'/version?test={markers["uuid"]}',
+                        f'/build?test={markers["uuid"]}',
+                        f'/metrics?test={markers["uuid"]}',
+                        f'/debug?test={markers["uuid"]}',
+                        f'/actuator/info?test={markers["uuid"]}',
+                        f'/actuator/health?test={markers["uuid"]}',
+                        f'/actuator/metrics?test={markers["uuid"]}',
+                        f'/management/health?test={markers["uuid"]}',
+                        f'/admin/server-info?test={markers["uuid"]}'
+                    ],
+                    'configuration_exposure': [
+                        f'/.env?test={markers["uuid"]}',
+                        f'/config?test={markers["uuid"]}',
+                        f'/configuration?test={markers["uuid"]}',
+                        f'/app.config?test={markers["uuid"]}',
+                        f'/web.config?test={markers["uuid"]}',
+                        f'/application.properties?test={markers["uuid"]}',
+                        f'/application.yml?test={markers["uuid"]}',
+                        f'/settings.py?test={markers["uuid"]}',
+                        f'/config.json?test={markers["uuid"]}',
+                        f'/package.json?test={markers["uuid"]}',
+                        f'/composer.json?test={markers["uuid"]}',
+                        f'/pom.xml?test={markers["uuid"]}',
+                        f'/Gemfile?test={markers["uuid"]}',
+                        f'/requirements.txt?test={markers["uuid"]}'
+                    ],
+                    'runtime_info': [
+                        f'/phpinfo.php?test={markers["uuid"]}',
+                        f'/info.php?test={markers["uuid"]}',
+                        f'/test.php?test={markers["uuid"]}',
+                        f'/phpinfo?test={markers["uuid"]}',
+                        f'/python-info?test={markers["uuid"]}',
+                        f'/ruby-info?test={markers["uuid"]}',
+                        f'/node-info?test={markers["uuid"]}',
+                        f'/java-info?test={markers["uuid"]}',
+                        f'/.net-info?test={markers["uuid"]}',
+                        f'/go-info?test={markers["uuid"]}'
+                    ],
+                    'framework_specific': [
+                        # Laravel
+                        f'/horizon/dashboard?test={markers["uuid"]}',
+                        f'/telescope/requests?test={markers["uuid"]}',
+                        f'/_debugbar?test={markers["uuid"]}',
+                        # Django
+                        f'/admin/?test={markers["uuid"]}',
+                        f'/__debug__/?test={markers["uuid"]}',
+                        f'/django-admin/?test={markers["uuid"]}',
+                        # Rails
+                        f'/rails/info/routes?test={markers["uuid"]}',
+                        f'/rails/info/properties?test={markers["uuid"]}',
+                        # Spring Boot
+                        f'/actuator?test={markers["uuid"]}',
+                        f'/actuator/env?test={markers["uuid"]}',
+                        f'/actuator/configprops?test={markers["uuid"]}',
+                        # ASP.NET
+                        f'/trace.axd?test={markers["uuid"]}',
+                        f'/elmah.axd?test={markers["uuid"]}',
+                        # Node.js/Express
+                        f'/debug?test={markers["uuid"]}',
+                        f'/__webpack_hmr?test={markers["uuid"]}',
+                        # FastAPI
+                        f'/docs?test={markers["uuid"]}',
+                        f'/redoc?test={markers["uuid"]}',
+                        f'/openapi.json?test={markers["uuid"]}'
+                    ],
+                    'api_endpoints': [
+                        f'/api?test={markers["uuid"]}',
+                        f'/api/v1?test={markers["uuid"]}',
+                        f'/api/v2?test={markers["uuid"]}',
+                        f'/graphql?test={markers["uuid"]}',
+                        f'/rest?test={markers["uuid"]}',
+                        f'/soap?test={markers["uuid"]}',
+                        f'/rpc?test={markers["uuid"]}',
+                        f'/webhook?test={markers["uuid"]}'
+                    ],
+                    'development_tools': [
+                        f'/webpack-dev-server?test={markers["uuid"]}',
+                        f'/hot-reload?test={markers["uuid"]}',
+                        f'/__webpack_hmr?test={markers["uuid"]}',
+                        f'/browsersync?test={markers["uuid"]}',
+                        f'/livereload?test={markers["uuid"]}'
+                    ]
+                },
+                'backend_signatures': {
+                    # Web Servers
+                    'apache_httpd': {
+                        'headers': ['server: apache'],
+                        'modules': ['mod_rewrite', 'mod_ssl', 'mod_php', 'mod_wsgi'],
+                        'config_files': ['.htaccess', 'httpd.conf'],
+                        'info_pages': ['/server-info', '/server-status']
+                    },
+                    'nginx': {
+                        'headers': ['server: nginx'],
+                        'config_signature': 'nginx.conf',
+                        'modules': ['http_ssl_module', 'http_gzip_module'],
+                        'lua_integration': True
+                    },
+                    'iis': {
+                        'headers': ['server: microsoft-iis'],
+                        'aspnet_integration': True,
+                        'config_files': ['web.config'],
+                        'modules': ['asp.net', 'php', 'node.js']
+                    },
+                    'lighttpd': {
+                        'headers': ['server: lighttpd'],
+                        'fastcgi_support': True,
+                        'config_signature': 'lighttpd.conf'
+                    },
+                    'caddy': {
+                        'headers': ['server: caddy'],
+                        'automatic_https': True,
+                        'http3_support': True
+                    },
+                    
+                    # Application Servers
+                    'tomcat': {
+                        'headers': ['server: apache-tomcat'],
+                        'manager_app': '/manager',
+                        'java_servlet_api': True,
+                        'jsp_support': True
+                    },
+                    'jetty': {
+                        'headers': ['server: jetty'],
+                        'embedded_support': True,
+                        'websocket_support': True
+                    },
+                    'jboss_wildfly': {
+                        'headers': ['server: jboss', 'server: wildfly'],
+                        'ejb_support': True,
+                        'jms_support': True
+                    },
+                    'websphere': {
+                        'headers': ['server: websphere'],
+                        'was_admin_console': '/ibm/console',
+                        'ejb_support': True
+                    },
+                    'weblogic': {
+                        'headers': ['server: weblogic'],
+                        'admin_console': '/console',
+                        'clustering_support': True
+                    },
+                    'glassfish': {
+                        'headers': ['server: glassfish'],
+                        'admin_console': '/admin',
+                        'java_ee_support': True
+                    },
+                    'undertow': {
+                        'headers': ['server: undertow'],
+                        'non_blocking_io': True,
+                        'servlet_support': True
+                    },
+                    
+                    # Language-Specific Servers
+                    'gunicorn': {
+                        'headers': ['server: gunicorn'],
+                        'wsgi_server': True,
+                        'python_support': True,
+                        'worker_processes': True
+                    },
+                    'uwsgi': {
+                        'headers': ['server: uwsgi'],
+                        'wsgi_server': True,
+                        'plugin_system': True
+                    },
+                    'puma': {
+                        'headers': ['server: puma'],
+                        'ruby_server': True,
+                        'threading_support': True
+                    },
+                    'unicorn': {
+                        'headers': ['server: unicorn'],
+                        'ruby_server': True,
+                        'forking_model': True
+                    },
+                    'passenger': {
+                        'headers': ['server: passenger'],
+                        'multi_language': True,
+                        'apache_nginx_integration': True
+                    },
+                    'node_http': {
+                        'headers': ['x-powered-by: express'],
+                        'nodejs_runtime': True,
+                        'event_driven': True
+                    },
+                    'kestrel': {
+                        'headers': ['server: kestrel'],
+                        'aspnet_core': True,
+                        'cross_platform': True
+                    },
+                    
+                    # Database Servers (Web Interfaces)
+                    'phpmyadmin': {
+                        'paths': ['/phpmyadmin', '/pma'],
+                        'mysql_admin': True,
+                        'php_based': True
+                    },
+                    'adminer': {
+                        'paths': ['/adminer.php'],
+                        'database_admin': True,
+                        'single_file': True
+                    },
+                    'pgadmin': {
+                        'paths': ['/pgadmin'],
+                        'postgresql_admin': True,
+                        'python_based': True
+                    },
+                    
+                    # Content Management Systems
+                    'wordpress': {
+                        'paths': ['/wp-admin', '/wp-content', '/wp-includes'],
+                        'php_based': True,
+                        'mysql_backend': True,
+                        'plugin_system': True
+                    },
+                    'drupal': {
+                        'paths': ['/admin', '/modules', '/themes'],
+                        'php_based': True,
+                        'modular_architecture': True
+                    },
+                    'joomla': {
+                        'paths': ['/administrator', '/components', '/modules'],
+                        'php_based': True,
+                        'extension_system': True
+                    },
+                    'magento': {
+                        'paths': ['/admin', '/app', '/var'],
+                        'ecommerce_platform': True,
+                        'php_based': True
+                    },
+                    
+                    # Frameworks
+                    'laravel': {
+                        'headers': ['x-powered-by: php'],
+                        'artisan_commands': True,
+                        'eloquent_orm': True,
+                        'blade_templates': True,
+                        'composer_dependency': True
+                    },
+                    'symfony': {
+                        'headers': ['x-powered-by: php'],
+                        'bundle_system': True,
+                        'doctrine_integration': True,
+                        'twig_templates': True
+                    },
+                    'django': {
+                        'headers': ['x-powered-by: python'],
+                        'admin_interface': '/admin',
+                        'orm_support': True,
+                        'template_engine': True
+                    },
+                    'flask': {
+                        'headers': ['x-powered-by: python'],
+                        'microframework': True,
+                        'jinja2_templates': True,
+                        'werkzeug_wsgi': True
+                    },
+                    'fastapi': {
+                        'headers': ['x-powered-by: python'],
+                        'async_support': True,
+                        'automatic_docs': ['/docs', '/redoc'],
+                        'pydantic_validation': True
+                    },
+                    'rails': {
+                        'headers': ['x-powered-by: ruby'],
+                        'mvc_pattern': True,
+                        'activerecord_orm': True,
+                        'asset_pipeline': True
+                    },
+                    'sinatra': {
+                        'headers': ['x-powered-by: ruby'],
+                        'microframework': True,
+                        'dsl_based': True
+                    },
+                    'express': {
+                        'headers': ['x-powered-by: express'],
+                        'nodejs_framework': True,
+                        'middleware_system': True,
+                        'routing_support': True
+                    },
+                    'koa': {
+                        'headers': ['x-powered-by: koa'],
+                        'nodejs_framework': True,
+                        'async_middleware': True,
+                        'generators_support': True
+                    },
+                    'nestjs': {
+                        'headers': ['x-powered-by: express'],
+                        'typescript_framework': True,
+                        'decorators_based': True,
+                        'microservices_support': True
+                    },
+                    'spring_boot': {
+                        'headers': ['x-application-context'],
+                        'java_framework': True,
+                        'auto_configuration': True,
+                        'actuator_endpoints': True
+                    },
+                    'aspnet_core': {
+                        'headers': ['x-powered-by: asp.net'],
+                        'cross_platform': True,
+                        'middleware_pipeline': True,
+                        'dependency_injection': True
+                    },
+                    'gin': {
+                        'headers': ['x-powered-by: gin'],
+                        'go_framework': True,
+                        'http_router': True,
+                        'middleware_support': True
+                    },
+                    'fiber': {
+                        'headers': ['x-powered-by: fiber'],
+                        'go_framework': True,
+                        'express_inspired': True,
+                        'fast_performance': True
+                    }
+                },
+                'technology_detection': {
+                    'programming_languages': {
+                        'php': {
+                            'indicators': ['phpinfo', 'x-powered-by: php', '.php'],
+                            'versions': ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2'],
+                            'extensions': ['mysqli', 'pdo', 'curl', 'json', 'mbstring']
+                        },
+                        'python': {
+                            'indicators': ['x-powered-by: python', 'django', 'flask'],
+                            'versions': ['2.7', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11'],
+                            'frameworks': ['django', 'flask', 'fastapi', 'tornado']
+                        },
+                        'ruby': {
+                            'indicators': ['x-powered-by: ruby', 'rails', 'rack'],
+                            'versions': ['2.5', '2.6', '2.7', '3.0', '3.1', '3.2'],
+                            'frameworks': ['rails', 'sinatra', 'grape', 'hanami']
+                        },
+                        'nodejs': {
+                            'indicators': ['x-powered-by: express', 'node.js', 'npm'],
+                            'versions': ['14', '16', '18', '20'],
+                            'frameworks': ['express', 'koa', 'fastify', 'nestjs']
+                        },
+                        'java': {
+                            'indicators': ['jsessionid', 'java', 'tomcat', 'spring'],
+                            'versions': ['8', '11', '17', '21'],
+                            'frameworks': ['spring', 'struts', 'jsf', 'grails']
+                        },
+                        'dotnet': {
+                            'indicators': ['asp.net', '.aspx', 'x-aspnet-version'],
+                            'versions': ['4.8', '5.0', '6.0', '7.0', '8.0'],
+                            'frameworks': ['mvc', 'web-api', 'blazor', 'core']
+                        },
+                        'go': {
+                            'indicators': ['x-powered-by: go', 'golang'],
+                            'versions': ['1.18', '1.19', '1.20', '1.21'],
+                            'frameworks': ['gin', 'echo', 'fiber', 'chi']
+                        },
+                        'rust': {
+                            'indicators': ['x-powered-by: rust', 'actix', 'rocket'],
+                            'frameworks': ['actix-web', 'rocket', 'warp', 'axum']
+                        }
+                    },
+                    'databases': {
+                        'relational': {
+                            'mysql': ['phpmyadmin', 'mysql'],
+                            'postgresql': ['pgadmin', 'postgres'],
+                            'sqlite': ['sqlite3', '.db'],
+                            'oracle': ['oracle', 'orcl'],
+                            'mssql': ['sql-server', 'mssql']
+                        },
+                        'nosql': {
+                            'mongodb': ['mongo', 'mongodb'],
+                            'redis': ['redis-cli', 'redis'],
+                            'elasticsearch': ['elastic', '_search'],
+                            'cassandra': ['cassandra', 'cql'],
+                            'couchdb': ['couchdb', '_utils']
+                        }
+                    },
+                    'caching_systems': {
+                        'redis': ['redis-server', 'redis-cli'],
+                        'memcached': ['memcached', 'memcache'],
+                        'varnish': ['varnish', 'x-varnish'],
+                        'squid': ['squid-cache', 'x-squid']
+                    }
+                }
             },
-            # Sistema di analisi dinamica per layer aggiuntivi
+
+            # Sistema di analisi dinamica per layer aggiuntivi (Versione Completa)
             'dynamic_layer_detection': {
                 'priority': 99,
-                'adaptive_testing': True,
-                'layer_chaining_analysis': True,
-                'response_correlation': True,
-                'timing_fingerprinting': True,
-                'behavioral_analysis': True,
+                'adaptive_testing': {
+                    'response_based_adaptation': {
+                        'header_analysis': True,
+                        'content_type_detection': True,
+                        'response_size_patterns': True,
+                        'compression_detection': True,
+                        'encoding_detection': True
+                    },
+                    'timing_based_adaptation': {
+                        'response_time_clustering': True,
+                        'cold_start_detection': True,
+                        'caching_behavior': True,
+                        'rate_limiting_detection': True,
+                        'circuit_breaker_detection': True
+                    },
+                    'error_based_adaptation': {
+                        'error_code_patterns': [400, 401, 403, 404, 405, 429, 500, 502, 503, 504],
+                        'custom_error_pages': True,
+                        'error_message_analysis': True,
+                        'debug_information_leakage': True
+                    },
+                    'protocol_adaptation': {
+                        'http_version_support': ['1.0', '1.1', '2.0', '3.0'],
+                        'websocket_upgrade': True,
+                        'server_sent_events': True,
+                        'grpc_support': True
+                    }
+                },
+                'layer_chaining_analysis': {
+                    'request_flow_mapping': {
+                        'proxy_chain_detection': True,
+                        'load_balancer_upstream': True,
+                        'cdn_origin_mapping': True,
+                        'api_gateway_backend': True,
+                        'microservice_communication': True
+                    },
+                    'header_propagation_analysis': {
+                        'trace_header_tracking': ['x-trace-id', 'x-request-id', 'x-correlation-id'],
+                        'forwarded_headers': ['x-forwarded-for', 'x-real-ip', 'x-forwarded-proto'],
+                        'custom_header_propagation': True,
+                        'header_modification_detection': True
+                    },
+                    'session_affinity_detection': {
+                        'sticky_sessions': True,
+                        'session_cookies': True,
+                        'ip_hash_affinity': True,
+                        'header_based_affinity': True
+                    },
+                    'circuit_breaker_patterns': {
+                        'failure_detection': True,
+                        'recovery_behavior': True,
+                        'fallback_mechanisms': True,
+                        'bulkhead_isolation': True
+                    }
+                },
+                'response_correlation': {
+                    'multi_request_correlation': {
+                        'session_tracking': True,
+                        'user_journey_mapping': True,
+                        'state_persistence': True,
+                        'context_preservation': True
+                    },
+                    'backend_correlation': {
+                        'database_query_patterns': True,
+                        'cache_hit_miss_patterns': True,
+                        'external_api_dependencies': True,
+                        'service_dependency_mapping': True
+                    },
+                    'performance_correlation': {
+                        'response_time_correlation': True,
+                        'resource_utilization_patterns': True,
+                        'scaling_behavior_analysis': True,
+                        'bottleneck_identification': True
+                    }
+                },
+                'timing_fingerprinting': {
+                    'response_time_analysis': {
+                        'baseline_establishment': {
+                            'cold_requests': 10,
+                            'warm_requests': 50,
+                            'statistical_analysis': True,
+                            'outlier_detection': True
+                        },
+                        'pattern_recognition': {
+                            'database_query_timing': True,
+                            'cache_access_timing': True,
+                            'external_api_timing': True,
+                            'computation_timing': True
+                        },
+                        'infrastructure_fingerprinting': {
+                            'network_latency_patterns': True,
+                            'processing_power_indicators': True,
+                            'storage_access_patterns': True,
+                            'memory_allocation_patterns': True
+                        }
+                    },
+                    'concurrent_request_analysis': {
+                        'thread_pool_detection': True,
+                        'connection_pool_limits': True,
+                        'resource_contention': True,
+                        'scalability_limits': True
+                    },
+                    'geographical_timing': {
+                        'cdn_edge_detection': True,
+                        'regional_processing': True,
+                        'cross_region_latency': True,
+                        'global_load_balancing': True
+                    }
+                },
+                'behavioral_analysis': {
+                    'request_handling_patterns': {
+                        'synchronous_processing': True,
+                        'asynchronous_processing': True,
+                        'batch_processing': True,
+                        'streaming_processing': True
+                    },
+                    'scaling_behavior': {
+                        'horizontal_scaling_detection': True,
+                        'vertical_scaling_detection': True,
+                        'auto_scaling_triggers': True,
+                        'scaling_cooldown_periods': True
+                    },
+                    'failure_handling': {
+                        'graceful_degradation': True,
+                        'fail_fast_patterns': True,
+                        'retry_mechanisms': True,
+                        'backup_system_activation': True
+                    },
+                    'resource_management': {
+                        'memory_usage_patterns': True,
+                        'cpu_utilization_patterns': True,
+                        'connection_management': True,
+                        'cleanup_mechanisms': True
+                    }
+                },
                 'unknown_component_detection': {
-                    'header_pattern_analysis': True,
-                    'response_pattern_analysis': True,
-                    'timing_pattern_analysis': True,
-                    'error_pattern_analysis': True
+                    'header_pattern_analysis': {
+                        'custom_header_identification': {
+                            'pattern_extraction': True,
+                            'naming_conventions': True,
+                            'value_format_analysis': True,
+                            'correlation_analysis': True
+                        },
+                        'server_signature_analysis': {
+                            'version_string_parsing': True,
+                            'module_detection': True,
+                            'configuration_hints': True,
+                            'vendor_identification': True
+                        },
+                        'middleware_detection': {
+                            'processing_order_analysis': True,
+                            'modification_patterns': True,
+                            'injection_points': True,
+                            'chain_composition': True
+                        }
+                    },
+                    'response_pattern_analysis': {
+                        'content_structure_analysis': {
+                            'json_schema_inference': True,
+                            'xml_schema_detection': True,
+                            'html_template_detection': True,
+                            'binary_format_analysis': True
+                        },
+                        'encoding_pattern_analysis': {
+                            'character_encoding_detection': True,
+                            'compression_algorithm_detection': True,
+                            'serialization_format_detection': True,
+                            'encryption_pattern_detection': True
+                        },
+                        'metadata_extraction': {
+                            'embedded_version_info': True,
+                            'build_information': True,
+                            'deployment_artifacts': True,
+                            'framework_signatures': True
+                        }
+                    },
+                    'timing_pattern_analysis': {
+                        'processing_signature_analysis': {
+                            'algorithm_complexity_hints': True,
+                            'database_query_complexity': True,
+                            'network_call_patterns': True,
+                            'computation_intensive_detection': True
+                        },
+                        'resource_access_patterns': {
+                            'disk_io_patterns': True,
+                            'network_io_patterns': True,
+                            'memory_access_patterns': True,
+                            'cache_access_patterns': True
+                        },
+                        'optimization_detection': {
+                            'jit_compilation_hints': True,
+                            'lazy_loading_patterns': True,
+                            'prefetching_behavior': True,
+                            'batch_processing_optimization': True
+                        }
+                    },
+                    'error_pattern_analysis': {
+                        'error_message_fingerprinting': {
+                            'framework_specific_errors': True,
+                            'language_specific_errors': True,
+                            'database_specific_errors': True,
+                            'library_specific_errors': True
+                        },
+                        'error_handling_patterns': {
+                            'exception_propagation': True,
+                            'error_logging_patterns': True,
+                            'user_error_presentation': True,
+                            'developer_error_information': True
+                        },
+                        'debug_information_analysis': {
+                            'stack_trace_analysis': True,
+                            'source_code_references': True,
+                            'configuration_leakage': True,
+                            'environment_information': True
+                        }
+                    },
+                    'machine_learning_analysis': {
+                        'anomaly_detection': {
+                            'statistical_anomalies': True,
+                            'behavioral_anomalies': True,
+                            'performance_anomalies': True,
+                            'security_anomalies': True
+                        },
+                        'pattern_clustering': {
+                            'response_clustering': True,
+                            'timing_clustering': True,
+                            'error_clustering': True,
+                            'header_clustering': True
+                        },
+                        'predictive_analysis': {
+                            'component_prediction': True,
+                            'architecture_prediction': True,
+                            'technology_stack_prediction': True,
+                            'vulnerability_prediction': True
+                        }
+                    }
+                },
+                'integration_analysis': {
+                    'cross_layer_correlation': {
+                        'frontend_backend_mapping': True,
+                        'database_application_correlation': True,
+                        'cache_application_correlation': True,
+                        'cdn_origin_correlation': True
+                    },
+                    'dependency_mapping': {
+                        'service_dependencies': True,
+                        'library_dependencies': True,
+                        'infrastructure_dependencies': True,
+                        'data_dependencies': True
+                    },
+                    'architecture_reconstruction': {
+                        'component_relationship_mapping': True,
+                        'data_flow_analysis': True,
+                        'control_flow_analysis': True,
+                        'deployment_topology_inference': True
+                    }
+                },
+                'reporting_engine': {
+                    'confidence_scoring': {
+                        'detection_confidence_levels': ['high', 'medium', 'low', 'suspected'],
+                        'evidence_weighting': True,
+                        'cross_validation': True,
+                        'false_positive_filtering': True
+                    },
+                    'visualization_data': {
+                        'architecture_diagram_data': True,
+                        'dependency_graph_data': True,
+                        'timeline_data': True,
+                        'performance_metrics_data': True
+                    },
+                    'export_formats': {
+                        'json_detailed': True,
+                        'json_summary': True,
+                        'xml_report': True,
+                        'csv_data': True,
+                        'markdown_report': True,
+                        'html_report': True,
+                        'pdf_report': True
+                    },
+                    'integration_formats': {
+                        'nmap_xml': True,
+                        'burp_suite': True,
+                        'owasp_zap': True,
+                        'nessus': True,
+                        'openvas': True
+                    }
                 }
             }
         }
 
+    def cdn_fingerprinting_extended(self, cdn_config):
+        print("  🌐    CDN Detection")
+        try:
+            cdn_config = self.fingerprints['cdn_detection']
+            response = self.session.get(self.target_url, headers=cdn_config['headers'])
+
+            detected_cdn = None
+            headers_lower = {k.lower(): v for k, v in response.headers.items()}
+            body_content = response.text.lower()
+
+            # 1️⃣ HEADER detection (detection_headers + regex match)
+            for cdn_name in cdn_config['expected_responses']:
+                if any(re.search(rf"{h}", f"{k}: {v}", re.IGNORECASE)
+                       for k, v in response.headers.items()
+                       for h in cdn_config['detection_headers']):
+                    if cdn_name in body_content or cdn_name in str(headers_lower):
+                        detected_cdn = cdn_name
+                        break
+            if not detected_cdn:
+                # 2️⃣ BODY fingerprint detection
+                for cdn_name, patterns in cdn_config['advanced_detection']['body_fingerprints'].items():
+                    if any(p.lower() in body_content for p in patterns):
+                        detected_cdn = cdn_name
+                        break
+
+            # 3️⃣ DNS pattern detection (solo se geo_routing_test = True)
+            if not detected_cdn and cdn_config.get('geo_routing_test'):
+                try:
+                    import socket
+                    host = self.target_url.split("//")[-1].split("/")[0]
+                    resolved_ips = socket.gethostbyname_ex(host)[2]
+                    # (Qui potresti aggiungere match su DNS o reverse lookup)
+                except:
+                    pass
+
+            # 4️⃣ SSL certificate detection (facoltativo)
+            # Qui puoi usare ssl.get_server_certificate() e cercare nei pattern di 'ssl_patterns'
+
+            if detected_cdn:
+                self.log_discovery("CDN", "Detection", detected_cdn)
+                self.chain_map['layers'].append(f"CDN-{detected_cdn}")
+            else:
+                self.log_discovery("CDN", "Detection", "None detected or unknown")  
+
+        except Exception as e:
+            self.log_discovery("CDN", "Error", str(e))
+
     def waf_fingerprinting_extended(self, waf_payloads):
         """Advanced WAF fingerprinting - EXTENDED VERSION"""
-        print("  🛡️  WAF Detection...")
+        print("  🛡️   WAF Detection...")
 
         # Your original signatures + EXTENSIONS
         waf_signatures = {
@@ -4562,7 +6277,7 @@ class ApplicationTraceroute:
 
     def proxy_fingerprinting_extended(self, proxy_headers):
         """Detect proxy/load balancer configuration - EXTENDED VERSION"""
-        print("  🔄 Proxy Detection...")
+        print("  🔄  Proxy Detection...")
 
         try:
             response = self.session.get(self.target_url, headers=proxy_headers['headers'])
@@ -4609,173 +6324,1288 @@ class ApplicationTraceroute:
         except Exception as e:
             self.log_discovery("Proxy", "Error", str(e))
 
-    def backend_fingerprinting_extended(self, backend_paths):
+    def backend_fingerprinting_extended(self, backend_config):
         """Fingerprint backend application server - EXTENDED VERSION"""
         print("  🖥️  Backend Detection...")
-
-        # Your original signatures + EXTENSIONS
-        backend_signatures = {
-            'apache': ['server.*apache'],
-            'nginx': ['server.*nginx'],
-            'iis': ['server.*iis', 'x-aspnet-version'],
-            'tomcat': ['server.*tomcat'],
-            'jetty': ['server.*jetty'],
-            'node': ['x-powered-by.*express', 'x-powered-by.*node'],
-            'php': ['x-powered-by.*php', 'server.*php'],
-            'python': ['server.*gunicorn', 'server.*uwsgi'],
-            'ruby': ['server.*puma', 'x-powered-by.*ruby'],
-            'go': ['server.*go'],
-            # EXTENDED BACKEND SIGNATURES
-            'undertow': ['server.*undertow'],
-            'kestrel': ['server.*kestrel'],
-            'uvicorn': ['server.*uvicorn'],
-            'hypercorn': ['server.*hypercorn'],
-            'daphne': ['server.*daphne'],
-            'cherrypy': ['server.*cherrypy'],
-            'tornado': ['server.*tornado'],
-            'waitress': ['server.*waitress'],
-            'actix': ['server.*actix'],
-            'warp': ['server.*warp'],
-            'rocket': ['server.*rocket']
-        }
-
+        backend_detected = False
         detected_backend = None
-
-        # Your original test logic (PRESERVED)
-        for path in backend_paths['paths']:
-            try:
-                response = self.session.get(f"{self.target_url}{path}", timeout=5)
-
-                full_response = f"{response.headers} {response.text}".lower()
-
-                for backend, signatures in backend_signatures.items():
-                    for signature in signatures:
-                        if re.search(signature, full_response):
-                            detected_backend = backend
-                            break
-                    if detected_backend:
-                        break
-
-                if detected_backend:
-                    break
-
-            except Exception as e:
-                continue
-
-        # EXTENDED: Additional backend detection via error pages
-        if not detected_backend:
-            try:
-                error_response = self.session.get(f"{self.target_url}/nonexistent-page-404", timeout=5)
-                error_text = error_response.text.lower()
+        
+        try:
+            # Prima richiesta con headers specifici per Backend
+            response = self.session.get(self.target_url, headers=backend_config['headers'], timeout=5)
+            
+            # Controlla le signature negli headers della risposta
+            backend_signatures = backend_config['backend_signatures']
+            for backend_type, signatures in backend_signatures.items():
+                if 'headers' in signatures:
+                    for signature in signatures['headers']:
+                        for header, value in response.headers.items():
+                            if signature.lower() in f"{header}: {value}".lower():
+                                self.log_discovery("Backend", "Detection", backend_type)
+                                self.chain_map['layers'].append(f"BACKEND-{backend_type.upper()}")
+                                detected_backend = backend_type
+                                backend_detected = True
+                                return
+            
+            # Test server info endpoints
+            if not backend_detected and 'paths' in backend_config and 'server_info' in backend_config['paths']:
+                for info_path in backend_config['paths']['server_info']:
+                    try:
+                        info_response = self.session.get(f"{self.target_url}{info_path}", timeout=3)
+                        if info_response.status_code in [200, 401, 403]:
+                            content = info_response.text.lower()
+                            
+                            # Analizza il contenuto per identificare il backend
+                            for backend_type, signatures in backend_signatures.items():
+                                # Controlla se è un server web
+                                if any(keyword in content for keyword in ['apache', 'nginx', 'iis', 'tomcat', 'jetty']):
+                                    if 'apache' in content and backend_type == 'apache_httpd':
+                                        self.log_discovery("Backend", "ServerInfo", f"apache at {info_path}")
+                                        detected_backend = backend_type
+                                        backend_detected = True
+                                        break
+                                    elif 'nginx' in content and backend_type == 'nginx':
+                                        self.log_discovery("Backend", "ServerInfo", f"nginx at {info_path}")
+                                        detected_backend = backend_type
+                                        backend_detected = True
+                                        break
+                                    elif 'tomcat' in content and backend_type == 'tomcat':
+                                        self.log_discovery("Backend", "ServerInfo", f"tomcat at {info_path}")
+                                        detected_backend = backend_type
+                                        backend_detected = True
+                                        break
+                            if backend_detected:
+                                break
+                    except:
+                        continue
+                if backend_detected:
+                    self.log_discovery("Backend", "Detection", detected_backend)
+                    self.chain_map['layers'].append(f"BACKEND-{detected_backend.upper()}")
+                    return
+            
+            # Test framework specific endpoints
+            if not backend_detected and 'paths' in backend_config and 'framework_specific' in backend_config['paths']:
+                framework_tests = backend_config['paths']['framework_specific']
                 
-                if 'apache' in error_text and 'server at' in error_text:
-                    detected_backend = 'apache'
-                elif 'nginx' in error_text:
-                    detected_backend = 'nginx'
-                elif 'iis' in error_text or 'internet information services' in error_text:
-                    detected_backend = 'iis'
+                for framework_path in framework_tests[:10]:  # Limita per performance
+                    try:
+                        framework_response = self.session.get(f"{self.target_url}{framework_path}", timeout=3)
+                        if framework_response.status_code in [200, 302, 401, 403]:
+                            content = framework_response.text.lower()
+                            
+                            # Identifica framework specifici
+                            if '/admin' in framework_path and 'django' in content:
+                                self.log_discovery("Backend", "Framework", f"django_admin at {framework_path}")
+                                detected_backend = 'django'
+                                backend_detected = True
+                                break
+                            elif 'actuator' in framework_path and ('spring' in content or 'boot' in content):
+                                self.log_discovery("Backend", "Framework", f"spring_boot at {framework_path}")
+                                detected_backend = 'spring_boot'
+                                backend_detected = True
+                                break
+                            elif 'laravel' in content or 'horizon' in framework_path:
+                                self.log_discovery("Backend", "Framework", f"laravel at {framework_path}")
+                                detected_backend = 'laravel'
+                                backend_detected = True
+                                break
+                            elif '/docs' in framework_path and 'fastapi' in content:
+                                self.log_discovery("Backend", "Framework", f"fastapi at {framework_path}")
+                                detected_backend = 'fastapi'
+                                backend_detected = True
+                                break
+                            elif 'rails' in framework_path and 'ruby' in content:
+                                self.log_discovery("Backend", "Framework", f"rails at {framework_path}")
+                                detected_backend = 'rails'
+                                backend_detected = True
+                                break
+                    except:
+                        continue
+                
+                if backend_detected:
+                    self.log_discovery("Backend", "Detection", detected_backend)
+                    self.chain_map['layers'].append(f"BACKEND-{detected_backend.upper()}")
+                    return
+            
+            # Test runtime info endpoints (phpinfo, etc.)
+            if not backend_detected and 'paths' in backend_config and 'runtime_info' in backend_config['paths']:
+                for runtime_path in backend_config['paths']['runtime_info']:
+                    try:
+                        runtime_response = self.session.get(f"{self.target_url}{runtime_path}", timeout=3)
+                        if runtime_response.status_code == 200:
+                            content = runtime_response.text.lower()
+                            
+                            if 'phpinfo' in runtime_path or 'php version' in content:
+                                self.log_discovery("Backend", "Runtime", f"php_info at {runtime_path}")
+                                detected_backend = 'php'
+                                backend_detected = True
+                                break
+                            elif 'python' in content:
+                                self.log_discovery("Backend", "Runtime", f"python_info at {runtime_path}")
+                                detected_backend = 'python'
+                                backend_detected = True
+                                break
+                            elif 'ruby' in content:
+                                self.log_discovery("Backend", "Runtime", f"ruby_info at {runtime_path}")
+                                detected_backend = 'ruby'
+                                backend_detected = True
+                                break
+                            elif 'node' in content or 'javascript' in content:
+                                self.log_discovery("Backend", "Runtime", f"nodejs_info at {runtime_path}")
+                                detected_backend = 'nodejs'
+                                backend_detected = True
+                                break
+                    except:
+                        continue
+                
+                if backend_detected:
+                    self.log_discovery("Backend", "Detection", detected_backend)
+                    self.chain_map['layers'].append(f"BACKEND-{detected_backend.upper()}")
+                    return
+            
+            # Test configuration file exposure
+            if not backend_detected and 'paths' in backend_config and 'configuration_exposure' in backend_config['paths']:
+                config_files = backend_config['paths']['configuration_exposure']
+                found_configs = []
+                
+                for config_path in config_files[:8]:  # Limita per performance
+                    try:
+                        config_response = self.session.get(f"{self.target_url}{config_path}", timeout=3)
+                        if config_response.status_code == 200:
+                            content = config_response.text.lower()
+                            
+                            if '.env' in config_path and ('database' in content or 'secret' in content):
+                                found_configs.append('env_file')
+                            elif 'package.json' in config_path and 'dependencies' in content:
+                                found_configs.append('nodejs_project')
+                                detected_backend = 'nodejs'
+                            elif 'composer.json' in config_path and 'require' in content:
+                                found_configs.append('php_project')
+                                detected_backend = 'php'
+                            elif 'pom.xml' in config_path and 'maven' in content:
+                                found_configs.append('java_project')
+                                detected_backend = 'java'
+                            elif 'requirements.txt' in config_path:
+                                found_configs.append('python_project')
+                                detected_backend = 'python'
+                            elif 'gemfile' in config_path:
+                                found_configs.append('ruby_project')
+                                detected_backend = 'ruby'
+                    except:
+                        continue
+                
+                if found_configs:
+                    self.log_discovery("Backend", "ConfigExposure", f"files: {', '.join(found_configs[:3])}")
+                    if detected_backend and not backend_detected:
+                        self.log_discovery("Backend", "Detection", detected_backend)
+                        self.chain_map['layers'].append(f"BACKEND-{detected_backend.upper()}")
+                        backend_detected = True
+            
+            # Test API endpoints per identificare tecnologia
+            if not backend_detected and 'paths' in backend_config and 'api_endpoints' in backend_config['paths']:
+                api_paths = backend_config['paths']['api_endpoints']
+                
+                for api_path in api_paths:
+                    try:
+                        api_response = self.session.get(f"{self.target_url}{api_path}", timeout=3)
+                        if api_response.status_code in [200, 401, 403, 404]:
+                            
+                            # Analizza headers per identificare tecnologia
+                            for header, value in api_response.headers.items():
+                                if 'x-powered-by' in header.lower():
+                                    value_lower = value.lower()
+                                    if 'express' in value_lower:
+                                        detected_backend = 'express'
+                                        backend_detected = True
+                                    elif 'php' in value_lower:
+                                        detected_backend = 'php'
+                                        backend_detected = True
+                                    elif 'asp.net' in value_lower:
+                                        detected_backend = 'aspnet_core'
+                                        backend_detected = True
+                                    
+                                    if backend_detected:
+                                        self.log_discovery("Backend", "API", f"{detected_backend} via {header}")
+                                        break
+                            
+                            if backend_detected:
+                                break
+                                
+                    except:
+                        continue
+                
+                if backend_detected:
+                    self.log_discovery("Backend", "Detection", detected_backend)
+                    self.chain_map['layers'].append(f"BACKEND-{detected_backend.upper()}")
+                    return
+            
+            # Test development tools detection
+            if not backend_detected and 'paths' in backend_config and 'development_tools' in backend_config['paths']:
+                dev_tools = backend_config['paths']['development_tools']
+                
+                for dev_path in dev_tools:
+                    try:
+                        dev_response = self.session.get(f"{self.target_url}{dev_path}", timeout=3)
+                        if dev_response.status_code in [200, 401, 403]:
+                            content = dev_response.text.lower()
+                            
+                            if 'webpack' in dev_path or 'webpack' in content:
+                                self.log_discovery("Backend", "DevTools", f"webpack at {dev_path}")
+                                detected_backend = 'nodejs'
+                            elif 'browsersync' in content:
+                                self.log_discovery("Backend", "DevTools", f"browsersync at {dev_path}")
+                                detected_backend = 'nodejs'
+                            elif 'livereload' in content:
+                                self.log_discovery("Backend", "DevTools", f"livereload at {dev_path}")
+                            
+                            if detected_backend and not backend_detected:
+                                backend_detected = True
+                                break
+                    except:
+                        continue
+            
+            # Technology detection attraverso headers analysis
+            if not backend_detected and 'technology_detection' in backend_config:
+                tech_config = backend_config['technology_detection']
+                
+                # Analizza programming languages
+                if 'programming_languages' in tech_config:
+                    for lang, lang_info in tech_config['programming_languages'].items():
+                        indicators = lang_info.get('indicators', [])
+                        
+                        for header, value in response.headers.items():
+                            header_value = f"{header}: {value}".lower()
+                            
+                            for indicator in indicators:
+                                if indicator.lower() in header_value:
+                                    self.log_discovery("Backend", "Language", f"{lang} via {header}")
+                                    if not backend_detected:
+                                        detected_backend = lang
+                                        backend_detected = True
+                                        break
+                            if backend_detected:
+                                break
+                        if backend_detected:
+                            break
+            
+            # Error page analysis per identificare server
+            if not backend_detected:
+                try:
+                    error_response = self.session.get(f"{self.target_url}/nonexistent-page-404-test", timeout=5)
+                    error_content = error_response.text.lower()
+                    error_headers = error_response.headers
                     
-            except Exception:
-                pass
+                    # Analizza pagina di errore
+                    if 'apache' in error_content and 'server at' in error_content:
+                        detected_backend = 'apache_httpd'
+                        backend_detected = True
+                    elif 'nginx' in error_content:
+                        detected_backend = 'nginx'
+                        backend_detected = True
+                    elif 'iis' in error_content or 'internet information services' in error_content:
+                        detected_backend = 'iis'
+                        backend_detected = True
+                    elif 'tomcat' in error_content:
+                        detected_backend = 'tomcat'
+                        backend_detected = True
+                    elif 'jetty' in error_content:
+                        detected_backend = 'jetty'
+                        backend_detected = True
+                    
+                    # Analizza headers della pagina di errore
+                    if not backend_detected:
+                        server_header = error_headers.get('Server', '').lower()
+                        if 'apache' in server_header:
+                            detected_backend = 'apache_httpd'
+                            backend_detected = True
+                        elif 'nginx' in server_header:
+                            detected_backend = 'nginx'
+                            backend_detected = True
+                        elif 'iis' in server_header:
+                            detected_backend = 'iis'
+                            backend_detected = True
+                    
+                    if backend_detected:
+                        self.log_discovery("Backend", "ErrorPage", f"{detected_backend} via error analysis")
+                        
+                except:
+                    pass
+            
+            # Session cookie analysis
+            if not backend_detected:
+                cookies = response.cookies
+                session_indicators = {
+                    'jsessionid': 'java_servlet',
+                    'phpsessid': 'php',
+                    'asp.net_sessionid': 'aspnet',
+                    'sessionid': 'django',
+                    'connect.sid': 'express',
+                    '_session_id': 'rails'
+                }
+                
+                for cookie in cookies:
+                    cookie_name_lower = cookie.name.lower()
+                    for session_cookie, tech in session_indicators.items():
+                        if session_cookie in cookie_name_lower:
+                            self.log_discovery("Backend", "Session", f"{tech} via {cookie.name}")
+                            if not backend_detected:
+                                detected_backend = tech
+                                backend_detected = True
+                                break
+                    if backend_detected:
+                        break
+            
+            # Se è stato rilevato un backend, logga il risultato finale
+            if backend_detected and detected_backend:
+                self.log_discovery("Backend", "Detection", detected_backend)
+                self.chain_map['layers'].append(f"BACKEND-{detected_backend.upper()}")
+            else:
+                # Se non è stato rilevato nessun backend
+                self.log_discovery("Backend", "Detection", "None detected or unknown")
+                            
+        except Exception as e:
+            self.log_discovery("Backend", "Error", str(e))
 
-        if detected_backend:
-            self.log_discovery("Backend", "Detection", detected_backend)
-            self.chain_map['layers'].append(f"Backend-{detected_backend}")
-        # else:
-        #     self.log_discovery("Backend", "Detection", "None detected or unknown")
-
-    # NEW FUNCTIONS (keeping the ones I provided earlier)
-    def load_balancer_fingerprinting(self, lb_config):
+    def load_balancer_fingerprinting_extended(self, lb_config):
         """Detect load balancers"""
         print("  ⚔️  Load Balancer Detection...")
+        lb_detected = False
+        
         try:
-            response = self.session.get(self.target_url, headers=lb_config['headers'])
+            # Prima richiesta con headers specifici per Load Balancer
+            response = self.session.get(self.target_url, headers=lb_config['headers'], timeout=5)
             
+            # Controlla le signature negli headers della risposta
             lb_signatures = lb_config['lb_signatures']
             for lb_type, signatures in lb_signatures.items():
                 for signature in signatures:
                     for header, value in response.headers.items():
                         if signature.lower() in f"{header}: {value}".lower():
-                            self.log_discovery("LoadBalancer", "Detection", f"{lb_type}")
-                            self.chain_map['layers'].append(f"LB-{lb_type}")
+                            self.log_discovery("LoadBalancer", "Detection", lb_type)
+                            self.chain_map['layers'].append(f"LB-{lb_type.upper()}")
+                            lb_detected = True
                             return
-                        else:
-                            self.log_discovery("LoadBalancer", "Detection", "None detected or unknown")    
-            # Test health check endpoints
-            for health_check in lb_config['lb_tests']['health_checks']:
-                try:
-                    response = self.session.get(f"{self.target_url}{health_check}", timeout=3)
-                    if response.status_code == 200:
-                        self.log_discovery("LoadBalancer", "HealthCheck", health_check)
-                        break
-                except:
-                    continue
+            
+            # Test per backend detection headers (indicano presenza di LB)
+            if not lb_detected and 'backend_detection' in lb_config:
+                backend_headers = lb_config['backend_detection']['backend_server_headers']
+                connection_headers = lb_config['backend_detection']['connection_info']
+                
+                found_backend_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
                     
+                    # Controlla headers di backend server
+                    for backend_header in backend_headers:
+                        if backend_header.lower() in header_lower:
+                            found_backend_headers.append(header)
+                            break
+                    
+                    # Controlla headers di connessione
+                    for conn_header in connection_headers:
+                        if conn_header.lower() in header_lower:
+                            found_backend_headers.append(header)
+                            break
+                
+                if found_backend_headers:
+                    self.log_discovery("LoadBalancer", "Backend", f"backend_headers: {', '.join(found_backend_headers[:3])}")
+                    if not lb_detected:
+                        self.log_discovery("LoadBalancer", "Detection", "reverse_proxy_lb")
+                        self.chain_map['layers'].append("LB-REVERSE_PROXY")
+                        lb_detected = True
+            
+            # Test per geographic distribution headers
+            if not lb_detected and 'geographic_distribution' in lb_config:
+                geo_headers = lb_config['geographic_distribution']['geographic_headers']
+                found_geo_headers = []
+                
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    for geo_header in geo_headers:
+                        if geo_header.lower() in header_lower:
+                            found_geo_headers.append(f"{header}: {value}")
+                            break
+                
+                if found_geo_headers:
+                    self.log_discovery("LoadBalancer", "Geographic", f"geo_headers: {found_geo_headers[0]}")
+                    if not lb_detected:
+                        self.log_discovery("LoadBalancer", "Detection", "geographic_lb")
+                        self.chain_map['layers'].append("LB-GEOGRAPHIC")
+                        lb_detected = True
+            
+            # Test health check endpoints tipici dei LB
+            if not lb_detected and 'lb_tests' in lb_config and 'health_checks' in lb_config['lb_tests']:
+                health_endpoints = [
+                    '/health', '/healthz', '/health-check', '/status', '/ping',
+                    '/alive', '/ready', '/readiness', '/liveness', '/check'
+                ]
+                
+                for health_endpoint in health_endpoints:
+                    try:
+                        health_response = self.session.get(f"{self.target_url}{health_endpoint}", timeout=3)
+                        if health_response.status_code in [200, 204]:
+                            # Analizza la risposta per pattern di health check
+                            content = health_response.text.lower()
+                            if any(keyword in content for keyword in ['ok', 'healthy', 'alive', 'ready', 'up']):
+                                self.log_discovery("LoadBalancer", "HealthCheck", f"endpoint: {health_endpoint}")
+                                if not lb_detected:
+                                    self.log_discovery("LoadBalancer", "Detection", "health_check_lb")
+                                    self.chain_map['layers'].append("LB-HEALTH_CHECK")
+                                    lb_detected = True
+                                    break
+                    except:
+                        continue
+            
+            # Test per session persistence (cookies di load balancing)
+            if not lb_detected and 'lb_tests' in lb_config and 'session_persistence' in lb_config['lb_tests']:
+                # Controlla cookies di session persistence
+                cookies = response.cookies
+                lb_cookie_patterns = [
+                    'awsalb', 'awsalbcors', 'server-id', 'backend', 'node',
+                    'jsessionid', 'lb-', 'balance', 'sticky', 'route'
+                ]
+                
+                found_lb_cookies = []
+                for cookie in cookies:
+                    cookie_name_lower = cookie.name.lower()
+                    for pattern in lb_cookie_patterns:
+                        if pattern in cookie_name_lower:
+                            found_lb_cookies.append(cookie.name)
+                            break
+                
+                if found_lb_cookies:
+                    self.log_discovery("LoadBalancer", "SessionPersistence", f"cookies: {', '.join(found_lb_cookies[:2])}")
+                    if not lb_detected:
+                        self.log_discovery("LoadBalancer", "Detection", "session_persistent_lb")
+                        self.chain_map['layers'].append("LB-SESSION_PERSISTENT")
+                        lb_detected = True
+            
+            # Test per performance analysis (SSL termination, compression, HTTP/2)
+            if not lb_detected and 'performance_analysis' in lb_config:
+                performance_indicators = []
+                
+                # SSL termination
+                if response.url.startswith('https://') and 'ssl_termination' in lb_config['performance_analysis']:
+                    performance_indicators.append('ssl_termination')
+                
+                # Compression support
+                if 'content-encoding' in response.headers:
+                    encoding = response.headers['content-encoding'].lower()
+                    compression_types = lb_config['performance_analysis'].get('compression_support', [])
+                    if any(comp_type in encoding for comp_type in compression_types):
+                        performance_indicators.append(f'compression_{encoding}')
+                
+                # HTTP/2 support
+                if hasattr(response, 'raw') and hasattr(response.raw, 'version'):
+                    if response.raw.version == 20:  # HTTP/2
+                        performance_indicators.append('http2')
+                
+                # Keep-alive support
+                connection_header = response.headers.get('connection', '').lower()
+                if 'keep-alive' in connection_header:
+                    performance_indicators.append('keep_alive')
+                
+                if len(performance_indicators) >= 2:  # Se ha almeno 2 indicatori di performance
+                    self.log_discovery("LoadBalancer", "Performance", f"features: {', '.join(performance_indicators[:3])}")
+                    if not lb_detected:
+                        self.log_discovery("LoadBalancer", "Detection", "performance_optimized_lb")
+                        self.chain_map['layers'].append("LB-PERFORMANCE")
+                        lb_detected = True
+            
+            # Test multiple requests per rilevare load balancing behavior
+            if not lb_detected:
+                try:
+                    # Fai richieste multiple per testare round robin o altri algoritmi
+                    server_responses = []
+                    for i in range(3):
+                        test_response = self.session.get(self.target_url, timeout=3)
+                        
+                        # Cerca variazioni negli headers che indicano server diversi
+                        server_indicators = []
+                        for header, value in test_response.headers.items():
+                            if any(indicator in header.lower() for indicator in [
+                                'server', 'x-served-by', 'x-backend', 'x-upstream', 'x-node'
+                            ]):
+                                server_indicators.append(f"{header}: {value}")
+                        
+                        if server_indicators:
+                            server_responses.extend(server_indicators)
+                    
+                    # Se trova variazioni, probabilmente c'è un load balancer
+                    if len(set(server_responses)) > 1:
+                        self.log_discovery("LoadBalancer", "Algorithm", "multiple_backends_detected")
+                        if not lb_detected:
+                            self.log_discovery("LoadBalancer", "Detection", "multi_backend_lb")
+                            self.chain_map['layers'].append("LB-MULTI_BACKEND")
+                            lb_detected = True
+                            
+                except:
+                    pass
+            
+            # Test per X-Forwarded headers (comuni nei load balancers)
+            if not lb_detected:
+                forwarded_headers = []
+                for header, value in response.headers.items():
+                    if header.lower().startswith('x-forwarded-') or header.lower().startswith('x-real-'):
+                        forwarded_headers.append(header)
+                
+                if len(forwarded_headers) >= 2:  # Se ha almeno 2 forwarded headers
+                    self.log_discovery("LoadBalancer", "Forwarded", f"headers: {', '.join(forwarded_headers[:3])}")
+                    if not lb_detected:
+                        self.log_discovery("LoadBalancer", "Detection", "forwarded_headers_lb")
+                        self.chain_map['layers'].append("LB-FORWARDED")
+                        lb_detected = True
+            
+            # Test per CDN/Edge detection (spesso combinati con load balancers)
+            if not lb_detected:
+                cdn_indicators = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    value_lower = str(value).lower()
+                    
+                    if any(cdn_pattern in f"{header_lower}: {value_lower}" for cdn_pattern in [
+                        'x-cache', 'x-edge', 'x-pop', 'x-served-by', 'x-timer',
+                        'cf-ray', 'x-amz-cf-id', 'x-azure-ref'
+                    ]):
+                        cdn_indicators.append(header)
+                
+                if cdn_indicators:
+                    self.log_discovery("LoadBalancer", "CDN", f"edge_headers: {', '.join(cdn_indicators[:2])}")
+                    if not lb_detected:
+                        self.log_discovery("LoadBalancer", "Detection", "cdn_edge_lb")
+                        self.chain_map['layers'].append("LB-CDN")
+                        lb_detected = True
+            
+            # Test timeout/failover behavior
+            if not lb_detected:
+                try:
+                    # Test con timeout molto basso per vedere se c'è failover
+                    quick_response = self.session.get(self.target_url, timeout=1)
+                    
+                    # Cerca headers di timeout o circuit breaker
+                    for header, value in quick_response.headers.items():
+                        if any(pattern in header.lower() for pattern in [
+                            'timeout', 'circuit', 'retry', 'failover'
+                        ]):
+                            self.log_discovery("LoadBalancer", "Failover", f"resilience_header: {header}")
+                            if not lb_detected:
+                                self.log_discovery("LoadBalancer", "Detection", "resilient_lb")
+                                self.chain_map['layers'].append("LB-RESILIENT")
+                                lb_detected = True
+                                break
+                except:
+                    pass
+            
+            # Se non è stato rilevato nessun LB, logga una sola volta
+            if not lb_detected:
+                self.log_discovery("LoadBalancer", "Detection", "None detected or unknown")
+                            
         except Exception as e:
             self.log_discovery("LoadBalancer", "Error", str(e))
 
-    def api_gateway_fingerprinting(self, gw_config):
+    def api_gateway_fingerprinting_extended(self, gw_config):
         """Detect API gateways"""
-        print("  📝 API Gateways Detection...")
+        print("  📡 API Gateway Detection...")
+        gateway_detected = False
+        
         try:
-            response = self.session.get(self.target_url, headers=gw_config['headers'])
+            # Prima richiesta con headers specifici per API Gateway
+            response = self.session.get(self.target_url, headers=gw_config['headers'], timeout=5)
             
+            # Controlla le signature negli headers della risposta
             gw_signatures = gw_config['gateway_signatures']
             for gw_type, signatures in gw_signatures.items():
                 for signature in signatures:
                     for header, value in response.headers.items():
                         if signature.lower() in f"{header}: {value}".lower():
-                            self.log_discovery("APIGateway", "Detection", f"{gw_type}")
-                            self.chain_map['layers'].append(f"GW-{gw_type}")
+                            self.log_discovery("APIGateway", "Detection", gw_type)
+                            self.chain_map['layers'].append(f"GW-{gw_type.upper()}")
+                            gateway_detected = True
                             return
-                        # else:
-                        #     self.log_discovery("APIGateway", "Detection", "None detected or unknown")      
+            
+            # Se non trovato negli headers, testa gli endpoint di documentazione
+            if not gateway_detected and 'documentation_endpoints' in gw_config:
+                for doc_endpoint in gw_config['documentation_endpoints']:
+                    try:
+                        doc_response = self.session.get(f"{self.target_url}{doc_endpoint}", timeout=3)
+                        if doc_response.status_code in [200, 401, 403]:
+                            # Analizza il contenuto per identificare il tipo di gateway
+                            content = doc_response.text.lower()
+                            
+                            # Swagger/OpenAPI indicators
+                            if any(keyword in content for keyword in ['swagger', 'openapi', 'api documentation']):
+                                self.log_discovery("APIGateway", "Documentation", f"swagger_docs at {doc_endpoint}")
+                                if not gateway_detected:
+                                    self.log_discovery("APIGateway", "Detection", "generic_api_gateway")
+                                    self.chain_map['layers'].append("GW-GENERIC")
+                                    gateway_detected = True
+                                    break
+                    except:
+                        continue
+            
+            # Test routing patterns per identificare API Gateway
+            if not gateway_detected and 'api_tests' in gw_config and 'routing_tests' in gw_config['api_tests']:
+                for route in gw_config['api_tests']['routing_tests'][:5]:  # Testa solo i primi 5 per performance
+                    try:
+                        route_response = self.session.get(f"{self.target_url}{route}", timeout=3)
+                        
+                        # Analizza gli headers della risposta per pattern di API Gateway
+                        for header, value in route_response.headers.items():
+                            header_lower = header.lower()
+                            value_lower = str(value).lower()
+                            
+                            # Pattern comuni di API Gateway
+                            if any(pattern in f"{header_lower}: {value_lower}" for pattern in [
+                                'x-request-id', 'x-correlation-id', 'x-trace-id',
+                                'x-upstream', 'x-proxy', 'x-gateway', 'x-forwarded'
+                            ]):
+                                if not gateway_detected:
+                                    self.log_discovery("APIGateway", "Detection", "reverse_proxy_gateway")
+                                    self.chain_map['layers'].append("GW-REVERSE_PROXY")
+                                    gateway_detected = True
+                                    break
+                        
+                        if gateway_detected:
+                            break
+                            
+                    except:
+                        continue
+            
+            # Test per WebSocket support (alcuni API Gateway lo supportano)
+            if not gateway_detected and 'advanced_detection' in gw_config and 'websocket_support' in gw_config['advanced_detection']:
+                try:
+                    ws_headers = {
+                        **gw_config['headers'],
+                        'Upgrade': 'websocket',
+                        'Connection': 'Upgrade',
+                        'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+                        'Sec-WebSocket-Version': '13'
+                    }
+                    ws_response = self.session.get(self.target_url, headers=ws_headers, timeout=3)
+                    
+                    if ws_response.status_code in [101, 426]:  # Switching Protocols o Upgrade Required
+                        self.log_discovery("APIGateway", "WebSocket", "websocket_support_detected")
+                        if not gateway_detected:
+                            self.log_discovery("APIGateway", "Detection", "websocket_gateway")
+                            self.chain_map['layers'].append("GW-WEBSOCKET")
+                            gateway_detected = True
+                except:
+                    pass
+            
+            # Test per HTTP/2 support
+            if not gateway_detected and 'advanced_detection' in gw_config and gw_config['advanced_detection'].get('http2_support'):
+                try:
+                    # Controlla se il server supporta HTTP/2
+                    if hasattr(response, 'raw') and hasattr(response.raw, 'version'):
+                        if response.raw.version == 20:  # HTTP/2
+                            self.log_discovery("APIGateway", "HTTP2", "http2_support_detected")
+                            if not gateway_detected:
+                                self.log_discovery("APIGateway", "Detection", "http2_gateway")
+                                self.chain_map['layers'].append("GW-HTTP2")
+                                gateway_detected = True
+                except:
+                    pass
+            
+            # Test per gRPC support
+            if not gateway_detected and 'advanced_detection' in gw_config and 'grpc_support' in gw_config['advanced_detection']:
+                try:
+                    grpc_headers = {
+                        **gw_config['headers'],
+                        'Content-Type': 'application/grpc',
+                        'TE': 'trailers'
+                    }
+                    grpc_response = self.session.post(self.target_url, headers=grpc_headers, timeout=3)
+                    
+                    # Controlla se la risposta indica supporto gRPC
+                    if any(grpc_header in grpc_response.headers for grpc_header in ['grpc-status', 'grpc-message']):
+                        self.log_discovery("APIGateway", "gRPC", "grpc_support_detected")
+                        if not gateway_detected:
+                            self.log_discovery("APIGateway", "Detection", "grpc_gateway")
+                            self.chain_map['layers'].append("GW-GRPC")
+                            gateway_detected = True
+                except:
+                    pass
+            
+            # Test metodi HTTP multipli per rilevare comportamento da API Gateway
+            if not gateway_detected and 'api_tests' in gw_config and 'http_methods' in gw_config['api_tests']:
+                method_responses = {}
+                for method in ['OPTIONS', 'HEAD', 'GET'][:3]:  # Testa solo alcuni metodi
+                    try:
+                        if method == 'OPTIONS':
+                            method_response = self.session.options(self.target_url, timeout=3)
+                        elif method == 'HEAD':
+                            method_response = self.session.head(self.target_url, timeout=3)
+                        else:
+                            method_response = self.session.get(self.target_url, timeout=3)
+                        
+                        method_responses[method] = method_response
+                    except:
+                        continue
+                
+                # Analizza le risposte per pattern di API Gateway
+                if method_responses:
+                    cors_headers = False
+                    if 'OPTIONS' in method_responses:
+                        options_resp = method_responses['OPTIONS']
+                        if any(header.startswith('access-control-') for header in options_resp.headers.keys()):
+                            cors_headers = True
+                            self.log_discovery("APIGateway", "CORS", "cors_headers_detected")
+                    
+                    if cors_headers and not gateway_detected:
+                        self.log_discovery("APIGateway", "Detection", "cors_enabled_gateway")
+                        self.chain_map['layers'].append("GW-CORS")
+                        gateway_detected = True
+            
+            # Test per rate limiting (tipico degli API Gateway)
+            if not gateway_detected:
+                try:
+                    # Fai richieste multiple per testare rate limiting
+                    for i in range(3):
+                        rate_response = self.session.get(self.target_url, timeout=2)
+                        
+                        # Cerca headers di rate limiting
+                        rate_headers = [h.lower() for h in rate_response.headers.keys()]
+                        if any(rate_pattern in ' '.join(rate_headers) for rate_pattern in [
+                            'x-ratelimit', 'x-rate-limit', 'retry-after', 'x-quota'
+                        ]):
+                            self.log_discovery("APIGateway", "RateLimit", "rate_limiting_detected")
+                            if not gateway_detected:
+                                self.log_discovery("APIGateway", "Detection", "rate_limited_gateway")
+                                self.chain_map['layers'].append("GW-RATE_LIMITED")
+                                gateway_detected = True
+                                break
+                except:
+                    pass
+            
+            # Analisi sicurezza headers (comuni negli API Gateway)
+            if not gateway_detected and 'security_tests' in gw_config:
+                security_headers_found = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    if any(sec_header in header_lower for sec_header in [
+                        'strict-transport-security', 'x-content-type-options',
+                        'x-frame-options', 'x-xss-protection', 'content-security-policy'
+                    ]):
+                        security_headers_found.append(header_lower)
+                
+                if len(security_headers_found) >= 2:  # Se ha almeno 2 security headers
+                    self.log_discovery("APIGateway", "Security", f"security_headers: {', '.join(security_headers_found[:3])}")
+                    if not gateway_detected:
+                        self.log_discovery("APIGateway", "Detection", "security_hardened_gateway")
+                        self.chain_map['layers'].append("GW-SECURITY")
+                        gateway_detected = True
+            
+            # Se non è stato rilevato nessun API Gateway
+            if not gateway_detected:
+                self.log_discovery("APIGateway", "Detection", "None detected or unknown")
+                            
         except Exception as e:
             self.log_discovery("APIGateway", "Error", str(e))
 
-    def service_mesh_fingerprinting(self, mesh_config):
+    def service_mesh_fingerprinting_extended(self, mesh_config):
         """Detect service mesh components"""
-        print("  🕵️‍♂️  Service Mesh  Detection...")
+        print("  🕸️  Service Mesh Detection...")
+        mesh_detected = False
+        
         try:
-            response = self.session.get(self.target_url, headers=mesh_config['headers'])
+            # Prima richiesta con headers specifici per Service Mesh
+            response = self.session.get(self.target_url, headers=mesh_config['headers'], timeout=5)
             
+            # Controlla le signature negli headers della risposta
             mesh_signatures = mesh_config['mesh_signatures']
             for mesh_type, signatures in mesh_signatures.items():
-                for signature in signatures:
-                    for header, value in response.headers.items():
-                        if signature.lower() in f"{header}: {value}".lower():
-                            self.log_discovery("ServiceMesh", "Detection", f"{mesh_type}")
-                            self.chain_map['layers'].append(f"MESH-{mesh_type}")
+                if 'headers' in signatures:
+                    for signature in signatures['headers']:
+                        for header, value in response.headers.items():
+                            if signature.lower() in f"{header}: {value}".lower():
+                                self.log_discovery("ServiceMesh", "Detection", mesh_type)
+                                self.chain_map['layers'].append(f"MESH-{mesh_type.upper()}")
+                                mesh_detected = True
+                                return
+                
+                # Controlla server headers
+                if 'server_headers' in signatures:
+                    for server_pattern in signatures['server_headers']:
+                        server_header = response.headers.get('Server', '').lower()
+                        if server_pattern.lower() in server_header:
+                            self.log_discovery("ServiceMesh", "Detection", mesh_type)
+                            self.chain_map['layers'].append(f"MESH-{mesh_type.upper()}")
+                            mesh_detected = True
                             return
-                        # else:
-                        #     self.log_discovery("ServiceMesh", "Detection", "None detected or unknown")      
+            
+            # Test sidecar detection (Envoy admin endpoints)
+            if not mesh_detected and 'mesh_tests' in mesh_config and 'sidecar_detection' in mesh_config['mesh_tests']:
+                sidecar_config = mesh_config['mesh_tests']['sidecar_detection']
+                
+                # Test Envoy admin endpoints
+                if 'envoy_specific' in sidecar_config:
+                    envoy_config = sidecar_config['envoy_specific']
+                    for admin_path in envoy_config['admin_paths']:
+                        try:
+                            admin_response = self.session.get(f"{self.target_url}{admin_path}", timeout=3)
+                            if admin_response.status_code in [200, 401, 403]:
+                                # Analizza la risposta per identificare Envoy
+                                content = admin_response.text.lower()
+                                if any(keyword in content for keyword in ['envoy', 'clusters', 'listeners', 'routes']):
+                                    self.log_discovery("ServiceMesh", "Sidecar", f"envoy_admin at {admin_path}")
+                                    if not mesh_detected:
+                                        self.log_discovery("ServiceMesh", "Detection", "istio_envoy")
+                                        self.chain_map['layers'].append("MESH-ISTIO_ENVOY")
+                                        mesh_detected = True
+                                        break
+                        except:
+                            continue
+                    if mesh_detected:
+                        return
+                
+                # Test Linkerd specific endpoints
+                if 'linkerd_specific' in sidecar_config and not mesh_detected:
+                    linkerd_config = sidecar_config['linkerd_specific']
+                    linkerd_endpoints = ['/admin', '/metrics', '/ready', '/live']
+                    for endpoint in linkerd_endpoints:
+                        try:
+                            linkerd_response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                            if linkerd_response.status_code in [200, 401, 403]:
+                                content = linkerd_response.text.lower()
+                                if 'linkerd' in content or 'l5d' in content:
+                                    self.log_discovery("ServiceMesh", "Sidecar", f"linkerd at {endpoint}")
+                                    if not mesh_detected:
+                                        self.log_discovery("ServiceMesh", "Detection", "linkerd")
+                                        self.chain_map['layers'].append("MESH-LINKERD")
+                                        mesh_detected = True
+                                        break
+                        except:
+                            continue
+                    if mesh_detected:
+                        return
+                
+                # Test Consul Connect
+                if 'consul_specific' in sidecar_config and not mesh_detected:
+                    consul_config = sidecar_config['consul_specific']
+                    consul_endpoints = [
+                        consul_config.get('connect_ca_roots', '/v1/connect/ca/roots'),
+                        consul_config.get('agent_self', '/v1/agent/self')
+                    ]
+                    for endpoint in consul_endpoints:
+                        try:
+                            consul_response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                            if consul_response.status_code in [200, 401, 403]:
+                                content = consul_response.text.lower()
+                                if any(keyword in content for keyword in ['consul', 'connect', 'ca_roots']):
+                                    self.log_discovery("ServiceMesh", "Sidecar", f"consul_connect at {endpoint}")
+                                    if not mesh_detected:
+                                        self.log_discovery("ServiceMesh", "Detection", "consul_connect")
+                                        self.chain_map['layers'].append("MESH-CONSUL_CONNECT")
+                                        mesh_detected = True
+                                        break
+                        except:
+                            continue
+                    if mesh_detected:
+                        return
+            
+            # Test mTLS detection
+            if not mesh_detected and 'mesh_tests' in mesh_config and 'mtls_detection' in mesh_config['mesh_tests']:
+                mtls_config = mesh_config['mesh_tests']['mtls_detection']
+                cert_headers = mtls_config.get('cert_headers', [])
+                
+                found_cert_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    for cert_header in cert_headers:
+                        if cert_header.lower() in header_lower:
+                            found_cert_headers.append(header)
+                            break
+                
+                if found_cert_headers:
+                    self.log_discovery("ServiceMesh", "mTLS", f"cert_headers: {', '.join(found_cert_headers[:2])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "mtls_enabled_mesh")
+                        self.chain_map['layers'].append("MESH-MTLS")
+                        mesh_detected = True
+            
+            # Test distributed tracing headers (B3, Jaeger, etc.)
+            if not mesh_detected:
+                tracing_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    if any(tracing_pattern in header_lower for tracing_pattern in [
+                        'x-b3-', 'x-trace-', 'x-span-', 'uber-trace-', 'x-request-id',
+                        'x-correlation-', 'jaeger-', 'zipkin-'
+                    ]):
+                        tracing_headers.append(header)
+                
+                if len(tracing_headers) >= 2:  # Se ha almeno 2 tracing headers
+                    self.log_discovery("ServiceMesh", "Tracing", f"headers: {', '.join(tracing_headers[:3])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "tracing_enabled_mesh")
+                        self.chain_map['layers'].append("MESH-TRACING")
+                        mesh_detected = True
+            
+            # Test circuit breaker patterns
+            if not mesh_detected and 'mesh_tests' in mesh_config and 'traffic_policies' in mesh_config['mesh_tests']:
+                # Cerca headers di circuit breaker
+                circuit_breaker_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    if any(cb_pattern in header_lower for cb_pattern in [
+                        'circuit', 'breaker', 'timeout', 'retry', 'fallback'
+                    ]):
+                        circuit_breaker_headers.append(header)
+                
+                if circuit_breaker_headers:
+                    self.log_discovery("ServiceMesh", "CircuitBreaker", f"headers: {', '.join(circuit_breaker_headers[:2])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "circuit_breaker_mesh")
+                        self.chain_map['layers'].append("MESH-CIRCUIT_BREAKER")
+                        mesh_detected = True
+            
+            # Test proxy detection attraverso stats/metrics endpoints
+            if not mesh_detected and 'proxy_detection' in mesh_config:
+                stats_endpoints = [
+                    '/stats', '/metrics', '/stats/prometheus', '/admin/stats',
+                    '/envoy-admin/stats', '/proxy-stats'
+                ]
+                
+                for stats_endpoint in stats_endpoints:
+                    try:
+                        stats_response = self.session.get(f"{self.target_url}{stats_endpoint}", timeout=3)
+                        if stats_response.status_code in [200, 401, 403]:
+                            content = stats_response.text.lower()
+                            
+                            # Identifica il tipo di proxy dalle metriche
+                            if 'envoy' in content and ('cluster.' in content or 'listener.' in content):
+                                self.log_discovery("ServiceMesh", "Proxy", f"envoy_stats at {stats_endpoint}")
+                                if not mesh_detected:
+                                    self.log_discovery("ServiceMesh", "Detection", "envoy_proxy")
+                                    self.chain_map['layers'].append("MESH-ENVOY_PROXY")
+                                    mesh_detected = True
+                                    break
+                            elif 'linkerd' in content or 'l5d' in content:
+                                self.log_discovery("ServiceMesh", "Proxy", f"linkerd_stats at {stats_endpoint}")
+                                if not mesh_detected:
+                                    self.log_discovery("ServiceMesh", "Detection", "linkerd_proxy")
+                                    self.chain_map['layers'].append("MESH-LINKERD_PROXY")
+                                    mesh_detected = True
+                                    break
+                    except:
+                        continue
+                
+                if mesh_detected:
+                    return
+            
+            # Test security features (SPIFFE, RBAC headers)
+            if not mesh_detected and 'security_features' in mesh_config:
+                security_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    value_lower = str(value).lower()
+                    
+                    if any(security_pattern in f"{header_lower}: {value_lower}" for security_pattern in [
+                        'spiffe', 'rbac', 'authorization', 'x-user-', 'x-subject-'
+                    ]):
+                        security_headers.append(header)
+                
+                if security_headers:
+                    self.log_discovery("ServiceMesh", "Security", f"headers: {', '.join(security_headers[:2])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "security_enabled_mesh")
+                        self.chain_map['layers'].append("MESH-SECURITY")
+                        mesh_detected = True
+            
+            # Test traffic management headers
+            if not mesh_detected and 'traffic_management' in mesh_config:
+                traffic_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    
+                    if any(traffic_pattern in header_lower for traffic_pattern in [
+                        'upstream', 'backend', 'destination', 'route', 'weight',
+                        'canary', 'mirror', 'load-balance'
+                    ]):
+                        traffic_headers.append(header)
+                
+                if traffic_headers:
+                    self.log_discovery("ServiceMesh", "Traffic", f"management_headers: {', '.join(traffic_headers[:2])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "traffic_managed_mesh")
+                        self.chain_map['layers'].append("MESH-TRAFFIC_MANAGEMENT")
+                        mesh_detected = True
+            
+            # Test observability stack detection
+            if not mesh_detected and 'observability_stack' in mesh_config:
+                observability_indicators = []
+                
+                # Controlla headers di observability
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    if any(obs_pattern in header_lower for obs_pattern in [
+                        'x-prometheus-', 'x-jaeger-', 'x-grafana-', 'x-kiali-',
+                        'telemetry', 'metrics', 'traces', 'logs'
+                    ]):
+                        observability_indicators.append(header)
+                
+                # Test endpoint di metriche comuni
+                metrics_endpoints = ['/metrics', '/health', '/ready', '/live']
+                for endpoint in metrics_endpoints[:2]:  # Limita per performance
+                    try:
+                        metrics_response = self.session.get(f"{self.target_url}{endpoint}", timeout=2)
+                        if metrics_response.status_code == 200:
+                            content = metrics_response.text.lower()
+                            if any(keyword in content for keyword in ['prometheus', 'histogram', 'counter', 'gauge']):
+                                observability_indicators.append(f'metrics_endpoint_{endpoint}')
+                                break
+                    except:
+                        continue
+                
+                if observability_indicators:
+                    self.log_discovery("ServiceMesh", "Observability", f"features: {', '.join(observability_indicators[:3])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "observable_mesh")
+                        self.chain_map['layers'].append("MESH-OBSERVABLE")
+                        mesh_detected = True
+            
+            # Test multi-cluster/cross-cluster headers
+            if not mesh_detected:
+                cluster_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    value_lower = str(value).lower()
+                    
+                    if any(cluster_pattern in f"{header_lower}: {value_lower}" for cluster_pattern in [
+                        'cluster', 'federation', 'cross-cluster', 'multi-cluster',
+                        'x-cluster-', 'cluster-id'
+                    ]):
+                        cluster_headers.append(header)
+                
+                if cluster_headers:
+                    self.log_discovery("ServiceMesh", "MultiCluster", f"headers: {', '.join(cluster_headers[:2])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "multi_cluster_mesh")
+                        self.chain_map['layers'].append("MESH-MULTI_CLUSTER")
+                        mesh_detected = True
+            
+            # Test performance headers (latency percentiles, etc.)
+            if not mesh_detected and 'performance_analysis' in mesh_config:
+                performance_headers = []
+                for header, value in response.headers.items():
+                    header_lower = header.lower()
+                    
+                    if any(perf_pattern in header_lower for perf_pattern in [
+                        'response-time', 'latency', 'duration', 'processing-time',
+                        'upstream-time', 'x-response-time'
+                    ]):
+                        performance_headers.append(header)
+                
+                if performance_headers:
+                    self.log_discovery("ServiceMesh", "Performance", f"headers: {', '.join(performance_headers[:2])}")
+                    if not mesh_detected:
+                        self.log_discovery("ServiceMesh", "Detection", "performance_monitored_mesh")
+                        self.chain_map['layers'].append("MESH-PERFORMANCE")
+                        mesh_detected = True
+            
+            # Se non è stato rilevato nessun service mesh
+            if not mesh_detected:
+                self.log_discovery("ServiceMesh", "Detection", "None detected or unknown")
+                            
         except Exception as e:
             self.log_discovery("ServiceMesh", "Error", str(e))
 
-    def container_fingerprinting(self, container_config):
+    def container_fingerprinting_extended(self, container_config):
         """Detect container orchestration platforms"""
-        print("  🔓  Container Orchestration Detection...")
+        print("  🐳  Container Orchestration Detection...")
+        container_detected = False
+        
         try:
-            # Test Kubernetes endpoints
-            k8s_tests = container_config['container_tests']['kubernetes']['endpoints']
-            for k8s_test in k8s_tests:
-                try:
-                    response = self.session.get(f"{self.target_url}{k8s_test}", timeout=3)
-                    if response.status_code in [200, 401, 403]:
-                        self.log_discovery("Container", "Kubernetes", k8s_test)
-                        self.chain_map['layers'].append("K8S")
+            # Test per tutte le piattaforme container
+            container_tests = container_config['container_tests']
+            container_signatures = container_config['container_signatures']
+            
+            # Prima controlla gli headers per identificare rapidamente la piattaforma
+            response = self.session.get(self.target_url, headers=container_config['headers'], timeout=5)
+            
+            # Controlla le signature negli headers
+            for platform, signatures in container_signatures.items():
+                if 'headers' in signatures:
+                    for header_pattern in signatures['headers']:
+                        for header, value in response.headers.items():
+                            if header_pattern.lower() in header.lower() or header_pattern.lower() in value.lower():
+                                self.log_discovery("Container", "Detection", platform)
+                                self.chain_map['layers'].append(f"CONTAINER-{platform.upper()}")
+                                container_detected = True
+                                return
+                
+                if 'server_headers' in signatures:
+                    for server_pattern in signatures['server_headers']:
+                        server_header = response.headers.get('Server', '').lower()
+                        if server_pattern.lower() in server_header:
+                            self.log_discovery("Container", "Detection", platform)
+                            self.chain_map['layers'].append(f"CONTAINER-{platform.upper()}")
+                            container_detected = True
+                            return
+            
+            # Test specifici per piattaforma se non trovato negli headers
+            if not container_detected:
+                # Test Kubernetes
+                if 'kubernetes' in container_tests:
+                    k8s_config = container_tests['kubernetes']
+                    if 'api_server_detection' in k8s_config:
+                        for endpoint in k8s_config['api_server_detection']['endpoints']:
+                            try:
+                                response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                                if response.status_code in [200, 401, 403]:
+                                    self.log_discovery("Container", "Detection", "kubernetes")
+                                    self.chain_map['layers'].append("CONTAINER-KUBERNETES")
+                                    container_detected = True
+                                    break
+                            except:
+                                continue
+                        if container_detected:
+                            return
+                
+                # Test Docker Swarm
+                if 'docker_swarm' in container_tests and not container_detected:
+                    swarm_config = container_tests['docker_swarm']
+                    if 'manager_nodes' in swarm_config:
+                        for endpoint in swarm_config['manager_nodes']['endpoints']:
+                            try:
+                                response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                                if response.status_code in [200, 401, 403]:
+                                    self.log_discovery("Container", "Detection", "docker_swarm")
+                                    self.chain_map['layers'].append("CONTAINER-DOCKER_SWARM")
+                                    container_detected = True
+                                    break
+                            except:
+                                continue
+                        if container_detected:
+                            return
+                
+                # Test ECS/Fargate
+                if 'ecs_fargate' in container_tests and not container_detected:
+                    ecs_config = container_tests['ecs_fargate']
+                    if 'task_metadata' in ecs_config:
+                        # Test metadata v4 (più recente)
+                        if 'endpoints_v4' in ecs_config['task_metadata']:
+                            for endpoint in ecs_config['task_metadata']['endpoints_v4']:
+                                try:
+                                    response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                                    if response.status_code in [200, 401, 403]:
+                                        self.log_discovery("Container", "Detection", "ecs_fargate")
+                                        self.chain_map['layers'].append("CONTAINER-ECS_FARGATE")
+                                        container_detected = True
+                                        break
+                                except:
+                                    continue
+                            if container_detected:
+                                return
+                
+                # Test Azure Container Instances
+                if 'azure_container_instances' in container_tests and not container_detected:
+                    aci_config = container_tests['azure_container_instances']
+                    for endpoint in aci_config['metadata_endpoints']:
+                        try:
+                            response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                            if response.status_code in [200, 401, 403]:
+                                self.log_discovery("Container", "Detection", "azure_container_instances")
+                                self.chain_map['layers'].append("CONTAINER-ACI")
+                                container_detected = True
+                                break
+                        except:
+                            continue
+                    if container_detected:
                         return
-                    else:
-                        self.log_discovery("Container", "Detection", "None detected or unknown")   
-                except:
-                    continue
-                    
+                
+                # Test Google Cloud Run
+                if 'google_cloud_run' in container_tests and not container_detected:
+                    gcr_config = container_tests['google_cloud_run']
+                    for endpoint in gcr_config['metadata_endpoints']:
+                        try:
+                            response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                            if response.status_code in [200, 401, 403]:
+                                self.log_discovery("Container", "Detection", "google_cloud_run")
+                                self.chain_map['layers'].append("CONTAINER-CLOUD_RUN")
+                                container_detected = True
+                                break
+                        except:
+                            continue
+                    if container_detected:
+                        return
+                
+                # Test Nomad
+                if 'nomad' in container_tests and not container_detected:
+                    nomad_config = container_tests['nomad']
+                    for endpoint in nomad_config['api_endpoints']:
+                        try:
+                            response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                            if response.status_code in [200, 401, 403]:
+                                self.log_discovery("Container", "Detection", "nomad")
+                                self.chain_map['layers'].append("CONTAINER-NOMAD")
+                                container_detected = True
+                                break
+                        except:
+                            continue
+                    if container_detected:
+                        return
+                
+                # Test Mesos/Marathon
+                if 'mesos_marathon' in container_tests and not container_detected:
+                    mesos_config = container_tests['mesos_marathon']
+                    # Test Marathon endpoints
+                    for endpoint in mesos_config['marathon_endpoints']:
+                        try:
+                            response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                            if response.status_code in [200, 401, 403]:
+                                self.log_discovery("Container", "Detection", "mesos_marathon")
+                                self.chain_map['layers'].append("CONTAINER-MESOS_MARATHON")
+                                container_detected = True
+                                break
+                        except:
+                            continue
+                    if container_detected:
+                        return
+                
+                # Test OpenShift
+                if 'openshift' in container_tests and not container_detected:
+                    openshift_config = container_tests['openshift']
+                    if 'api_extensions' in openshift_config:
+                        for api_ext in openshift_config['api_extensions']:
+                            try:
+                                response = self.session.get(f"{self.target_url}/apis/{api_ext}", timeout=3)
+                                if response.status_code in [200, 401, 403]:
+                                    self.log_discovery("Container", "Detection", "openshift")
+                                    self.chain_map['layers'].append("CONTAINER-OPENSHIFT")
+                                    container_detected = True
+                                    break
+                            except:
+                                continue
+                        if container_detected:
+                            return
+                
+                # Test Rancher
+                if 'rancher' in container_tests and not container_detected:
+                    rancher_config = container_tests['rancher']
+                    for endpoint in rancher_config['api_endpoints']:
+                        try:
+                            response = self.session.get(f"{self.target_url}{endpoint}", timeout=3)
+                            if response.status_code in [200, 401, 403]:
+                                self.log_discovery("Container", "Detection", "rancher")
+                                self.chain_map['layers'].append("CONTAINER-RANCHER")
+                                container_detected = True
+                                break
+                        except:
+                            continue
+                    if container_detected:
+                        return
+            
+            # Se non è stato rilevato nessun container orchestrator
+            if not container_detected:
+                self.log_discovery("Container", "Detection", "None detected or unknown")
+                            
         except Exception as e:
             self.log_discovery("Container", "Error", str(e))
 
     def runtime_fingerprinting(self, runtime_config):
         """Detect application runtime environments with strict validation"""
-        print("  🐾 Application Runtime  Detection...")
+        print("  🐾  Application Runtime  Detection...")
         try:
             framework_tests = runtime_config['runtime_tests']['framework_detection']
             for framework, tests in framework_tests.items():
@@ -4826,11 +7656,11 @@ class ApplicationTraceroute:
         except Exception as e:
             self.log_discovery("Runtime", "Error", str(e))
 
-
-
     def database_fingerprinting(self, db_config):
         """Detect database and storage systems"""
-        print("  ⚙️  Database and Storage Detection...")
+        print("  ⚙️   Database and Storage Detection...")
+        db_detected = False
+        
         try:
             # Test admin interfaces
             if 'admin_interfaces' in db_config['db_tests']:
@@ -4842,11 +7672,16 @@ class ApplicationTraceroute:
                             if response.status_code in [200, 401, 403]:
                                 self.log_discovery("Database", "Admin", f"{interface}")
                                 self.chain_map['layers'].append(f"DB-ADMIN-{interface.upper()}")
+                                db_detected = True
                                 break
-                            else:
-                                self.log_discovery("Database", "Detection", "None detected or unknown")   
                         except:
                             continue
+                    if db_detected:  # Esci anche dal loop esterno se trovato
+                        break
+            
+            # Se non è stato rilevato nessun database, logga una sola volta
+            if not db_detected:
+                self.log_discovery("Database", "Detection", "None detected or unknown")
                             
         except Exception as e:
             self.log_discovery("Database", "Error", str(e))
@@ -4916,40 +7751,8 @@ class ApplicationTraceroute:
         fingerprints = self.create_fingerprint_payloads()
         
         # Layer 1: CDN Detection (Extended)
-        print("  🌐 Layer 1: CDN Detection")
-        try:
-            response = self.session.get(self.target_url, headers=fingerprints['cdn_detection']['headers'])
-            # Analyze response headers for CDN signatures (EXTENDED)
-            cdn_indicators = {
-                'cloudflare': ['cf-ray', 'cf-cache-status', 'server.*cloudflare'],
-                'cloudfront': ['x-amz-cf', 'x-cache.*cloudfront'],
-                'fastly': ['fastly-debug', 'x-served-by.*fastly'],
-                'akamai': ['akamai-origin-hop', 'x-akamai'],
-                'incapsula': ['x-iinfo', 'incap_ses'],
-                'sucuri': ['x-sucuri', 'server.*sucuri'],
-                'maxcdn': ['x-cache.*maxcdn'],
-                'keycdn': ['server.*keycdn'],
-                'bunnycdn': ['server.*bunnycdn'],
-                'jsdelivr': ['x-served-by.*jsdelivr'],
-                'unpkg': ['x-served-by.*unpkg']
-            }
-            detected_cdn = None
-            for cdn, indicators in cdn_indicators.items():
-                for indicator in indicators:
-                    for header, value in response.headers.items():
-                        if re.search(indicator, f"{header}: {value}", re.IGNORECASE):
-                            detected_cdn = cdn
-                            break
-                    if detected_cdn:
-                        break
-            if detected_cdn:
-                self.log_discovery("CDN", "Detection", detected_cdn)
-                self.chain_map['layers'].append(f"CDN-{detected_cdn}")
-            else:
-                self.log_discovery("CDN", "Detection", "None detected or unknown")  
-        
-        except Exception as e:
-            self.log_discovery("CDN", "Error", str(e))
+        print("  📡 Layer 1: CDN Detection")
+        self.cdn_fingerprinting_extended(fingerprints['cdn_detection'])
 
         # Layer 2: WAF Detection (Using your existing function - EXTENDED)
         print("  📡 Layer 2: WAF Detection")
@@ -4957,7 +7760,7 @@ class ApplicationTraceroute:
         
         # Layer 3: Load Balancer Detection (NEW)
         print("  📡 Layer 3: Load Balancer Detection")
-        self.load_balancer_fingerprinting(fingerprints['load_balancer_detection'])
+        self.load_balancer_fingerprinting_extended(fingerprints['load_balancer_detection'])
         
         # Layer 4: Proxy Detection (Using your existing function - EXTENDED)
         print("  📡 Layer 4: Proxy Detection")
@@ -4965,15 +7768,15 @@ class ApplicationTraceroute:
         
         # Layer 5: API Gateway Detection (NEW)
         print("  📡 Layer 5: API Gateway Detection")
-        self.api_gateway_fingerprinting(fingerprints['api_gateway_detection'])
+        self.api_gateway_fingerprinting_extended(fingerprints['api_gateway_detection'])
         
         # Layer 6: Service Mesh Detection (NEW)
         print("  📡 Layer 6: Service Mesh Detection")
-        self.service_mesh_fingerprinting(fingerprints['service_mesh_detection'])
+        self.service_mesh_fingerprinting_extended(fingerprints['service_mesh_detection'])
         
         # Layer 7: Container Detection (NEW)
         print("  📡 Layer 7: Container Orchestration Detection")
-        self.container_fingerprinting(fingerprints['container_detection'])
+        self.container_fingerprinting_extended(fingerprints['container_detection'])
         
         # Layer 8: Runtime Detection (NEW)
         print("  📡 Layer 8: Application Runtime Detection")
@@ -4991,7 +7794,6 @@ class ApplicationTraceroute:
         print("  📡 Layer 11: Backend Detection")
         self.backend_fingerprinting_extended(fingerprints['backend_detection'])
 
-
     def _detect_stack_type(self, endpoint: str) -> Optional[str]:
         """Detect the stack type for a given endpoint"""
         response = self.session.head(endpoint)
@@ -5003,7 +7805,6 @@ class ApplicationTraceroute:
             return 'aws_waf_apache'
         
         return None
-
 
     def parser_discrepancy_testing(self):
         """Test for parsing discrepancies between layers"""
@@ -5041,7 +7842,6 @@ class ApplicationTraceroute:
                 test()
             except Exception as e:
                 print(f"  ❌ Error in {test.__name__}: {str(e)}")
-
     # Advanced Discrepancy Tests
     def test_parser_state_confusion(self):
         """Test parser state machine desynchronization"""
@@ -6742,14 +9542,14 @@ Advanced techniques tested include:
         service_map = self.service_discovery.discover_backend_chain(self.target_url)
     
         for service_endpoint in self.service_discovery.discovered_services:
-            # Service mesh detection
-            mesh_info = self.mesh_detector.detect_mesh(
-                self.session.headers,
-                self.service_discovery.service_tree[service_endpoint]
-            )
+            # # Service mesh detection
+            # mesh_info = self.mesh_detector.detect_mesh(
+            #     self.session.headers,
+            #     self.service_discovery.service_tree[service_endpoint]
+            # )
             
-            if mesh_info['type']:
-                self.log_discovery("Service Mesh", mesh_info['type'], json.dumps(mesh_info['metadata']))
+            # if mesh_info['type']:
+            #     self.log_discovery("Service Mesh", mesh_info['type'], json.dumps(mesh_info['metadata']))
             
             # Request tracking
             request_id = str(uuid.uuid4())
@@ -6770,17 +9570,17 @@ Advanced techniques tested include:
                                      f"Types: {', '.join(mutations['type'])}",
                                      f"Severity: {mutations['severity']}")
             
-            # Stack-specific processing
-            stack_type = self._detect_stack_type(service_endpoint)
-            if stack_type:
-                processed_request = self.stack_handler.handle_request(
-                    stack_type,
-                    {'headers': self.session.headers}
-                )
-                if processed_request != {'headers': self.session.headers}:
-                    self.log_discovery("Stack Processing",
-                                     stack_type,
-                                     "Request modified for stack compatibility")
+            # # Stack-specific processing
+            # stack_type = self._detect_stack_type(service_endpoint)
+            # if stack_type:
+            #     processed_request = self.stack_handler.handle_request(
+            #         stack_type,
+            #         {'headers': self.session.headers}
+            #     )
+            #     if processed_request != {'headers': self.session.headers}:
+            #         self.log_discovery("Stack Processing",
+            #                          stack_type,
+            #                          "Request modified for stack compatibility")
         
         # Phase 3: Parser Discrepancy Testing (Enhanced)
         self.parser_discrepancy_testing()
@@ -6820,7 +9620,7 @@ def main():
     
     args = parser.parse_args()
     print("\n")
-    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION 2.8.0")
+    print("🔬 APPLICATION STACK TRACEROUTE - ENHANCED VERSION 2.8.0d")
     print("🎯 Next-Generation Infrastructure Analysis with Advanced Bypass Techniques")
     print("=" * 70)
     
