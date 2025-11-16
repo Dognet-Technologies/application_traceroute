@@ -1,5 +1,11 @@
-__pycache__/application_traceroute.cpython-311.pyc
-__pycache__/smart_vuln_crawler.cpython-311.pyc
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Project specific
 *.json
 app_traceroute_*
 bypasses_*
