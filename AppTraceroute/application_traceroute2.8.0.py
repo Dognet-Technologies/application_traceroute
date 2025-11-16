@@ -51,46 +51,41 @@ warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
 
 class ServiceDiscoveryEnhanced:
-     def __init__(self):
+    def __init__(self):
         self.discovered_services = set()
         self.service_tree = {}
         self.behavioral_cache = {}
         self.chain_graph = defaultdict(list)  # Multi-path routing
         self.max_depth = 15
         self.parallel_chains = []
-        
-        # Metodo per Header 
+
+        # Metodo per Header
         self._init_header_utils()
 
         # Configure session with advanced settings
         self.session = requests.Session()
         self.session.timeout = 10
         self.session.verify = False
-        
-        # ML-inspired service classification weights
-        self.ml_weights = {
-            'header_patterns': 0.3,
-            'response_patterns': 0.25,
-            'behavioral_patterns': 0.25,
-            'timing_patterns': 0.2
-        }
 
         # Suppress SSL warnings during security testing
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-   
+
+        # Initialize simplified service signatures
+        self.service_signatures = self._init_service_signatures()
+
     def _init_header_utils(self):
         """Inizializza utilities per gestione header case-insensitive"""
         self.header_special_cases = {
-        'cf-ray': 'CF-Ray',
-        'cf-cache-status': 'CF-Cache-Status', 
-        'x-amz-cf-id': 'X-Amz-CF-Id',
-        'x-served-by': 'X-Served-By',
-        'x-cache': 'X-Cache',
-        'x-forwarded-for': 'X-Forwarded-For',
-        'x-real-ip': 'X-Real-IP',
-        'content-type': 'Content-Type',
-        'user-agent': 'User-Agent',
-        'www-authenticate': 'WWW-Authenticate'
+            'cf-ray': 'CF-Ray',
+            'cf-cache-status': 'CF-Cache-Status',
+            'x-amz-cf-id': 'X-Amz-CF-Id',
+            'x-served-by': 'X-Served-By',
+            'x-cache': 'X-Cache',
+            'x-forwarded-for': 'X-Forwarded-For',
+            'x-real-ip': 'X-Real-IP',
+            'content-type': 'Content-Type',
+            'user-agent': 'User-Agent',
+            'www-authenticate': 'WWW-Authenticate'
         }
 
     def _normalize_headers(self, headers: dict) -> dict:
@@ -109,7 +104,7 @@ class ServiceDiscoveryEnhanced:
         # Cerca match esatto prima
         if header_name in headers:
             return headers[header_name]
-        
+
         # Cerca case-insensitive
         header_lower = header_name.lower()
         for key, value in headers.items():
@@ -117,522 +112,157 @@ class ServiceDiscoveryEnhanced:
                 return value
         return None
 
-        # Set realistic headers to avoid detection
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
+    def _init_service_signatures(self) -> dict:
+        """
+        Initialize simplified service signatures for detection.
+        Optimized version with removed redundancies:
+        - No timing_signatures (not used in practice)
+        - Simplified header lists (only essential headers)
+        - Removed container_patterns (merged into container_orchestration)
+        """
+        return {
+            'microservice': {
+                'headers': [
+                    'x-service-name', 'x-microservice', 'x-service-id', 'x-service-version',
+                    'x-correlation-id', 'x-trace-id', 'x-span-id'
+                ],
+                'paths': [
+                    '/health', '/actuator/health', '/metrics', '/status', '/healthz'
+                ],
+                'response_patterns': [
+                    r'service.*running', r'microservice', r'spring.*boot',
+                    r'status.*up', r'healthy'
+                ]
+            },
+
+            'api-gateway': {
+                'headers': [
+                    'x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul', 'x-ambassador',
+                    'x-tyk-gateway', 'x-amazon-apigateway', 'x-azure-apim'
+                ],
+                'paths': [
+                    '/gateway', '/api/v1', '/api/v2', '/graphql',
+                    '/swagger', '/openapi', '/docs'
+                ],
+                'response_patterns': [
+                    r'gateway.*version', r'api.*documentation', r'rate.*limit.*exceeded',
+                    r'kong.*gateway', r'zuul.*proxy'
+                ]
+            },
+
+            'cdn_edge': {
+                'headers': [
+                    # Top CDNs only - Essential headers
+                    'cf-ray', 'cf-cache-status', 'cf-request-id',  # Cloudflare
+                    'x-amz-cf-id', 'x-amz-cf-pop', 'x-cache',  # AWS CloudFront
+                    'x-served-by', 'x-cache-hits', 'fastly-debug-path',  # Fastly
+                    'x-akamai-transformed', 'akamai-origin-hop',  # Akamai
+                    'x-edge-location', 'x-cdn-pop', 'x-cache-status'  # Generic CDN
+                ],
+                'paths': [
+                    '/cdn-cgi/', '/favicon.ico', '/robots.txt'
+                ],
+                'response_patterns': [
+                    r'cloudflare', r'fastly.*error', r'cloudfront', r'akamai',
+                    r'cache.*hit', r'cache.*miss', r'edge.*server'
+                ]
+            },
+
+            'container_orchestration': {
+                'headers': [
+                    # Kubernetes
+                    'x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace',
+                    # Docker/ECS
+                    'x-docker', 'x-container-id', 'x-ecs-task', 'x-amzn-trace-id'
+                ],
+                'paths': [
+                    '/metrics', '/healthz', '/readyz', '/livez',
+                    '/actuator/health', '/actuator/prometheus'
+                ],
+                'response_patterns': [
+                    r'kubernetes', r'k8s', r'pod.*name', r'container.*id',
+                    r'fargate', r'ecs.*task'
+                ]
+            },
+
+            'serverless_function': {
+                'headers': [
+                    # AWS Lambda
+                    'x-amzn-requestid', 'x-amzn-trace-id', 'x-lambda-request-id',
+                    # Google Cloud Functions
+                    'function-execution-id', 'x-cloud-trace-context',
+                    # Azure Functions
+                    'x-azure-requestid', 'x-ms-request-id'
+                ],
+                'paths': [
+                    '/api/', '/function/', '/.netlify/functions/',
+                    '/lambda/', '/gcf/'
+                ],
+                'response_patterns': [
+                    r'lambda.*timeout', r'function.*invocation', r'cold.*start',
+                    r'serverless.*runtime', r'function.*error'
+                ]
+            },
+
+            'load-balancer': {
+                'headers': [
+                    'x-load-balancer', 'x-forwarded-by', 'x-lb',
+                    'x-haproxy', 'x-nginx-lb', 'x-real-ip', 'x-forwarded-for',
+                    'x-aws-alb-target-group-arn', 'x-amzn-trace-id'
+                ],
+                'paths': [
+                    '/lb-status', '/haproxy?stats', '/nginx_status', '/health'
+                ],
+                'response_patterns': [
+                    r'load.*balance', r'upstream', r'haproxy', r'nginx.*lb',
+                    r'aws.*application.*load.*balancer'
+                ]
+            },
+
+            'service-mesh': {
+                'headers': [
+                    # Istio/Envoy
+                    'x-envoy', 'x-envoy-upstream-service-time', 'x-istio-attributes',
+                    # Linkerd
+                    'l5d-dst-service', 'x-linkerd-',
+                    # Generic tracing
+                    'x-b3-traceid', 'x-b3-spanid', 'x-trace-id'
+                ],
+                'paths': [
+                    '/stats', '/config_dump', '/ready', '/stats/prometheus'
+                ],
+                'response_patterns': [
+                    r'envoy.*proxy', r'istio', r'linkerd', r'service.*mesh',
+                    r'sidecar.*proxy'
+                ]
+            },
+
+            'waf': {
+                'headers': [
+                    'x-waf-event-info', 'x-sucuri-id', 'x-denied-reason',
+                    'x-aws-waf-', 'x-azure-waf-', 'x-waf-score'
+                ],
+                'paths': [],
+                'response_patterns': [
+                    r'web.*application.*firewall', r'waf.*blocked', r'security.*rule',
+                    r'mod.*security', r'imperva', r'cloudflare.*waf'
+                ]
+            },
+
+            'proxy': {
+                'headers': [
+                    'via', 'x-proxy', 'x-forwarded-', 'forwarded',
+                    'x-varnish', 'x-squid', 'x-nginx-proxy'
+                ],
+                'paths': [
+                    '/proxy-status', '/varnish-status'
+                ],
+                'response_patterns': [
+                    r'varnish', r'squid', r'nginx.*proxy', r'proxy.*server'
+                ]
+            }
+        }
         
-    #     # Advanced detection patterns
-    #     # Miglioramenti per service_signatures mantenendo la struttura originale
-
-    #     self.service_signatures = {
-    #         'microservice': {
-    #             'headers': [
-    #                 'x-service-name', 'x-microservice', 'x-service-id', 'x-service-version',
-    #                 'x-app-name', 'x-component', 'x-instance-id', 'service-name',
-    #                 'x-correlation-id', 'x-trace-id', 'x-span-id'
-    #             ],
-    #             'paths': [
-    #                 '/health', '/actuator/health', '/actuator/info', '/actuator/metrics',
-    #                 '/metrics', '/status', '/ping', '/ready', '/live', '/healthz',
-    #                 '/info', '/version', '/build-info', '/api/health', '/monitoring/health'
-    #             ],
-    #             'response_patterns': [
-    #                 r'service.*running', r'microservice', r'api.*version', r'spring.*boot',
-    #                 r'application.*name', r'build.*version', r'commit.*hash', r'instance.*id',
-    #                 r'uptime', r'status.*up', r'healthy', r'node.*js', r'express.*js'
-    #             ]
-    #         },
-            
-    #         'api-gateway': {
-    #             'headers': [
-    #                 'x-gateway', 'x-api-gateway', 'x-kong', 'x-zuul', 'x-ambassador',
-    #                 'x-tyk-gateway', 'x-apigateway', 'gateway-version', 'x-gateway-version',
-    #                 'x-apigee', 'x-mashery', 'x-amazon-apigateway', 'x-azure-apim',
-    #                 'x-gravitee', 'x-wso2'
-    #             ],
-    #             'behavioral': {
-    #                 'rate_limiting': {
-    #                     'headers': ['x-ratelimit', 'x-rate-limit', 'retry-after', 'x-ratelimit-remaining',
-    #                               'x-ratelimit-reset', 'x-rate-limit-limit', 'x-throttle'],
-    #                     'response_codes': [429, 503],
-    #                     'response_patterns': [r'rate.*limit.*exceeded', r'too.*many.*requests', 
-    #                                         r'quota.*exceeded', r'throttled']
-    #                 },
-    #                 'request_id_propagation': {
-    #                     'headers': ['x-request-id', 'x-correlation-id', 'x-trace-id', 'request-id',
-    #                               'x-amzn-requestid', 'x-ms-request-id', 'x-goog-request-id']
-    #                 },
-    #                 'cors_handling': {
-    #                     'headers': ['access-control-allow-origin', 'access-control-allow-methods',
-    #                               'access-control-allow-headers', 'access-control-expose-headers'],
-    #                     'preflight_support': True
-    #                 },
-    #                 'auth_delegation': {
-    #                     'headers': ['www-authenticate', 'authorization', 'x-auth-token',
-    #                               'x-api-key', 'x-client-id'],
-    #                     'oauth_patterns': [r'bearer.*token', r'oauth.*', r'jwt.*']
-    #                 },
-    #                 'response_transformation': True,
-    #                 'request_routing': True,
-    #                 'circuit_breaker': {
-    #                     'response_patterns': [r'circuit.*breaker.*open', r'service.*unavailable',
-    #                                         r'upstream.*error', r'backend.*timeout']
-    #                 }
-    #             },
-    #             'paths': [
-    #                 '/gateway', '/api/v1', '/api/v2', '/api/v3', '/graphql', '/.well-known/',
-    #                 '/swagger', '/openapi', '/docs', '/api-docs', '/spec', '/schema',
-    #                 '/admin', '/management', '/actuator', '/gateway/routes', '/routes'
-    #             ],
-    #             'response_patterns': [
-    #                 r'gateway.*version', r'api.*documentation', r'swagger.*ui', r'openapi.*spec',
-    #                 r'rate.*limit.*exceeded', r'upstream.*timeout', r'backend.*error',
-    #                 r'routing.*error', r'service.*discovery', r'load.*balancer',
-    #                 r'kong.*gateway', r'zuul.*proxy', r'ambassador.*gateway'
-    #             ],
-    #             'timing_signatures': {
-    #                 'consistent_overhead': (50, 200),
-    #                 'timeout_behavior': (5000, 30000),
-    #                 'cache_layer_timing': (10, 100),
-    #                 'auth_validation_time': (20, 500)
-    #             },
-    #             'version_patterns': {
-    #                 'kong': r'kong/(\d+\.\d+\.\d+)',
-    #                 'zuul': r'zuul.*(\d+\.\d+\.\d+)',
-    #                 'envoy': r'envoy/(\d+\.\d+\.\d+)'
-    #             }
-    #         },
-
-    #         'cdn_edge': {
-    #             'headers': [
-    #                 # Cloudflare
-    #                 'cf-ray', 'cf-cache-status', 'cf-request-id', 'cf-visitor', 'cf-connecting-ip',
-    #                 'cf-ipcountry', 'cf-ew-via', 'cf-polished', 'cf-bgj',
-    #                 # AWS CloudFront
-    #                 'x-amz-cf-id', 'x-amz-cf-pop', 'x-cache', 'x-amz-request-id',
-    #                 'cloudfront-viewer-country', 'cloudfront-is-mobile-viewer',
-    #                 # Fastly
-    #                 'fastly-debug-path', 'fastly-debug-ttl', 'x-served-by', 'x-cache-hits',
-    #                 'x-timer', 'fastly-restarts', 'x-cache-grace',
-    #                 # Akamai
-    #                 'x-akamai-transformed', 'x-akamai-request-id', 'akamai-origin-hop',
-    #                 # Generic CDN
-    #                 'x-edge-location', 'x-cdn-pop', 'x-edge-response-result-type',
-    #                 'x-cache-status', 'x-cdn-cache-status'
-    #             ],
-    #             'behavioral': {
-    #                 'cache_behavior': {
-    #                     'cache_headers': ['cache-control', 'expires', 'etag', 'last-modified'],
-    #                     'cache_status_values': ['HIT', 'MISS', 'EXPIRED', 'STALE', 'UPDATING', 'BYPASS'],
-    #                     'ttl_headers': ['x-cache-ttl', 'x-ttl', 'age']
-    #                 },
-    #                 'geo_routing': {
-    #                     'country_headers': ['cf-ipcountry', 'x-country-code', 'cloudfront-viewer-country'],
-    #                     'pop_headers': ['x-pop', 'cf-ray', 'x-amz-cf-pop']
-    #                 },
-    #                 'ddos_protection': {
-    #                     'challenge_patterns': [r'ddos.*protection', r'checking.*browser', r'cloudflare.*challenge'],
-    #                     'security_headers': ['cf-ray', 'x-frame-options', 'x-content-type-options']
-    #                 },
-    #                 'compression': {
-    #                     'encoding_headers': ['content-encoding', 'x-original-content-length'],
-    #                     'compression_types': ['gzip', 'brotli', 'deflate']
-    #                 },
-    #                 'ssl_termination': True,
-    #                 'waf_integration': True
-    #             },
-    #             'paths': [
-    #                 '/cdn-cgi/', '/__cf_chl_jschl_tk__/', '/favicon.ico', '/robots.txt',
-    #                 '/cache-status', '/edge-status', '/akamai/sureroute-test-object.html'
-    #             ],
-    #             'response_patterns': [
-    #                 r'cloudflare', r'fastly.*error', r'cloudfront', r'akamai',
-    #                 r'cache.*hit', r'cache.*miss', r'edge.*server', r'pop.*server',
-    #                 r'cdn.*cache', r'origin.*server', r'edge.*location'
-    #             ],
-    #             'timing_signatures': {
-    #                 'cache_hit': (5, 50),
-    #                 'cache_miss': (100, 2000),
-    #                 'edge_processing': (10, 100),
-    #                 'origin_fetch': (200, 5000),
-    #                 'ssl_handshake': (50, 300)
-    #             },
-    #             'error_patterns': {
-    #                 'origin_errors': [r'origin.*unreachable', r'backend.*error', r'upstream.*error'],
-    #                 'cache_errors': [r'cache.*error', r'storage.*error'],
-    #                 'ddos_patterns': [r'rate.*limited', r'blocked.*request', r'suspicious.*activity']
-    #             }
-    #         },
-
-    #         'container_orchestration': {
-    #             'headers': [
-    #                 # Kubernetes
-    #                 'x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace', 'x-node-name',
-    #                 'x-cluster-name', 'x-service-account', 'x-deployment-name',
-    #                 # Docker Swarm
-    #                 'x-docker', 'x-container-id', 'x-service-name', 'x-task-id',
-    #                 'x-network-id', 'x-swarm-node-id',
-    #                 # ECS/Fargate
-    #                 'x-ecs-task', 'x-ecs-container-name', 'x-aws-region', 'x-amzn-trace-id',
-    #                 'x-ecs-cluster', 'x-fargate-task-arn',
-    #                 # OpenShift
-    #                 'x-openshift-build', 'x-openshift-project'
-    #             ],
-    #             'behavioral': {
-    #                 'health_checks': {
-    #                     'paths': ['/health', '/healthz', '/ready', '/live', '/readiness', '/liveness'],
-    #                     'probe_types': ['readiness', 'liveness', 'startup']
-    #                 },
-    #                 'metrics_exposure': {
-    #                     'paths': ['/metrics', '/prometheus', '/stats', '/monitoring'],
-    #                     'formats': ['prometheus', 'json', 'text']
-    #                 },
-    #                 'service_discovery': {
-    #                     'dns_patterns': [r'.*\.svc\.cluster\.local', r'.*\.internal', r'.*\.mesh'],
-    #                     'consul_patterns': [r'.*\.service\.consul'],
-    #                     'eureka_patterns': [r'.*\.eureka']
-    #                 },
-    #                 'rolling_updates': {
-    #                     'version_headers': ['x-app-version', 'x-build-version', 'x-git-commit'],
-    #                     'deployment_headers': ['x-deployment-id', 'x-rollout-id']
-    #                 },
-    #                 'load_balancing': {
-    #                     'session_affinity': ['x-session-id', 'jsessionid', 'server-id'],
-    #                     'load_balancer_headers': ['x-forwarded-for', 'x-real-ip']
-    #                 },
-    #                 'auto_scaling': True,
-    #                 'resource_limits': True
-    #             },
-    #             'dns_patterns': [
-    #                 r'.*\.svc\.cluster\.local',      # Kubernetes
-    #                 r'.*\.internal',                 # Internal DNS
-    #                 r'.*\.mesh',                     # Service mesh
-    #                 r'.*\.swarm',                    # Docker Swarm
-    #                 r'.*\.ecs\.internal',            # ECS internal
-    #                 r'.*\.compute\.internal'         # AWS internal
-    #             ],
-    #             'paths': [
-    #                 '/metrics', '/healthz', '/readyz', '/livez', '/status',
-    #                 '/actuator/health', '/actuator/info', '/actuator/prometheus',
-    #                 '/debug/pprof', '/debug/vars', '/stats', '/info'
-    #             ],
-    #             'response_patterns': [
-    #                 r'kubernetes', r'k8s', r'pod.*name', r'namespace',
-    #                 r'docker.*container', r'container.*id', r'deployment',
-    #                 r'replica.*set', r'stateful.*set', r'daemon.*set',
-    #                 r'fargate', r'ecs.*task', r'cluster.*arn'
-    #             ],
-    #             'timing_signatures': {
-    #                 'startup_time': (1000, 30000),
-    #                 'shutdown_graceful': (1000, 30000),
-    #                 'health_check_interval': (1000, 60000),
-    #                 'rolling_update_time': (10000, 300000)
-    #             }
-    #         },
-
-    #         'serverless_function': {
-    #             'headers': [
-    #                 # AWS Lambda
-    #                 'x-amzn-requestid', 'x-amzn-trace-id', 'x-lambda-request-id',
-    #                 'x-amz-invocation-type', 'x-amz-function-version', 'x-amz-function-name',
-    #                 'x-amzn-remapped-content-length', 'x-amzn-remapped-connection',
-    #                 # Google Cloud Functions
-    #                 'function-execution-id', 'x-cloud-trace-context', 'x-goog-', 'x-appengine-',
-    #                 'x-cloud-run-revision', 'x-serverless-runtime-version',
-    #                 # Azure Functions
-    #                 'x-azure-requestid', 'x-ms-request-id', 'x-ms-invocation-id',
-    #                 'x-azure-functions-', 'x-ms-execution-context-invocationid',
-    #                 # Vercel/Netlify
-    #                 'x-vercel-', 'x-now-', 'x-nf-', 'x-netlify-'
-    #             ],
-    #             'behavioral': {
-    #                 'cold_start_detection': {
-    #                     'timing_variance': True,
-    #                     'initialization_patterns': [r'cold.*start', r'function.*init', r'runtime.*init']
-    #                 },
-    #                 'execution_time_patterns': {
-    #                     'timeout_headers': ['x-amzn-timeout', 'x-function-timeout'],
-    #                     'execution_time_headers': ['x-execution-time', 'x-duration']
-    #                 },
-    #                 'memory_constraints': {
-    #                     'memory_headers': ['x-max-memory', 'x-memory-limit'],
-    #                     'oom_patterns': [r'memory.*limit', r'out.*of.*memory', r'heap.*exhausted']
-    #                 },
-    #                 'concurrent_execution': {
-    #                     'concurrency_headers': ['x-concurrency-limit', 'x-reserved-concurrency'],
-    #                     'throttling_patterns': [r'throttled', r'concurrent.*limit', r'rate.*exceeded']
-    #                 },
-    #                 'event_sources': {
-    #                     'triggers': ['api-gateway', 'sqs', 's3', 'dynamodb', 'eventbridge', 'http']
-    #                 }
-    #             },
-    #             'paths': [
-    #                 '/api/', '/function/', '/.netlify/functions/', '/api/v1/',
-    #                 '/.vercel/output/functions/', '/lambda/', '/azure-functions/',
-    #                 '/gcf/', '/cloud-function/'
-    #             ],
-    #             'response_patterns': [
-    #                 r'lambda.*timeout', r'function.*invocation', r'cold.*start',
-    #                 r'execution.*time', r'memory.*limit', r'concurrent.*execution',
-    #                 r'serverless.*runtime', r'function.*error', r'handler.*error',
-    #                 r'cloud.*function', r'azure.*function', r'vercel.*function'
-    #             ],
-    #             'timing_signatures': {
-    #                 'cold_start_penalty': (100, 3000),
-    #                 'warm_execution': (5, 100),
-    #                 'timeout_behavior': (15000, 900000),  # 15s to 15min
-    #                 'billed_duration': (100, 900000)
-    #             },
-    #             'error_patterns': {
-    #                 'timeout_errors': [r'task.*timed.*out', r'function.*timeout', r'execution.*timeout'],
-    #                 'memory_errors': [r'memory.*exhausted', r'out.*of.*memory', r'heap.*limit'],
-    #                 'runtime_errors': [r'runtime.*error', r'handler.*not.*found', r'module.*error']
-    #             }
-    #         },
-
-    #         'load-balancer': {
-    #             'headers': [
-    #                 'X-Load-Balancer', 'X-Forwarded-By', 'x-lb', 'x-lb-name',
-    #                 'X-haproxy', 'x-nginx-lb', 'X-real-ip', 'X-Forwarded-For',
-    #                 'X-Forwarded-Proto', 'X-Forwarded-Host', 'X-Forwarded-Port',
-    #                 'X-original-forwarded-for', 'X-cluster-client-ip',
-    #                 'X-aws-alb-target-group-arn', 'X-amzn-trace-id'
-    #             ],
-    #             'behavioral': {
-    #                 'session_persistence': {
-    #                     'cookies': ['AWSALB', 'AWSALBCORS', 'lb-session', 'server-id'],
-    #                     'headers': ['x-session-affinity', 'x-sticky-session']
-    #                 },
-    #                 'health_checking': {
-    #                     'paths': ['/lb-status', '/health', '/check'],
-    #                     'response_patterns': [r'healthy', r'available', r'up']
-    #                 },
-    #                 'ssl_termination': {
-    #                     'headers': ['x-forwarded-proto', 'x-scheme'],
-    #                     'termination_patterns': [r'ssl.*terminated', r'https.*offload']
-    #                 },
-    #                 'load_balancing_algorithms': ['round-robin', 'least-connections', 'ip-hash', 'weighted'],
-    #                 'failover_behavior': True
-    #             },
-    #             'paths': [
-    #                 '/lb-status', '/haproxy?stats', '/nginx_status', '/status',
-    #                 '/health', '/load-balancer/health', '/elb-status'
-    #             ],
-    #             'response_patterns': [
-    #                 r'load.*balance', r'upstream', r'backend.*pool', r'server.*pool',
-    #                 r'haproxy', r'nginx.*lb', r'aws.*application.*load.*balancer',
-    #                 r'target.*group', r'health.*check', r'failover'
-    #             ],
-    #             'timing_signatures': {
-    #                 'health_check_interval': (5000, 30000),
-    #                 'failover_detection': (1000, 10000),
-    #                 'connection_draining': (5000, 300000)
-    #             }
-    #         },
-
-    #         'service-mesh': {
-    #             'headers': [
-    #                 # Istio/Envoy
-    #                 'x-envoy', 'x-envoy-upstream-service-time', 'x-envoy-original-path',
-    #                 'x-envoy-decorator-operation', 'x-envoy-peer-metadata',
-    #                 'x-istio-attributes', 'istio-mtls',
-    #                 # Linkerd
-    #                 'l5d-dst-service', 'l5d-dst-client', 'l5d-request-id',
-    #                 'l5d-ctx-trace', 'x-linkerd-', 'linkerd-',
-    #                 # Consul Connect
-    #                 'x-consul-', 'consul-', 'x-consul-token', 'x-consul-index',
-    #                 # Generic tracing
-    #                 'x-b3-traceid', 'x-b3-spanid', 'x-b3-parentspanid', 'x-b3-sampled',
-    #                 'x-ot-span-context', 'x-trace-id', 'x-span-id'
-    #             ],
-    #             'behavioral': {
-    #                 'mtls_termination': {
-    #                     'cert_headers': ['x-forwarded-client-cert', 'x-ssl-client-cert'],
-    #                     'mtls_patterns': [r'mtls.*enabled', r'mutual.*tls', r'client.*cert']
-    #                 },
-    #                 'circuit_breaking': {
-    #                     'response_patterns': [r'circuit.*breaker', r'upstream.*failure', r'max.*retries'],
-    #                     'status_codes': [503, 504]
-    #                 },
-    #                 'retry_policies': {
-    #                     'retry_headers': ['x-envoy-retry-on', 'x-envoy-max-retries'],
-    #                     'retry_patterns': [r'retry.*policy', r'max.*retries', r'retry.*timeout']
-    #                 },
-    #                 'canary_routing': {
-    #                     'routing_headers': ['x-canary-weight', 'x-traffic-split'],
-    #                     'version_headers': ['x-version', 'x-variant']
-    #                 },
-    #                 'fault_injection': {
-    #                     'fault_headers': ['x-envoy-fault-', 'x-chaos-'],
-    #                     'fault_patterns': [r'fault.*injection', r'chaos.*engineering']
-    #                 },
-    #                 'observability': {
-    #                     'metrics_collection': True,
-    #                     'distributed_tracing': True,
-    #                     'access_logging': True
-    #                 }
-    #             },
-    #             'admin_paths': [
-    #                 '/stats', '/clusters', '/config_dump', '/server_info',
-    #                 '/listeners', '/runtime', '/certs', '/memory', '/cpuprofiler',
-    #                 '/ready', '/stats/prometheus', '/hot_restart_version'
-    #             ],
-    #             'response_patterns': [
-    #                 r'envoy.*proxy', r'istio', r'linkerd', r'consul.*connect',
-    #                 r'service.*mesh', r'sidecar.*proxy', r'data.*plane',
-    #                 r'control.*plane', r'xds.*config', r'pilot.*discovery'
-    #             ],
-    #             'timing_signatures': {
-    #                 'proxy_overhead': (1, 50),
-    #                 'circuit_breaker_trip': (100, 1000),
-    #                 'retry_backoff': (100, 5000),
-    #                 'config_reload': (1000, 30000)
-    #             }
-    #         },
-
-    #         'database-proxy': {
-    #             'headers': [
-    #                 'x-db-proxy', 'x-pgbouncer', 'x-mysql-proxy', 'x-redis-proxy',
-    #                 'x-connection-pool', 'x-db-connection-id', 'x-query-cache',
-    #                 'x-db-server', 'x-shard-key'
-    #             ],
-    #             'behavioral': {
-    #                 'connection_pooling': {
-    #                     'pool_headers': ['x-pool-size', 'x-active-connections', 'x-idle-connections'],
-    #                     'pool_patterns': [r'connection.*pool', r'max.*connections', r'pool.*exhausted']
-    #                 },
-    #                 'query_caching': {
-    #                     'cache_headers': ['x-query-cache-hit', 'x-cache-ttl'],
-    #                     'cache_patterns': [r'query.*cache', r'cache.*hit', r'cache.*miss']
-    #                 },
-    #                 'sharding': {
-    #                     'shard_headers': ['x-shard-id', 'x-partition-key'],
-    #                     'shard_patterns': [r'shard.*key', r'partition.*strategy']
-    #                 },
-    #                 'read_write_split': True,
-    #                 'failover_support': True
-    #             },
-    #             'paths': [
-    #                 '/db-status', '/pool-status', '/pgbouncer', '/mysql-proxy/status',
-    #                 '/redis-info', '/connection-stats', '/query-stats'
-    #             ],
-    #             'response_patterns': [
-    #                 r'database.*proxy', r'connection.*pool', r'pgbouncer', r'mysql.*proxy',
-    #                 r'redis.*proxy', r'db.*connection', r'query.*cache', r'shard.*info'
-    #             ],
-    #             'timing_signatures': {
-    #                 'connection_setup': (10, 100),
-    #                 'query_execution': (1, 5000),
-    #                 'pool_checkout': (1, 50)
-    #             }
-    #         },
-
-    #         'cache-layer': {
-    #             'headers': [
-    #                 'x-cache', 'x-redis', 'x-memcached', 'x-varnish', 'x-cache-status',
-    #                 'x-cache-key', 'x-cache-ttl', 'x-cache-hits', 'x-cache-age',
-    #                 'varnish-age', 'varnish-cache', 'x-drupal-cache'
-    #             ],
-    #             'behavioral': {
-    #                 'cache_strategies': {
-    #                     'strategies': ['write-through', 'write-behind', 'cache-aside'],
-    #                     'invalidation_patterns': [r'cache.*invalidate', r'purge.*cache', r'flush.*cache']
-    #                 },
-    #                 'cache_warming': {
-    #                     'warming_patterns': [r'cache.*warm', r'preload.*cache'],
-    #                     'warming_headers': ['x-cache-warmed', 'x-preload-status']
-    #                 },
-    #                 'distributed_cache': {
-    #                     'cluster_headers': ['x-cache-node', 'x-cluster-id'],
-    #                     'replication_patterns': [r'cache.*replica', r'sync.*status']
-    #                 },
-    #                 'compression': True,
-    #                 'serialization': ['json', 'binary', 'protobuf']
-    #             },
-    #             'paths': [
-    #                 '/cache-status', '/redis-info', '/memcached-stats', '/varnish-stats',
-    #                 '/cache-stats', '/hit-ratio', '/memory-usage'
-    #             ],
-    #             'response_patterns': [
-    #                 r'redis', r'memcached', r'varnish', r'cache.*hit', r'cache.*miss',
-    #                 r'cache.*server', r'key.*value', r'cache.*cluster', r'hit.*ratio'
-    #             ],
-    #             'timing_signatures': {
-    #                 'cache_hit': (1, 10),
-    #                 'cache_miss': (10, 1000),
-    #                 'cache_write': (1, 50),
-    #                 'eviction_time': (1, 100)
-    #             }
-    #         },
-
-    #         'message-queue': {
-    #             'headers': [
-    #                 'x-queue', 'x-rabbitmq', 'x-kafka', 'x-sqs', 'x-pubsub',
-    #                 'x-message-id', 'x-correlation-id', 'x-delivery-tag',
-    #                 'x-queue-name', 'x-topic-name', 'x-partition'
-    #             ],
-    #             'behavioral': {
-    #                 'async_processing': {
-    #                     'async_patterns': [r'async.*process', r'background.*job', r'queued.*task'],
-    #                     'callback_headers': ['x-callback-url', 'x-webhook-url']
-    #                 },
-    #                 'message_ordering': {
-    #                     'order_headers': ['x-sequence-number', 'x-message-order'],
-    #                     'fifo_patterns': [r'fifo.*queue', r'ordered.*delivery']
-    #                 },
-    #                 'dead_letter_queues': {
-    #                     'dlq_headers': ['x-dlq-retry-count', 'x-dead-letter-queue'],
-    #                     'dlq_patterns': [r'dead.*letter', r'retry.*exhausted', r'poison.*message']
-    #                 },
-    #                 'batch_processing': {
-    #                     'batch_headers': ['x-batch-size', 'x-batch-id'],
-    #                     'batch_patterns': [r'batch.*process', r'bulk.*operation']
-    #                 },
-    #                 'message_persistence': True,
-    #                 'acknowledgment_modes': ['auto', 'manual', 'duplicates-ok']
-    #             },
-    #             'paths': [
-    #                 '/queue-status', '/rabbitmq/api', '/kafka/topics', '/sqs/stats',
-    #                 '/pubsub/topics', '/messages', '/queues', '/topics'
-    #             ],
-    #             'response_patterns': [
-    #                 r'rabbitmq', r'kafka', r'amazon.*sqs', r'google.*pubsub',
-    #                 r'message.*queue', r'topic.*partition', r'consumer.*group',
-    #                 r'producer', r'subscriber', r'dead.*letter'
-    #             ],
-    #             'timing_signatures': {
-    #                 'queue_processing': (10, 5000),
-    #                 'batch_delay': (100, 10000),
-    #                 'message_latency': (1, 1000),
-    #                 'consumer_lag': (0, 300000)
-    #             }
-    #         }
-    #     }        
-    #     # Container orchestration signatures
-    #     self.container_patterns = {
-    #         'kubernetes': {
-    #             'headers': ['x-kubernetes', 'x-k8s', 'x-pod-name', 'x-namespace'],
-    #             'dns_patterns': [r'.*\.svc\.cluster\.local'],
-    #             'paths': ['/metrics', '/healthz'],
-    #             'env_indicators': ['KUBERNETES_SERVICE', 'POD_NAME', 'NAMESPACE']
-    #         },
-    #         'docker': {
-    #             'headers': ['x-container-id', 'x-docker', 'x-container-name'],
-    #             'paths': ['/docker-health', '/container-info'],
-    #             'response_patterns': ['container.*id', 'docker.*image']
-    #         },
-    #         'ecs': {
-    #             'headers': ['x-amzn-trace-id', 'x-ecs-task', 'x-aws-region'],
-    #             'paths': ['/task-metadata', '/stats'],
-    #             'response_patterns': ['ecs.*task', 'aws.*fargate']
-    #         },
-    #         'cloud-run': {
-    #             'headers': ['x-cloud-run', 'x-goog-', 'function-execution-id'],
-    #             'paths': ['/metadata', '/health'],
-    #             'response_patterns': ['cloud.*run', 'google.*cloud']
-    #         }
-    #     }
 
     def discover_backend_chain(self, entry_point: str, depth: int = 0) -> Dict:
         if depth >= self.max_depth or entry_point in self.discovered_services:
@@ -1823,127 +1453,44 @@ class ApplicationTraceroute:
                     'X-Real-IP': '127.0.0.1',
                     'X-Cluster-Client-IP': '127.0.0.1'
                 },
+                # Simplified CDN list - Top 20 most commonly used providers
                 'expected_responses': [
-                    # Major Global CDNs
-                    'cloudflare', 'cloudfront', 'fastly', 'akamai', 'azure-cdn',
-                    'google-cdn', 'google-cloud-cdn', 'amazon-cloudfront',
-                    
-                    # Popular Commercial CDNs
-                    'maxcdn', 'stackpath', 'keycdn', 'bunnycdn', 'quantil',
-                    'cdn77', 'jsdelivr', 'unpkg', 'bootstrapcdn', 'cdnjs',
-                    
-                    # Enterprise CDNs
-                    'limelight', 'edgecast', 'level3', 'verizon-cdn', 'att-cdn',
-                    'chinacache', 'cachefly', 'highwinds', 'incapsula', 'imperva',
-                    
-                    # Regional/Specialized CDNs
-                    'belugacdn', 'gcore', 'goooood-cdn', 'sucuri', 'swarmify',
-                    'rackspace-cdn', 'softlayer-cdn', 'cdnlion', 'alicdn', 'tencent-cdn',
-                    
-                    # Security-focused CDNs
-                    'sucuri-cdn', 'incapsula-cdn', 'imperva-cdn', 'cloudflare-spectrum',
-                    'ddos-guard', 'koddos', 'blazingfast', 'ovh-cdn',
-                    
-                    # Asian CDNs
-                    'alicloud-cdn', 'tencent-cloud-cdn', 'baidu-cdn', 'qiniu-cdn',
-                    'upyun-cdn', 'chinacache', 'wangsu', 'kingsoft-cdn',
-                    'netcenter', 'sina-cdn', 'ksyun-cdn',
-                    
-                    # European CDNs
-                    'ovh-cdn', 'scaleway-cdn', 'hetzner-cdn', 'contabo-cdn',
-                    'digitalocean-cdn', 'linode-cdn', 'vultr-cdn',
-                    
-                    # Emerging/Niche CDNs
-                    'section-cdn', 'optimole', 'wp-rocket-cdn', 'jetpack-cdn',
-                    'autoptimize-cdn', 'wp-super-cache-cdn', 'w3-total-cache-cdn',
-                    
-                    # Video/Streaming CDNs
-                    'wowza-cdn', 'jwplayer-cdn', 'brightcove-cdn', 'vimeo-cdn',
-                    'youtube-cdn', 'twitch-cdn', 'netflix-cdn', 'hulu-cdn',
-                    
-                    # Government/Enterprise
-                    'govcdn', 'milcdn', 'educdn', 'healthcare-cdn',
-                    
-                    # Open Source/Community
-                    'jsdelivr-cdn', 'unpkg-cdn', 'cdnjs-cloudflare', 'github-cdn',
-                    'gitlab-cdn', 'raw-githubusercontent'
+                    'cloudflare', 'cloudfront', 'amazon-cloudfront', 'fastly', 'akamai',
+                    'azure-cdn', 'google-cdn', 'google-cloud-cdn', 'maxcdn', 'stackpath',
+                    'keycdn', 'bunnycdn', 'cdn77', 'jsdelivr', 'cdnjs',
+                    'incapsula', 'imperva', 'sucuri', 'alicdn', 'tencent-cdn'
                 ],
+                # Simplified detection headers - Top 40 essential headers for major CDNs
                 'detection_headers': [
-                    # Cloudflare headers
+                    # Cloudflare (most common)
                     'cf-ray', 'cf-cache-status', 'cf-request-id', 'cf-connecting-ip',
-                    'cf-visitor', 'cf-ipcountry', 'cf-apo-via', 'expect-ct',
-                    
-                    # AWS CloudFront headers
-                    'x-amz-cf-id', 'x-amz-cf-pop', 'x-cache', 'x-amz-request-id',
-                    'x-amzn-trace-id', 'x-amzn-requestid',
-                    
-                    # Akamai headers
-                    'akamai-origin-hop', 'akamai-transformed', 'akamai-cache-status',
-                    'akamai-request-id', 'akamai-ghost-ip', 'true-client-ip',
-                    'akamai-edge-ip', 'x-akamai-transformed', 'x-akamai-staging',
-                    
-                    # Fastly headers
-                    'x-served-by', 'x-cache', 'x-cache-hits', 'fastly-debug-digest',
-                    'fastly-restarts', 'fastly-client-ip', 'fastly-ff', 'x-timer',
-                    
-                    # Azure CDN headers
-                    'x-azure-ref', 'x-msedge-ref', 'x-cache', 'x-azure-fdid',
-                    
-                    # Google Cloud CDN headers
-                    'x-goog-trace', 'x-cloud-trace-context', 'x-gfe-response-code-details-trace',
-                    'x-goog-generation', 'x-goog-hash', 'x-goog-storage-class',
-                    
-                    # KeyCDN headers
-                    'x-keycdn-pop', 'x-edge-location', 'x-pull-zone',
-                    
-                    # MaxCDN/StackPath headers
-                    'x-maxcdn-pop', 'x-sp-edge-pop', 'x-stackpath-edge-pop',
-                    
-                    # BunnyCDN headers
-                    'bunnycdn-cache-status', 'x-bunnycdn-pop', 'cdn-cache-control',
-                    
-                    # CDN77 headers
+                    # AWS CloudFront
+                    'x-amz-cf-id', 'x-amz-cf-pop', 'x-amzn-trace-id',
+                    # Akamai
+                    'akamai-origin-hop', 'akamai-cache-status', 'true-client-ip',
+                    # Fastly
+                    'x-served-by', 'x-cache-hits', 'fastly-debug-digest', 'x-timer',
+                    # Azure CDN
+                    'x-azure-ref', 'x-msedge-ref', 'x-azure-fdid',
+                    # Google Cloud CDN
+                    'x-goog-trace', 'x-cloud-trace-context',
+                    # KeyCDN
+                    'x-keycdn-pop', 'x-edge-location',
+                    # StackPath/MaxCDN
+                    'x-maxcdn-pop', 'x-sp-edge-pop',
+                    # BunnyCDN
+                    'bunnycdn-cache-status', 'x-bunnycdn-pop',
+                    # CDN77
                     'x-cdn77-pop', 'x-cdn77-cache-status',
-                    
-                    # Quantil/BelugaCDN headers
-                    'x-qcdn-pop', 'x-beluga-cache-status',
-                    
-                    # Limelight headers
-                    'x-llnw-pop', 'x-ll-pop', 'x-ll-cache',
-                    
-                    # Edgecast/Verizon headers
-                    'x-ec-debug', 'x-ec-cache', 'x-ec-cache-key', 'x-ec-check-cacheable',
-                    
-                    # Incapsula/Imperva headers
-                    'x-iinfo', 'x-cdn', 'incap-ses', 'visid_incap',
-                    
-                    # CacheFly headers
-                    'x-cf-pop', 'x-cf-served-by', 'x-cf-cache-status',
-                    
-                    # Sucuri headers
-                    'x-sucuri-id', 'x-sucuri-cache', 'x-sucuri-block',
-                    
-                    # Chinese CDNs
-                    'ali-cdn-cache-status', 'x-ali-cdn-pop', 'x-tengxun-cache',
-                    'x-tencent-cache', 'x-baidu-cache', 'x-qiniu-cache',
-                    'x-upyun-cache', 'x-cc-cache', 'x-ws-cache',
-                    
-                    # European CDNs  
-                    'x-ovh-cache', 'x-scaleway-cache', 'x-hetzner-cache',
-                    'x-do-cache', 'x-linode-cache', 'x-vultr-cache',
-                    
-                    # Video CDNs
-                    'x-wowza-cache', 'x-jwplayer-cache', 'x-bc-cache',
-                    'x-vimeo-cache', 'x-yt-cache', 'x-twitch-cache',
-                    
-                    # Generic detection headers
-                    'x-cdn-pop', 'x-edge-location', 'x-pop', 'x-cache-status',
-                    'x-served-by', 'x-cache', 'x-proxy-cache', 'x-hit',
-                    'x-origin-pop', 'x-edge-server', 'x-cdn-server',
-                    
-                    # Security CDN headers
-                    'x-waf-event-info', 'x-firewall-pop', 'x-security-check',
-                    'x-ddos-protection', 'x-rate-limit-pop'
+                    # Incapsula/Imperva
+                    'x-iinfo', 'incap-ses', 'visid_incap',
+                    # Sucuri
+                    'x-sucuri-id', 'x-sucuri-cache',
+                    # Chinese CDNs (major ones)
+                    'ali-cdn-cache-status', 'x-tencent-cache',
+                    # Generic detection headers (work across CDNs)
+                    'x-cdn-pop', 'x-pop', 'x-cache-status', 'x-cache',
+                    'x-proxy-cache', 'x-cdn-server'
                 ],
                 'timing_analysis': True,
                 'geo_routing_test': True,
@@ -1991,38 +1538,14 @@ class ApplicationTraceroute:
                         '*.ytimg.com', '*.googlevideo.com'
                     ],
                     
-                    # Response body fingerprinting
+                    # Consolidated body fingerprints - Only most distinctive patterns
                     'body_fingerprints': {
-                        'cloudflare': [
-                            'cloudflare', 'cf-ray', 'ray id:', 'checking your browser',
-                            'ddos protection by cloudflare', '__cf_bm'
-                        ],
-                        'aws_cloudfront': [
-                            'cloudfront', 'generated by cloudfront', 'aws cloudfront',
-                            'request id:', 'amazon cloudfront'
-                        ],
-                        'akamai': [
-                            'akamai', 'reference #', 'akamai ghost', 'edgescape',
-                            'akamai netsession', 'ghost ip'
-                        ],
-                        'fastly': [
-                            'fastly', 'fastly error', 'varnish', 'fastly cdn',
-                            'request id', 'fastly shield'
-                        ],
-                        'maxcdn': [
-                            'maxcdn', 'netdna', 'stackpath', 'max cdn',
-                            'pull zone', 'edge location'
-                        ],
-                        'keycdn': [
-                            'keycdn', 'key cdn', 'zone id', 'pop location'
-                        ],
-                        'bunnycdn': [
-                            'bunnycdn', 'bunny cdn', 'pull zone', 'edge server'
-                        ],
-                        'incapsula': [
-                            'incapsula', 'imperva', 'incap_ses', 'visid_incap',
-                            'security incident', 'access denied'
-                        ]
+                        'cloudflare': ['cloudflare', 'cf-ray', 'ray id:', 'checking your browser'],
+                        'aws_cloudfront': ['cloudfront', 'generated by cloudfront'],
+                        'akamai': ['akamai', 'reference #', 'ghost ip'],
+                        'fastly': ['fastly error', 'varnish', 'fastly shield'],
+                        'maxcdn': ['maxcdn', 'netdna', 'stackpath'],
+                        'incapsula': ['incapsula', 'imperva', 'visid_incap']
                     },
                     
                     # SSL Certificate patterns
@@ -2033,15 +1556,7 @@ class ApplicationTraceroute:
                         '*.fastly.com', '*.fastlylb.net',
                         '*.maxcdn.com', '*.stackpathcdn.com'
                     ],
-                    
-                    # IP Range detection (examples)
-                    'ip_ranges': {
-                        'cloudflare': ['103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22'],
-                        'aws_cloudfront': ['13.32.0.0/15', '13.35.0.0/16', '13.54.0.0/15'],
-                        'akamai': ['23.0.0.0/12', '104.64.0.0/10', '184.24.0.0/13'],
-                        'fastly': ['23.235.32.0/20', '43.249.72.0/22', '103.244.50.0/24']
-                    },
-                    
+
                     # Performance characteristics
                     'performance_signatures': {
                         'latency_patterns': {
