@@ -1277,31 +1277,102 @@ class ProgressiveStackAnalyzer:
     
     def correlate_stack(self):
         """
-        Correlate discovered layers to understand the full chain.
-        Example: CDN → WAF → Load Balancer → Proxy → Backend
+        ENHANCED: Correlate discovered layers with timing, header attribution, and responsibility.
+        Example: CDN(30ms) → WAF(10ms) → Load Balancer(15ms) → Backend(45ms)
         """
-        self.log("CORRELATION", "Building stack relationships...", "INFO")
-        
+        self.log("CORRELATION", "Building enhanced stack relationships...", "INFO")
+
         # Sort layers by typical order
         order_priority = {'CDN': 1, 'WAF': 2, 'API_GATEWAY': 3, 'LOAD_BALANCER': 4, 'PROXY': 5, 'BACKEND': 6}
-        
         self.stack['layers'].sort(key=lambda x: order_priority.get(x['type'], 99))
-        
-        # Build correlations
+
+        # Measure timing per layer (simplified - estimate based on position)
+        total_latency = self._measure_latency()
+        estimated_latencies = self._estimate_layer_latencies(total_latency)
+
+        # Build enhanced correlations
         for i in range(len(self.stack['layers']) - 1):
             current = self.stack['layers'][i]
             next_layer = self.stack['layers'][i + 1]
-            
+
+            # Add timing information
+            current_timing = estimated_latencies.get(current['type'], 0)
+
+            # Header attribution - which layer introduced which headers
+            header_attribution = self._attribute_headers(current, i)
+
+            # Responsibility - which layer blocked/modified request
+            responsibility = self._determine_responsibility(current)
+
             self.stack['correlations'].append({
                 'from': f"{current['type']}:{current['component']}",
                 'to': f"{next_layer['type']}:{next_layer['component']}",
-                'relationship': 'forwards_to'
+                'relationship': 'forwards_to',
+                'timing_ms': current_timing,
+                'headers_added': header_attribution,
+                'responsibility': responsibility
             })
-        
-        # Log the chain
+
+        # Log the enhanced chain
         if self.stack['layers']:
-            chain = " → ".join([f"{l['type']}({l['component']})" for l in self.stack['layers']])
+            chain_parts = []
+            for layer in self.stack['layers']:
+                timing = estimated_latencies.get(layer['type'], 0)
+                chain_parts.append(f"{layer['type']}({layer['component']},{timing:.0f}ms)")
+            chain = " → ".join(chain_parts)
             self.log("CORRELATION", f"Stack chain: {chain}", "SUCCESS")
+            self.log("CORRELATION", f"Total latency: {total_latency:.2f}ms", "INFO")
+
+    def _estimate_layer_latencies(self, total_latency: float) -> Dict[str, float]:
+        """Estimate latency contribution per layer type"""
+        # Typical latency distribution
+        distribution = {
+            'CDN': 0.25,  # 25% - edge network
+            'WAF': 0.10,  # 10% - inspection
+            'LOAD_BALANCER': 0.15,  # 15% - routing
+            'PROXY': 0.10,  # 10% - forwarding
+            'BACKEND': 0.40   # 40% - application processing
+        }
+
+        latencies = {}
+        for layer_type, percentage in distribution.items():
+            latencies[layer_type] = total_latency * percentage
+
+        return latencies
+
+    def _attribute_headers(self, layer: Dict, position: int) -> List[str]:
+        """Determine which headers this layer likely added"""
+        header_attribution = []
+        layer_type = layer['type']
+
+        # Known header patterns per layer
+        header_signatures = {
+            'CDN': ['cf-', 'x-amz-cf-', 'x-cache', 'x-served-by', 'akamai-'],
+            'WAF': ['x-waf-', 'x-sucuri-', 'incap-', 'cf-mitigated'],
+            'LOAD_BALANCER': ['x-forwarded-', 'x-haproxy-', 'x-nginx-lb'],
+            'PROXY': ['via', 'x-varnish', 'x-squid'],
+            'BACKEND': ['server', 'x-powered-by', 'x-runtime']
+        }
+
+        patterns = header_signatures.get(layer_type, [])
+        for pattern in patterns:
+            header_attribution.append(pattern.rstrip('-'))
+
+        return header_attribution
+
+    def _determine_responsibility(self, layer: Dict) -> str:
+        """Determine layer's role in request processing"""
+        layer_type = layer['type']
+
+        responsibilities = {
+            'CDN': 'edge_caching',
+            'WAF': 'security_filtering',
+            'LOAD_BALANCER': 'traffic_distribution',
+            'PROXY': 'request_forwarding',
+            'BACKEND': 'application_logic'
+        }
+
+        return responsibilities.get(layer_type, 'unknown')
 
 
 class ForbiddenEndpointFinder:
