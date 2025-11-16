@@ -2808,16 +2808,145 @@ class BypassGenerator:
     def _generate_curl(self, url: str, method: str, headers: Dict) -> str:
         """Generate curl command"""
         cmd = ['curl', '-i']
-        
+
         if method != 'GET':
             cmd.append(f'-X {method}')
-        
+
         for header, value in headers.items():
             cmd.append(f"-H '{header}: {value}'")
-        
+
         cmd.append(f"'{url}'")
-        
+
         return ' '.join(cmd)
+
+    def prioritize_bypasses(self) -> List[Dict]:
+        """
+        Prioritize bypasses by severity and likelihood of success.
+        Returns sorted list with CRITICAL first.
+        """
+        priority_order = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, 'INFO': 0}
+
+        sorted_bypasses = sorted(
+            self.bypasses,
+            key=lambda x: (
+                priority_order.get(x.get('severity', 'INFO'), 0),
+                x.get('discrepancy', {}).get('cvss_score', 0.0)
+            ),
+            reverse=True
+        )
+
+        # Add priority ranking
+        for idx, bypass in enumerate(sorted_bypasses, 1):
+            bypass['priority_rank'] = idx
+            bypass['priority_level'] = 'P1' if bypass.get('severity') == 'CRITICAL' else \
+                                      'P2' if bypass.get('severity') == 'HIGH' else \
+                                      'P3' if bypass.get('severity') == 'MEDIUM' else 'P4'
+
+        return sorted_bypasses
+
+    def generate_burp_json(self, filename: Optional[str] = None) -> str:
+        """
+        Generate Burp Suite compatible JSON format for import.
+        Can be imported via Burp Proxy > Import requests from file.
+        """
+        if not filename:
+            timestamp = int(time.time())
+            filename = f"burp_bypasses_{timestamp}.json"
+
+        burp_requests = []
+
+        for bypass in self.bypasses:
+            # Build Burp Suite request format
+            burp_req = {
+                'host': urlparse(bypass['url']).netloc,
+                'port': 443 if urlparse(bypass['url']).scheme == 'https' else 80,
+                'protocol': urlparse(bypass['url']).scheme,
+                'url': bypass['url'],
+                'method': bypass.get('method', 'GET'),
+                'headers': [],
+                'body': bypass.get('data', ''),
+                'comment': f"[{bypass.get('severity', 'MEDIUM')}] {bypass.get('description', '')}",
+                'highlight': self._get_burp_highlight(bypass.get('severity', 'MEDIUM'))
+            }
+
+            # Add headers
+            for header_name, header_value in bypass.get('headers', {}).items():
+                burp_req['headers'].append({
+                    'name': header_name,
+                    'value': header_value
+                })
+
+            burp_requests.append(burp_req)
+
+        # Write to file
+        with open(filename, 'w') as f:
+            json.dump({'requests': burp_requests}, f, indent=2)
+
+        print(f"\n💾 Burp Suite JSON: {filename}")
+        return filename
+
+    def _get_burp_highlight(self, severity: str) -> str:
+        """Map severity to Burp Suite highlight colors"""
+        color_map = {
+            'CRITICAL': 'red',
+            'HIGH': 'orange',
+            'MEDIUM': 'yellow',
+            'LOW': 'green',
+            'INFO': 'gray'
+        }
+        return color_map.get(severity, 'gray')
+
+    def suggest_attack_chains(self) -> List[Dict]:
+        """
+        Suggest attack chains by combining multiple bypasses.
+        Example: Cache poisoning + Host header injection = Full bypass
+        """
+        chains = []
+
+        # Look for complementary bypass types
+        cache_bypasses = [b for b in self.bypasses if 'Cache' in b.get('type', '')]
+        header_bypasses = [b for b in self.bypasses if 'Header' in b.get('type', '')]
+        smuggling_bypasses = [b for b in self.bypasses if 'Smuggling' in b.get('type', '')]
+
+        # Chain 1: Cache + Header = Cache Poisoning Attack
+        if cache_bypasses and header_bypasses:
+            chains.append({
+                'name': 'Cache Poisoning via Header Injection',
+                'severity': 'CRITICAL',
+                'steps': [
+                    cache_bypasses[0],
+                    header_bypasses[0]
+                ],
+                'description': 'Combine cache key confusion with header injection to poison cache for all users',
+                'cvss_score': 9.5
+            })
+
+        # Chain 2: Smuggling + Any bypass = Escalated Attack
+        if smuggling_bypasses and len(self.bypasses) > len(smuggling_bypasses):
+            other_bypass = [b for b in self.bypasses if b not in smuggling_bypasses][0]
+            chains.append({
+                'name': 'HTTP Smuggling with Secondary Bypass',
+                'severity': 'CRITICAL',
+                'steps': [
+                    smuggling_bypasses[0],
+                    other_bypass
+                ],
+                'description': 'Use HTTP smuggling to bypass WAF, then exploit secondary vulnerability',
+                'cvss_score': 9.8
+            })
+
+        # Chain 3: Multiple encoding confusions
+        encoding_bypasses = [b for b in self.bypasses if 'Encoding' in b.get('type', '') or 'Unicode' in b.get('type', '')]
+        if len(encoding_bypasses) >= 2:
+            chains.append({
+                'name': 'Layered Encoding Confusion',
+                'severity': 'HIGH',
+                'steps': encoding_bypasses[:2],
+                'description': 'Stack multiple encoding techniques to bypass normalization',
+                'cvss_score': 8.0
+            })
+
+        return chains
 
 
 class BypassValidator:
