@@ -503,9 +503,134 @@ class ProgressiveStackAnalyzer:
                     'body_patterns': ['ruby on rails', 'action controller'],
                     'behavioral_paths': []
                 }
+            },
+
+            'backend_detection': {
+                # Web Servers
+                'nginx': {
+                    'server_patterns': ['nginx'],
+                    'tech_headers': {'Server': 'nginx'},
+                    'framework_patterns': ['nginx'],
+                    'behavioral_paths': ['/nginx_status'],
+                    'error_patterns': ['nginx error', '502 bad gateway']
+                },
+                'apache': {
+                    'server_patterns': ['apache'],
+                    'tech_headers': {'Server': 'apache'},
+                    'framework_patterns': ['apache'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['apache', 'server at', 'port']
+                },
+                'iis': {
+                    'server_patterns': ['microsoft-iis', 'iis'],
+                    'tech_headers': {'Server': 'microsoft-iis', 'X-Powered-By': 'asp.net'},
+                    'framework_patterns': ['iis', 'asp.net'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['server error in', 'runtime error']
+                },
+                'lighttpd': {
+                    'server_patterns': ['lighttpd'],
+                    'tech_headers': {'Server': 'lighttpd'},
+                    'framework_patterns': ['lighttpd'],
+                    'behavioral_paths': [],
+                    'error_patterns': []
+                },
+                'caddy': {
+                    'server_patterns': ['caddy'],
+                    'tech_headers': {'Server': 'caddy'},
+                    'framework_patterns': ['caddy'],
+                    'behavioral_paths': [],
+                    'error_patterns': []
+                },
+                'openresty': {
+                    'server_patterns': ['openresty'],
+                    'tech_headers': {'Server': 'openresty'},
+                    'framework_patterns': ['openresty', 'lua'],
+                    'behavioral_paths': [],
+                    'error_patterns': []
+                },
+                # Application Servers
+                'tomcat': {
+                    'server_patterns': ['tomcat'],
+                    'tech_headers': {'Server': 'apache-coyote', 'X-Powered-By': 'servlet'},
+                    'framework_patterns': ['tomcat', 'apache tomcat'],
+                    'behavioral_paths': ['/manager/html'],
+                    'error_patterns': ['apache tomcat', 'http status']
+                },
+                'jetty': {
+                    'server_patterns': ['jetty'],
+                    'tech_headers': {'Server': 'jetty'},
+                    'framework_patterns': ['jetty'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['powered by jetty']
+                },
+                'undertow': {
+                    'server_patterns': ['undertow'],
+                    'tech_headers': {'Server': 'undertow'},
+                    'framework_patterns': ['undertow'],
+                    'behavioral_paths': [],
+                    'error_patterns': []
+                },
+                'gunicorn': {
+                    'server_patterns': ['gunicorn'],
+                    'tech_headers': {'Server': 'gunicorn'},
+                    'framework_patterns': ['gunicorn'],
+                    'behavioral_paths': [],
+                    'error_patterns': []
+                },
+                'uwsgi': {
+                    'server_patterns': ['uwsgi'],
+                    'tech_headers': {'Server': 'uwsgi'},
+                    'framework_patterns': ['uwsgi'],
+                    'behavioral_paths': [],
+                    'error_patterns': []
+                },
+                'puma': {
+                    'server_patterns': ['puma'],
+                    'tech_headers': {'Server': 'puma'},
+                    'framework_patterns': ['puma'],
+                    'behavioral_paths': [],
+                    'error_patterns': []
+                },
+                # Runtime/Language Detection
+                'php': {
+                    'server_patterns': [],
+                    'tech_headers': {'X-Powered-By': 'php'},
+                    'framework_patterns': ['php'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['fatal error', 'parse error', 'warning:', 'in /var/www']
+                },
+                'nodejs': {
+                    'server_patterns': [],
+                    'tech_headers': {'X-Powered-By': 'express'},
+                    'framework_patterns': ['node.js', 'express'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['cannot get', 'typeerror', 'referenceerror']
+                },
+                'python': {
+                    'server_patterns': [],
+                    'tech_headers': {},
+                    'framework_patterns': ['django', 'flask', 'fastapi', 'werkzeug'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['traceback', 'python', 'wsgi']
+                },
+                'ruby': {
+                    'server_patterns': [],
+                    'tech_headers': {'X-Runtime': ''},
+                    'framework_patterns': ['ruby', 'rails'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['ruby', 'activerecord']
+                },
+                'golang': {
+                    'server_patterns': [],
+                    'tech_headers': {},
+                    'framework_patterns': ['gin', 'echo', 'fiber'],
+                    'behavioral_paths': [],
+                    'error_patterns': ['go runtime', 'panic']
+                }
             }
         }
-    
+
     def log(self, category: str, message: str, level: str = "INFO"):
         """Structured logging"""
         timestamp = time.strftime('%H:%M:%S')
@@ -525,8 +650,65 @@ class ProgressiveStackAnalyzer:
         }
         
         response = self.session.get(self.target_url, headers=headers, timeout=15)
+
+        # Auto-detect protocols
+        self.detect_protocols(response)
+
         return response
-    
+
+    def detect_protocols(self, response: requests.Response):
+        """
+        Auto-detect HTTP version and protocol capabilities.
+        Updates self.stack with protocol information.
+        """
+        protocols = {
+            'http1': False,
+            'http2': False,
+            'http3': False,
+            'websocket': False,
+            'grpc': False
+        }
+
+        # Check HTTP/2 via raw response
+        if hasattr(response, 'raw') and hasattr(response.raw, 'version'):
+            if response.raw.version == 20:  # HTTP/2 version code
+                protocols['http2'] = True
+                self.log("PROTOCOL", "Detected HTTP/2", "SUCCESS")
+
+        # Check via Server header
+        server = response.headers.get('Server', '').lower()
+        if 'http/2' in server or 'h2' in server:
+            protocols['http2'] = True
+            self.log("PROTOCOL", "Detected HTTP/2 via Server header", "SUCCESS")
+
+        # Check HTTP/3 via Alt-Svc header
+        alt_svc = response.headers.get('Alt-Svc', '').lower()
+        if 'h3=' in alt_svc or 'h3-' in alt_svc:
+            protocols['http3'] = True
+            self.log("PROTOCOL", f"Detected HTTP/3 via Alt-Svc: {alt_svc}", "SUCCESS")
+
+        # Check WebSocket support
+        upgrade = response.headers.get('Upgrade', '').lower()
+        if 'websocket' in upgrade:
+            protocols['websocket'] = True
+            self.log("PROTOCOL", "WebSocket upgrade available", "INFO")
+
+        # Check gRPC
+        content_type = response.headers.get('Content-Type', '').lower()
+        if 'application/grpc' in content_type:
+            protocols['grpc'] = True
+            self.log("PROTOCOL", "Detected gRPC", "SUCCESS")
+
+        # Default to HTTP/1.x if nothing else detected
+        if not protocols['http2'] and not protocols['http3']:
+            protocols['http1'] = True
+            self.log("PROTOCOL", "Using HTTP/1.x", "INFO")
+
+        # Store in stack
+        self.stack['protocols'] = protocols
+
+        return protocols
+
     def analyze_header_timeline(self, response: requests.Response) -> List[Dict]:
         """
         Analyze header timeline to reconstruct processing chain.
@@ -961,6 +1143,70 @@ class ProgressiveStackAnalyzer:
             })
             self.log("BACKEND", f"Detected: {best_match['name']} (confidence: {best_match['confidence']}/100)", "SUCCESS")
     
+    def test_behavioral_paths(self):
+        """
+        Actively test behavioral paths defined in fingerprints.
+        This improves detection confidence by probing specific endpoints.
+        """
+        self.log("BEHAVIORAL", "Testing behavioral paths for all fingerprints...", "INFO")
+
+        all_paths_tested = 0
+        paths_discovered = []
+
+        # Test all fingerprint categories
+        for category, fingerprints in self.fingerprints.items():
+            for component_name, fingerprint_data in fingerprints.items():
+                behavioral_paths = fingerprint_data.get('behavioral_paths', [])
+
+                for path in behavioral_paths:
+                    try:
+                        test_url = self.target_url + path
+                        response = self.session.get(test_url, timeout=5, allow_redirects=False)
+                        all_paths_tested += 1
+
+                        # Analyze response for component evidence
+                        if response.status_code in [200, 401, 403]:  # Path exists
+                            # Check for component-specific patterns
+                            body_patterns = fingerprint_data.get('body_patterns', [])
+                            headers_list = fingerprint_data.get('headers', [])
+
+                            evidence = []
+                            confidence_boost = 0
+
+                            # Check body patterns
+                            for pattern in body_patterns:
+                                if pattern.lower() in response.text.lower():
+                                    evidence.append(f"Body: {pattern}")
+                                    confidence_boost += 15
+
+                            # Check headers
+                            for header_pattern in headers_list:
+                                for header_name in response.headers.keys():
+                                    if header_pattern.lower() in header_name.lower():
+                                        evidence.append(f"Header: {header_name}")
+                                        confidence_boost += 10
+
+                            if evidence:
+                                paths_discovered.append({
+                                    'category': category,
+                                    'component': component_name,
+                                    'path': path,
+                                    'response_code': response.status_code,
+                                    'evidence': evidence,
+                                    'confidence_boost': confidence_boost
+                                })
+
+                                self.log("BEHAVIORAL",
+                                        f"Found {component_name} evidence at {path} (+{confidence_boost} confidence)",
+                                        "SUCCESS")
+
+                    except Exception as e:
+                        continue
+
+        self.log("BEHAVIORAL", f"Tested {all_paths_tested} paths, found {len(paths_discovered)} with evidence", "INFO")
+        self.stack['behavioral_discoveries'] = paths_discovered
+        return paths_discovered
+
     def detect_hidden_layers(self):
         """
         Detect layers that don't leave obvious headers.
@@ -1137,11 +1383,16 @@ class DiscrepancyTester:
         self.parsed_url = urlparse(target_url)
         self.discovered_forbidden_endpoint = forbidden_endpoint
         self.skip_forbidden_tests = not forbidden_endpoint
-        self.protocols = {
-            'http3': False,  # Will be detected during analysis
+
+        # Use auto-detected protocols from stack analyzer
+        self.protocols = stack_analyzer.stack.get('protocols', {
+            'http1': True,
             'http2': False,
-            'http1': True
-        }
+            'http3': False,
+            'websocket': False,
+            'grpc': False
+        })
+
         self.chain_map = {'discrepancies': self.discrepancies}  # Alias for compatibility
 
     def generate_unique_markers(self) -> Dict[str, str]:
@@ -1157,6 +1408,122 @@ class DiscrepancyTester:
         """Log discovery information"""
         timestamp = time.strftime('%H:%M:%S')
         print(f"    [{timestamp}] [{category}:{subcategory}] {message}")
+
+    def calculate_severity(self, discrepancy_type: str, response_code: int = None, context: Dict = None) -> Tuple[str, float]:
+        """
+        Calculate severity score for discovered discrepancy.
+        Returns: (severity_level, cvss_score)
+
+        Severity Levels:
+        - CRITICAL (9.0-10.0): RCE, Auth Bypass, Full Stack Smuggling
+        - HIGH (7.0-8.9): Cache Poisoning, WAF Bypass, Injection
+        - MEDIUM (4.0-6.9): Header Manipulation, Encoding Confusion
+        - LOW (0.1-3.9): Information Disclosure, Timing Differences
+        """
+        context = context or {}
+
+        # CRITICAL Severity (9.0-10.0)
+        critical_types = {
+            'HTTP Smuggling': 9.8,
+            'TOCTOU Race': 9.5,
+            'GraphQL-REST Confusion': 9.3,
+            'Container Orchestration': 9.0
+        }
+
+        # HIGH Severity (7.0-8.9)
+        high_types = {
+            'Protocol Tunneling': 8.5,
+            'Parser State Confusion': 8.3,
+            'Host Header Attack': 8.0,
+            'Integer Overflow': 7.8,
+            'ML WAF Evasion': 7.5,
+            'Cache Key Confusion': 7.3,
+            'Nested Encoding': 7.0
+        }
+
+        # MEDIUM Severity (4.0-6.9)
+        medium_types = {
+            'Header Confusion': 6.5,
+            'Method Confusion': 6.0,
+            'Parameter Pollution': 5.8,
+            'Encoding Discrepancy': 5.5,
+            'Unicode Confusion': 5.3,
+            'Buffer Boundary': 5.0,
+            'Protocol Confusion': 4.5,
+            'Content-Type Confusion': 4.3
+        }
+
+        # LOW Severity (0.1-3.9)
+        low_types = {
+            'Path Normalization': 3.5,
+            'Timing Race Condition': 3.0,
+            'Parser Complexity': 2.5,
+            'Encoding Confusion': 2.0,
+            'TCP Fragmentation': 3.8,
+            'Compression Bypass': 3.5,
+            'QUIC/HTTP3': 3.0
+        }
+
+        # Base score lookup
+        base_score = 0.0
+        severity = "INFO"
+
+        if discrepancy_type in critical_types:
+            base_score = critical_types[discrepancy_type]
+            severity = "CRITICAL"
+        elif discrepancy_type in high_types:
+            base_score = high_types[discrepancy_type]
+            severity = "HIGH"
+        elif discrepancy_type in medium_types:
+            base_score = medium_types[discrepancy_type]
+            severity = "MEDIUM"
+        elif discrepancy_type in low_types:
+            base_score = low_types[discrepancy_type]
+            severity = "LOW"
+        else:
+            # Default for unknown types
+            base_score = 5.0
+            severity = "MEDIUM"
+
+        # Adjust based on response code
+        if response_code:
+            if response_code == 200:
+                # Full bypass - increase severity
+                base_score = min(10.0, base_score + 1.5)
+                if base_score >= 9.0:
+                    severity = "CRITICAL"
+                elif base_score >= 7.0:
+                    severity = "HIGH"
+            elif response_code in [500, 502, 503]:
+                # Server error - might indicate vulnerability
+                base_score = min(10.0, base_score + 0.5)
+            elif response_code == 403:
+                # Still blocked - reduce severity slightly
+                base_score = max(0.1, base_score - 0.3)
+
+        # Adjust based on context
+        if context.get('admin_access'):
+            base_score = min(10.0, base_score + 2.0)
+            severity = "CRITICAL"
+
+        if context.get('data_exposure'):
+            base_score = min(10.0, base_score + 1.0)
+
+        if context.get('auth_bypass'):
+            base_score = min(10.0, base_score + 2.5)
+            severity = "CRITICAL"
+
+        # Ensure severity matches score
+        if base_score >= 9.0:
+            severity = "CRITICAL"
+        elif base_score >= 7.0:
+            severity = "HIGH"
+        elif base_score >= 4.0:
+            severity = "MEDIUM"
+        else:
+            severity = "LOW"
+
+        return severity, round(base_score, 1)
     
     def test_all_discrepancies(self):
         """Run all discrepancy tests on the REAL forbidden endpoint - FULLY EXPANDED"""
@@ -1504,15 +1871,18 @@ class DiscrepancyTester:
             response = self.session.get(self.forbidden_endpoint, headers=headers, timeout=5)
 
             if response.status_code != 400:  # Should fail with pseudo-headers in HTTP/1.1
+                severity, cvss = self.calculate_severity('Parser State Confusion', response.status_code)
                 discrepancy = {
                     'type': 'Parser State Confusion',
                     'subtype': 'H2 Pseudo-Header Injection',
                     'description': 'HTTP/2 pseudo-headers accepted in HTTP/1.1 context',
                     'headers': headers,
-                    'response_code': response.status_code
+                    'response_code': response.status_code,
+                    'severity': severity,
+                    'cvss_score': cvss
                 }
                 self.chain_map['discrepancies'].append(discrepancy)
-                self.log_discovery("Discrepancy", "Parser State", "H2 pseudo-header confusion")
+                self.log_discovery("Discrepancy", "Parser State", f"[{severity}] H2 pseudo-header confusion (CVSS: {cvss})")
         except:
             pass
 
