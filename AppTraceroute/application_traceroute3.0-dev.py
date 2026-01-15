@@ -220,7 +220,7 @@ class ProgressiveStackAnalyzer:
                     'headers': ['ns_af', 'citrix_ns_id', 'netscaler'],
                     'response_codes': [403],
                     'body_patterns': ['netscaler', 'citrix', 'access denied'],
-              },
+                },
                 'fortinet_fortiweb': {
                    'headers': ['x-forwarded-for'],
                     'response_codes': [403],
@@ -1145,6 +1145,7 @@ class ProgressiveStackAnalyzer:
         
         self.stack['timeline'] = timeline
         return timeline
+
     
     def _identify_from_via(self, via_string: str) -> str:
         """Identify component from Via header"""
@@ -1756,12 +1757,167 @@ class ForbiddenEndpointFinder:
         
         # Common forbidden paths
         common_paths = [
+
+            # Original admin endpoints
             '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
             '/manage', '/console', '/portal', '/control', '/private',
             '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
-            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer',
-            '/api/v1/admin', '/api/admin', '/admin.php', '/login',
-            '/secret', '/internal', '/debug', '/test'
+            
+            # Configuration and sensitive files
+            '/.env', '/.env.local', '/.env.production', '/.env.backup',
+            '/.git', '/.git/config', '/.gitignore', '/.gitlab-ci.yml',
+            '/config', '/config.php', '/config.json', '/config.yml',
+            '/configuration.php', '/wp-config.php', '/app.config',
+            '/.htaccess', '/.htpasswd', '/web.config', '/robots.txt',
+            '/sitemap.xml', '/.well-known',
+            
+            # Database administration
+            '/phpmyadmin', '/pma', '/adminer', '/mysql', '/database',
+            '/db', '/dbadmin', '/sqlmanager', '/myadmin', '/phpMyAdmin',
+            '/mysqladmin', '/sql', '/db_admin', '/database_administration',
+            
+            # User management and authentication
+            '/users', '/user', '/accounts', '/account', '/profile', '/profiles',
+            '/login', '/signin', '/auth', '/authentication', '/oauth',
+            '/sso', '/saml', '/ldap', '/register', '/signup',
+            
+            # API endpoints
+            '/api', '/api/v1', '/api/v2', '/api/admin', '/api/internal',
+            '/api/private', '/api/user', '/api/users', '/api/auth',
+            '/api/login', '/api/admin/users', '/api/config', '/api/settings',
+            '/graphql', '/graphiql', '/playground', '/altair',
+            
+            # Content Management Systems (CMS)
+            '/wp-admin', '/wp-login.php', '/wp-content', '/wp-includes',
+            '/wp-json', '/xmlrpc.php', '/wp-cron.php',
+            '/drupal', '/sites/default', '/node', '/user/login',
+            '/joomla', '/joomla/administrator', '/typo3', '/umbraco',
+            
+            # Development and staging
+            '/dev', '/development', '/test', '/testing', '/stage', '/staging',
+            '/debug', '/trace', '/logs', '/log', '/monitoring',
+            '/health', '/status', '/info', '/version', '/build',
+            
+            # System directories
+            '/pages', '/root', '/home', '/var', '/etc', '/tmp',
+            '/uploads', '/upload', '/files', '/documents', '/media',
+            '/images', '/assets', '/static', '/resources',
+            '/includes', '/lib', '/libraries', '/vendor',
+            '/cgi-bin', '/cgi', '/bin', '/scripts',
+            
+            # Backup and archive files
+            '/backup', '/backups', '/bak', '/old', '/archive',
+            '/dump', '/sql', '/.bak', '/backup.zip', '/backup.tar.gz',
+            '/db_backup.sql', '/database.sql', '/data.sql',
+            
+            # Server status and monitoring
+            '/server-status', '/server-info', '/status', '/stats',
+            '/metrics', '/health', '/ping', '/heartbeat',
+            '/actuator', '/actuator/health', '/actuator/info', '/actuator/metrics',
+            '/management', '/jolokia', '/hawtio',
+            
+            # Framework specific endpoints
+            # Spring Boot
+            '/actuator', '/actuator/beans', '/actuator/env', '/actuator/configprops',
+            '/actuator/mappings', '/actuator/sessions', '/actuator/shutdown',
+            '/actuator/trace', '/actuator/dump', '/actuator/jolokia',
+            '/actuator/logfile', '/actuator/refresh', '/actuator/restart',
+            
+            # Django
+            '/django-admin', '/__debug__', '/admin/doc', '/admin/auth',
+            
+            # Laravel
+            '/telescope', '/horizon', '/nova', '/log-viewer',
+            
+            # Node.js/Express
+            '/debug', '/_debugger', '/inspector', '/profiler',
+            
+            # Flask
+            '/admin', '/admin/login', '/_debug_toolbar',
+            
+            # Documentation endpoints
+            '/docs', '/doc', '/documentation', '/swagger', '/swagger-ui',
+            '/swagger.json', '/swagger.yaml', '/openapi.json',
+            '/redoc', '/api-docs', '/apidocs', '/api/docs',
+            
+            # Security tools and panels
+            '/security', '/firewall', '/waf', '/ids', '/ips',
+            '/antivirus', '/scanner', '/audit', '/compliance',
+            
+            # Cloud and container specific
+            '/kubernetes', '/k8s', '/docker', '/containers',
+            '/pods', '/services', '/ingress', '/metrics-server',
+            '/prometheus', '/grafana', '/jaeger', '/zipkin',
+            
+            # CI/CD and DevOps
+            '/jenkins', '/bamboo', '/teamcity', '/gitlab',
+            '/github', '/bitbucket', '/azure-devops', '/travis',
+            '/circleci', '/drone', '/argo', '/tekton',
+            
+            # Specific application panels
+            '/nagios', '/zabbix', '/cacti', '/munin', '/icinga',
+            '/kibana', '/elasticsearch', '/logstash', '/splunk',
+            '/sonarqube', '/nexus', '/artifactory', '/harbor',
+            
+            # E-commerce specific
+            '/checkout', '/payment', '/billing', '/invoice',
+            '/orders', '/cart', '/wishlist', '/customer',
+            '/merchant', '/vendor', '/seller',
+            
+            # Communication tools
+            '/mail', '/webmail', '/roundcube', '/squirrelmail',
+            '/horde', '/zimbra', '/exchange', '/outlook',
+            '/chat', '/slack', '/teams', '/discord',
+            
+            # File management
+            '/filemanager', '/ftp', '/sftp', '/files', '/explorer',
+            '/finder', '/directory', '/browse', '/tree',
+            
+            # Miscellaneous sensitive paths
+            '/internal', '/intranet', '/extranet', '/partner',
+            '/client', '/customer', '/member', '/premium',
+            '/vip', '/executive', '/board', '/leadership',
+            '/hr', '/finance', '/accounting', '/legal',
+            
+            # Version control and source code
+            '/.svn', '/.hg', '/.bzr', '/CVS',
+            '/src', '/source', '/sources', '/code',
+            
+            # Cache and temporary files
+            '/cache', '/tmp', '/temp', '/temporary',
+            '/session', '/sessions', '/var/cache', '/var/tmp',
+            
+            # Mobile and API gateways
+            '/mobile', '/m', '/api/mobile', '/mobile-api',
+            '/gateway', '/proxy', '/reverse-proxy',
+            
+            # Analytics and tracking
+            '/analytics', '/tracking', '/stats', '/reports',
+            '/dashboard', '/overview', '/summary',
+            
+            # Backup services
+            '/backup', '/restore', '/snapshot', '/clone',
+            '/export', '/import', '/migrate', '/sync',
+            
+            # Third-party integrations
+            '/oauth2', '/openid', '/cas', '/radius',
+            '/active-directory', '/ldap', '/saml2',
+            '/facebook', '/google', '/twitter', '/linkedin',
+            '/github', '/gitlab', '/bitbucket',
+            
+            # Error and debug pages
+            '/error', '/errors', '/404', '/500', '/debug',
+            '/trace', '/exception', '/stacktrace',
+            
+            # Testing and QA
+            '/qa', '/quality', '/test-results', '/coverage',
+            '/performance', '/load-test', '/stress-test',
+            
+            # Additional file extensions that might be protected
+            '/.DS_Store', '/thumbs.db', '/.vscode', '/.idea',
+            '/composer.json', '/package.json', '/yarn.lock',
+            '/Gemfile', '/requirements.txt', '/pom.xml',
+            '/build.gradle', '/Dockerfile', '/docker-compose.yml'
         ]
         
         print(f"  🔎 Testing {len(common_paths)} common forbidden paths...")
