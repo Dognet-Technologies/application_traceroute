@@ -27,3 +27,4 @@ Thumbs.db
 .env
 # Sublime Text
 *.sublime-*
+venv
