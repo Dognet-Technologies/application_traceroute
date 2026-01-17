@@ -2,7 +2,7 @@
 Application_traceroute è un suite di 4 tools utili nella fase di discovery.
 Il primo tool da utilizzare è application_traceroute:
   
-      python AppTraceroute/application_traceroute2.py --help                          
+      python AppTraceroute/application_traceroute3.0.py --help                          
       usage: application_traceroute2.py [-h] [--forbidden-endpoint FORBIDDEN_ENDPOINT] [--skip-forbidden-tests] target
 
       Application Stack Traceroute - WAF/Proxy/Backend Chain Analysi
