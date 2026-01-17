@@ -110,8 +110,14 @@ class BayesianBypassInference:
 
         Default 5% reflects that most requests don't bypass (conservative prior)
         """
+        self._prior_probability = prior_probability  # Store original for reference
         self.prior_log_odds = self._probability_to_log_odds(prior_probability)
         self.evidence_collected: List[BypassEvidence] = []
+
+    @property
+    def prior_probability(self) -> float:
+        """Get the original prior probability"""
+        return self._prior_probability
 
     @staticmethod
     def _probability_to_log_odds(p: float) -> float:
