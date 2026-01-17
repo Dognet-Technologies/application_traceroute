@@ -1,31 +1,17 @@
 # Advanced Bypass Engine v3.5 - Revolutionary Implementation
-<<<<<<< HEAD
 [ITA]
 Application_traceroute è un suite di 4 tools utili nella fase di discovery.
 Il primo tool da utilizzare è application_traceroute:
   
       python Application_tracereout_3.5/application_traceroute3.5.py --help                          
       usage: application_traceroute2.py [-h] [--forbidden-endpoint FORBIDDEN_ENDPOINT] [--skip-forbidden-tests] target
-=======
->>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
-## 🎓 MIT-Level Engineering Innovation
 
-**World's first implementation** of advanced mathematical and algorithmic techniques for HTTP bypass discovery, combining:
-- **Bayesian Inference** for probabilistic bypass detection
-- **Graph Theory** for optimal attack path finding
-- **Game Theory** for strategy optimization
-- **Evolutionary Algorithms** for intelligent payload mutation
-- **Information Theory** for entropy analysis
-- **Statistical Anomaly Detection** for differential analysis
-
-<<<<<<< HEAD
 Il quale ricostruisce lo stack tecnologico, ne individua le discrepanze e genera dei possibili bypass testandoli e verificandoli. Il risultato viene esportato in 2 file: 1) *.txt e 2) *.json
 Il file in json contieni i bypass e può/deve essere usato nei 2 tool successivi, il secondo tool:
             
     python Application_tracereout_3.5/intelligent_bypass_validator.py bypasses_www.XXXXX.it_1753971402.json
     usage: python3 intelligent_bypass_validator.py --help 
-    
 ✅ Advanced Bypass Engine loaded successfully
 usage: intelligent_bypass_validator.py [-h] --baseline-url BASELINE_URL [--rate-limit RATE_LIMIT] [--output OUTPUT] json_file
 
@@ -41,19 +27,32 @@ options:
   --rate-limit RATE_LIMIT
                         Requests per second
   --output OUTPUT       Output file
-=======
----
->>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
-## 📊 Architecture Overview
 
-<<<<<<< HEAD
     python SmartCrawler/smart_vuln_crawler2.py https://www.target.it --bypass-file AppTraceroute/bypass_validation_www.target.it_1753971634.json --wordlist-base ~/path_to_worlist
     usage: smart_vuln_crawler2.py [-h] [--depth DEPTH] [--max-pages MAX_PAGES] [--output OUTPUT] [--wordlist-base WORDLIST_BASE] [--discovery-limit DISCOVERY_LIMIT] [--skip-discovery]
                               [--bypass-file BYPASS_FILE] [-v] [--auth-type {basic,bearer,cookie,form,custom_header}] [--auth-username AUTH_USERNAME] [--auth-password AUTH_PASSWORD]
                               [--auth-token AUTH_TOKEN] [--auth-login-url AUTH_LOGIN_URL] [--auth-cookies AUTH_COOKIES] [--auth-headers AUTH_HEADERS] [--auth-config AUTH_CONFIG]
                               target
+
+
 =======
+
+
+## 📊 Architecture Overview
+
+
+## 🎓 MIT-Level Engineering Innovation
+
+**World's first implementation** of advanced mathematical and algorithmic techniques for HTTP bypass discovery, combining:
+- **Bayesian Inference** for probabilistic bypass detection
+- **Graph Theory** for optimal attack path finding
+- **Game Theory** for strategy optimization
+- **Evolutionary Algorithms** for intelligent payload mutation
+- **Information Theory** for entropy analysis
+- **Statistical Anomaly Detection** for differential analysis
+
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                   Application Traceroute v3.5                   │

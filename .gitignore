@@ -27,25 +27,8 @@ Thumbs.db
 # Sublime Text
 *.sublime-*
 venv
-<<<<<<< HEAD
-<<<<<<< HEAD
-Application_tracereout_3.0/
-.gitignore
-Immagini/
 *.json
 *.txt
-=======
 .gitignore
 Immagini/
->>>>>>> df77156 (Ignore)
-=======
-.gitignore
-Immagini/
-=======
-Application_tracereout_3.0/
-.gitignore
-Immagini/
-*.json
-*.txt
->>>>>>> 20b439c (FINAL RELEASE 3.5)
->>>>>>> 5e222c3 (FINAL RELEASE 3.5)
+results/
