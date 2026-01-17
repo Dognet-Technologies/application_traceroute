@@ -9,7 +9,6 @@ __pycache__/
 *.json
 app_traceroute_*
 bypasses_*
-smart_vuln_crawler.py
 unified_*
 .env.local
 .env.development.local
@@ -28,11 +27,8 @@ Thumbs.db
 # Sublime Text
 *.sublime-*
 venv
-<<<<<<< HEAD
-Immagini
-Application_tracereout_3.0/
-=======
 Application_tracereout_3.0/
 .gitignore
 Immagini/
->>>>>>> a5ca68d4ca8bb5c4e3e3dd68f79525f274e7ac6e
+*.json
+*.txt
