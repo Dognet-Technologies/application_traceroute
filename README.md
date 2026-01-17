@@ -1,20 +1,25 @@
 # Advanced Bypass Engine v3.5 - Revolutionary Implementation
+<<<<<<< HEAD
 [ITA]
 Application_traceroute è un suite di 4 tools utili nella fase di discovery.
 Il primo tool da utilizzare è application_traceroute:
   
       python Application_tracereout_3.5/application_traceroute3.5.py --help                          
       usage: application_traceroute2.py [-h] [--forbidden-endpoint FORBIDDEN_ENDPOINT] [--skip-forbidden-tests] target
+=======
+>>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
-      Application Stack Traceroute - WAF/Proxy/Backend Chain Analysi
+## 🎓 MIT-Level Engineering Innovation
 
-      positional arguments:
-        target                Target URL to analyze
-        options:
-        -h, --help            show this help message and exit
-        --forbidden-endpoint FORBIDDEN_ENDPOINT:  Known 403/401 endpoint for bypass testing (e.g. https://target.com/admin)
-        --skip-forbidden-tests:    Skip tests requiring forbidden endpoint
+**World's first implementation** of advanced mathematical and algorithmic techniques for HTTP bypass discovery, combining:
+- **Bayesian Inference** for probabilistic bypass detection
+- **Graph Theory** for optimal attack path finding
+- **Game Theory** for strategy optimization
+- **Evolutionary Algorithms** for intelligent payload mutation
+- **Information Theory** for entropy analysis
+- **Statistical Anomaly Detection** for differential analysis
 
+<<<<<<< HEAD
 Il quale ricostruisce lo stack tecnologico, ne individua le discrepanze e genera dei possibili bypass testandoli e verificandoli. Il risultato viene esportato in 2 file: 1) *.txt e 2) *.json
 Il file in json contieni i bypass e può/deve essere usato nei 2 tool successivi, il secondo tool:
             
@@ -36,45 +41,79 @@ options:
   --rate-limit RATE_LIMIT
                         Requests per second
   --output OUTPUT       Output file
+=======
+---
+>>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
-Il quale riverifica e ricontrolla la validità dei bypass appena generati.
-Oppure può essere utlizzato nel terzo tool il quale esegue un crawl dell'applicazione in scope, trova gli endpoint, per gli endpoint cerca i punti di iniezione, ne stabilisce una probabile vulnerabilità ed esegue un fuzz prendedo dalle wordlist 
-maggiormente usate, fuzzdb/SecList/PayloadAllTheThing:
+## 📊 Architecture Overview
 
+<<<<<<< HEAD
     python SmartCrawler/smart_vuln_crawler2.py https://www.target.it --bypass-file AppTraceroute/bypass_validation_www.target.it_1753971634.json --wordlist-base ~/path_to_worlist
     usage: smart_vuln_crawler2.py [-h] [--depth DEPTH] [--max-pages MAX_PAGES] [--output OUTPUT] [--wordlist-base WORDLIST_BASE] [--discovery-limit DISCOVERY_LIMIT] [--skip-discovery]
                               [--bypass-file BYPASS_FILE] [-v] [--auth-type {basic,bearer,cookie,form,custom_header}] [--auth-username AUTH_USERNAME] [--auth-password AUTH_PASSWORD]
                               [--auth-token AUTH_TOKEN] [--auth-login-url AUTH_LOGIN_URL] [--auth-cookies AUTH_COOKIES] [--auth-headers AUTH_HEADERS] [--auth-config AUTH_CONFIG]
                               target
+=======
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   Application Traceroute v3.5                   │
+│                     (Core Engine Enhanced)                      │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+        ▼                    ▼                    ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│   Differential   │ │    Semantic      │ │  Graph Attack    │
+│    Analyzer      │ │     Engine       │ │    Planner       │
+│  (Bayesian AI)   │ │  (NLP + GA)      │ │ (A* + Nash)      │
+└──────────────────┘ └──────────────────┘ └──────────────────┘
+```
+>>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
-[ENG]
+---
 
-Application_traceroute is a suite of 4 tools useful in the discovery phase.
-The first tool to use is application_traceroute:
+## 🧠 Module 1: ResponseDifferentialAnalyzer
 
+<<<<<<< HEAD
       python Application_tracereout_3.5//application_traceroute3.5.py --help                          
       usage: application_traceroute2.py [-h] [--forbidden-endpoint FORBIDDEN_ENDPOINT] [--skip-forbidden-tests] target
+=======
+**File**: `advanced_bypass_engine.py` (679 lines)
+>>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
-      Application Stack Traceroute - WAF/Proxy/Backend Chain Analysi
+### Innovation
+First-ever Bayesian inference engine for security bypass probability calculation.
 
-      positional arguments:
-        target                Target URL to analyze
-        options:
-        -h, --help            show this help message and exit
-        --forbidden-endpoint FORBIDDEN_ENDPOINT:  Known 403/401 endpoint for bypass testing (e.g. https://target.com/admin)
-        --skip-forbidden-tests:    Skip tests requiring forbidden endpoint
+### Core Algorithms
 
+#### 1. Bayesian Inference
+```
+P(bypass|evidence) = P(evidence|bypass) × P(bypass) / P(evidence)
 
-Which reconstructs the technology stack, identifies discrepancies and generates possible bypasses by testing and verifying them. The result is exported in 2 files: 1) *.txt and 2) *.json
-The json file contains the bypasses and can/must be used in the next 2 tools, the second tool:
+Using log-odds for numerical stability:
+log(odds_posterior) = log(odds_prior) + Σ log(LR_i)
+```
 
+<<<<<<< HEAD
     python Application_tracereout_3.5/intelligente_bypass_validator.py bypasses_www.XXXXX.it_1753971402.json
+=======
+#### 2. Z-Score Anomaly Detection
+```
+z = (x - μ) / σ
+>>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
+Where:
+- x = observed value
+- μ = mean of baseline
+- σ = standard deviation
+```
 
-Which rechecks and rechecks the validity of the bypasses just generated.
-Or it can be used in the third tool that crawls the application in scope, finds the endpoints, searches for the endpoints, establishes a probable vulnerability and performs a fuzz taking from the most used wordlists,
-fuzzdb/SecList/PayloadAllTheThing:
+#### 3. Shannon Entropy
+```
+H(X) = -Σ p(x_i) × log₂(p(x_i))
 
+<<<<<<< HEAD
     python SmartCrawler/smart_vuln_crawler2.py https://www.target.it --bypass-file AppTraceroute/bypass_validation_www.target.it_1753971634.json --wordlist-base ~/path_to_worlist
     
     usage: smart_vuln_crawler2.py [-h] [--depth DEPTH] [--max-pages MAX_PAGES] [--output OUTPUT] [--wordlist-base WORDLIST_BASE] [--discovery-limit DISCOVERY_LIMIT] [--skip-discovery]
@@ -148,6 +187,8 @@ Where:
 ```
 H(X) = -Σ p(x_i) × log₂(p(x_i))
 
+=======
+>>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 Measures information content (0-8 bits for byte data)
 ```
 
