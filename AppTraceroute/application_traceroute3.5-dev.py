@@ -32,6 +32,7 @@ import gzip
 import queue
 import statistics
 import hashlib
+import os
 from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse, urljoin
@@ -5167,11 +5168,28 @@ APPLICATION STACK TRACEROUTE v3.5-Dev - INTELLIGENT RECONSTRUCTION
         """
         Export data to JSON for orchestration tools.
         FORMAT COMPATIBLE with v2.8 - Works with Burp Suite and smart_crawler
+
+        Saves to organized directory structure:
+        results/{domain}_{timestamp}/bypasses_{domain}_{timestamp}.json
         """
+        # Generate domain and timestamp
+        domain = urlparse(self.target_url).netloc.replace(':', '_').replace('.', '_')
+        timestamp = int(time.time())
+
+        # Create organized directory structure
+        results_base = "results"
+        scan_dir = f"{domain}_{timestamp}"
+        output_dir = os.path.join(results_base, scan_dir)
+
+        # Create directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Generate filename if not provided
         if not filename:
-            domain = urlparse(self.target_url).netloc.replace(':', '_')
-            timestamp = int(time.time())
             filename = f"bypasses_{domain}_{timestamp}.json"
+
+        # Full path to output file
+        output_path = os.path.join(output_dir, filename)
 
         # Extract layer names for infrastructure_chain (v2.8 format)
         infrastructure_chain = []
@@ -5205,15 +5223,16 @@ APPLICATION STACK TRACEROUTE v3.5-Dev - INTELLIGENT RECONSTRUCTION
 
             export_data['bypasses'].append(bypass_entry)
 
-        # Save to JSON file
-        with open(filename, 'w') as f:
+        # Save to JSON file in organized directory
+        with open(output_path, 'w') as f:
             json.dump(export_data, f, indent=2, default=str)
 
-        print(f"\n💾 JSON Export (v2.8 compatible): {filename}")
+        print(f"\n💾 JSON Export (v2.8 compatible): {output_path}")
+        print(f"   📁 Output directory: {output_dir}/")
         print(f"   Total bypasses: {len(export_data['bypasses'])}")
         print(f"   Validated: {len([b for b in export_data['bypasses'] if b['validated']])}")
 
-        return filename
+        return output_path
 
     def _generate_curl_command(self, bypass_entry: Dict) -> str:
         """Generate curl command for a specific bypass (v2.8 format)"""
@@ -5352,15 +5371,20 @@ class ApplicationTraceroute:
         # Generate text report
         text_report = self.report_generator.generate_text_report()
         
-        # Export JSON
+        # Export JSON (returns full path)
         json_file = self.report_generator.export_json()
-        
-        # Save text report
-        report_filename = f"traceroute_{int(time.time())}.txt"
-        with open(report_filename, 'w') as f:
+
+        # Save text report in the same directory as JSON
+        output_dir = os.path.dirname(json_file)
+        domain = urlparse(self.target_url).netloc.replace(':', '_').replace('.', '_')
+        timestamp = int(time.time())
+        report_filename = f"traceroute_{domain}_{timestamp}.txt"
+        report_path = os.path.join(output_dir, report_filename)
+
+        with open(report_path, 'w') as f:
             f.write(text_report)
-        
-        print(f"\n📄 Text Report: {report_filename}")
+
+        print(f"\n📄 Text Report: {report_path}")
         
         # Print summary
         print("\n" + "=" * 80)
