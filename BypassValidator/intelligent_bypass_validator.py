@@ -107,6 +107,10 @@ class IntelligentBypassValidator:
             baseline_url: URL for baseline establishment
             rate_limit: Requests per second limit
         """
+        # Validate baseline URL format
+        if not baseline_url.startswith(('http://', 'https://')):
+            raise ValueError(f"Invalid baseline URL: '{baseline_url}' - must start with http:// or https://")
+
         self.session = session
         self.baseline_url = baseline_url
         self.rate_limit = rate_limit
@@ -121,11 +125,22 @@ class IntelligentBypassValidator:
         # Advanced modules
         self.differential_analyzer = None
         if ADVANCED_VALIDATION:
-            self.differential_analyzer = ResponseDifferentialAnalyzer(
-                session=self.session,
-                forbidden_endpoint=self.baseline_url,
-                baseline_samples=3  # 3 samples for faster validation
-            )
+            try:
+                self.differential_analyzer = ResponseDifferentialAnalyzer(
+                    session=self.session,
+                    forbidden_endpoint=self.baseline_url,
+                    baseline_samples=3  # 3 samples for faster validation
+                )
+            except ValueError as e:
+                # Baseline establishment failed - continue without advanced validation
+                print(f"  ⚠️  Advanced validation disabled: {str(e)}")
+                print(f"  ℹ️  Continuing with basic validation mode")
+                self.differential_analyzer = None
+            except Exception as e:
+                # Any other error - continue without advanced validation
+                print(f"  ⚠️  Advanced validation initialization failed: {str(e)}")
+                print(f"  ℹ️  Continuing with basic validation mode")
+                self.differential_analyzer = None
 
         # Validation strategies to try
         self.strategies = [
