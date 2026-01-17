@@ -121,7 +121,11 @@ class IntelligentBypassValidator:
         # Advanced modules
         self.differential_analyzer = None
         if ADVANCED_VALIDATION:
-            self.differential_analyzer = ResponseDifferentialAnalyzer()
+            self.differential_analyzer = ResponseDifferentialAnalyzer(
+                session=self.session,
+                forbidden_endpoint=self.baseline_url,
+                baseline_samples=3  # 3 samples for faster validation
+            )
 
         # Validation strategies to try
         self.strategies = [
@@ -150,39 +154,23 @@ class IntelligentBypassValidator:
         self.last_request_time = time.time()
 
     def _establish_baseline(self) -> bool:
-        """Establish baseline response for comparison"""
+        """
+        Establish baseline response for comparison
+
+        Note: Baseline is now automatically established in ResponseDifferentialAnalyzer.__init__()
+        This method is kept for backward compatibility.
+        """
         if self.baseline_established:
             return True
 
         if not ADVANCED_VALIDATION:
             return False
 
-        try:
-            print("  📊 Establishing validation baseline...")
-
-            # Send 3 baseline requests
-            for i in range(3):
-                self._rate_limit_wait()
-                response = self.session.get(self.baseline_url, timeout=10)
-
-                fingerprint = ResponseFingerprint(
-                    status_code=response.status_code,
-                    size=len(response.content),
-                    timing_ms=response.elapsed.total_seconds() * 1000,
-                    headers=dict(response.headers),
-                    content_hash=hash(response.content),
-                    entropy=self._calculate_entropy(response.content)
-                )
-
-                self.differential_analyzer.add_baseline_sample(fingerprint)
-
-            self.baseline_established = True
-            print("  ✅ Baseline established (3 samples)")
-            return True
-
-        except Exception as e:
-            print(f"  ⚠️  Failed to establish baseline: {e}")
-            return False
+        # Baseline is already established by ResponseDifferentialAnalyzer in __init__
+        # Just mark it as established and return
+        self.baseline_established = True
+        print("  ✅ Baseline already established by differential analyzer")
+        return True
 
     def _calculate_entropy(self, data: bytes) -> float:
         """Calculate Shannon entropy of data"""

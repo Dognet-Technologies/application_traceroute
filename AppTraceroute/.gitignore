@@ -1,0 +1,29 @@
+# Application Traceroute output files
+results/
+
+# Legacy output files (before organized structure)
+bypasses_*.json
+traceroute_*.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
