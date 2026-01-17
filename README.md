@@ -68,18 +68,10 @@ options:
 │  (Bayesian AI)   │ │  (NLP + GA)      │ │ (A* + Nash)      │
 └──────────────────┘ └──────────────────┘ └──────────────────┘
 ```
->>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
 ---
 
 ## 🧠 Module 1: ResponseDifferentialAnalyzer
-
-<<<<<<< HEAD
-      python Application_tracereout_3.5//application_traceroute3.5.py --help                          
-      usage: application_traceroute2.py [-h] [--forbidden-endpoint FORBIDDEN_ENDPOINT] [--skip-forbidden-tests] target
-=======
-**File**: `advanced_bypass_engine.py` (679 lines)
->>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 
 ### Innovation
 First-ever Bayesian inference engine for security bypass probability calculation.
@@ -94,84 +86,7 @@ Using log-odds for numerical stability:
 log(odds_posterior) = log(odds_prior) + Σ log(LR_i)
 ```
 
-<<<<<<< HEAD
-    python Application_tracereout_3.5/intelligente_bypass_validator.py bypasses_www.XXXXX.it_1753971402.json
 =======
-#### 2. Z-Score Anomaly Detection
-```
-z = (x - μ) / σ
->>>>>>> 5e222c3 (FINAL RELEASE 3.5)
-
-Where:
-- x = observed value
-- μ = mean of baseline
-- σ = standard deviation
-```
-
-#### 3. Shannon Entropy
-```
-H(X) = -Σ p(x_i) × log₂(p(x_i))
-
-<<<<<<< HEAD
-    python SmartCrawler/smart_vuln_crawler2.py https://www.target.it --bypass-file AppTraceroute/bypass_validation_www.target.it_1753971634.json --wordlist-base ~/path_to_worlist
-    
-    usage: smart_vuln_crawler2.py [-h] [--depth DEPTH] [--max-pages MAX_PAGES] [--output OUTPUT] [--wordlist-base WORDLIST_BASE] [--discovery-limit DISCOVERY_LIMIT] [--skip-discovery]
-                              [--bypass-file BYPASS_FILE] [-v] [--auth-type {basic,bearer,cookie,form,custom_header}] [--auth-username AUTH_USERNAME] [--auth-password AUTH_PASSWORD]
-                              [--auth-token AUTH_TOKEN] [--auth-login-url AUTH_LOGIN_URL] [--auth-cookies AUTH_COOKIES] [--auth-headers AUTH_HEADERS] [--auth-config AUTH_CONFIG]
-                              target
-
-
-
-
-## 🎓 MIT-Level Engineering Innovation
-
-**World's first implementation** of advanced mathematical and algorithmic techniques for HTTP bypass discovery, combining:
-- **Bayesian Inference** for probabilistic bypass detection
-- **Graph Theory** for optimal attack path finding
-- **Game Theory** for strategy optimization
-- **Evolutionary Algorithms** for intelligent payload mutation
-- **Information Theory** for entropy analysis
-- **Statistical Anomaly Detection** for differential analysis
-
----
-
-## 📊 Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                   Application Traceroute v3.5                   │
-│                     (Core Engine Enhanced)                      │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-        ▼                    ▼                    ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
-│   Differential   │ │    Semantic      │ │  Graph Attack    │
-│    Analyzer      │ │     Engine       │ │    Planner       │
-│  (Bayesian AI)   │ │  (NLP + GA)      │ │ (A* + Nash)      │
-└──────────────────┘ └──────────────────┘ └──────────────────┘
-```
-
----
-
-## 🧠 Module 1: ResponseDifferentialAnalyzer
-
-**File**: `advanced_bypass_engine.py` (679 lines)
-
-### Innovation
-First-ever Bayesian inference engine for security bypass probability calculation.
-
-### Core Algorithms
-
-#### 1. Bayesian Inference
-```
-P(bypass|evidence) = P(evidence|bypass) × P(bypass) / P(evidence)
-
-Using log-odds for numerical stability:
-log(odds_posterior) = log(odds_prior) + Σ log(LR_i)
-```
-
 #### 2. Z-Score Anomaly Detection
 ```
 z = (x - μ) / σ
@@ -185,9 +100,6 @@ Where:
 #### 3. Shannon Entropy
 ```
 H(X) = -Σ p(x_i) × log₂(p(x_i))
-
-=======
->>>>>>> 5e222c3 (FINAL RELEASE 3.5)
 Measures information content (0-8 bits for byte data)
 ```
 
