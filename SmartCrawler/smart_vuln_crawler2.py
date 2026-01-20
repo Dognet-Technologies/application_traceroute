@@ -1508,6 +1508,11 @@ class SmartCrawler:
         self.max_pages = max_pages
         self.verbose = verbose
         self.visited_urls = set()
+        self.tested_dynamic_params = set()
+        self.tested_path_segments = set()
+        self.tested_query_params = set()
+        self.tested_hash_params = set()
+        self.tested_form_params = set()
         self.url_queue = queue.Queue()
         self.endpoints = []
         self.forms = []
@@ -2115,12 +2120,20 @@ class SmartCrawler:
                     'name': f'path_file_{i}'
                 })
         
-        if not injectable_segments:
+        # Filter out already tested path segments to avoid redundancy
+        new_injectable_segments = []
+        for seg in injectable_segments:
+            seg_key = (seg['index'], seg['value'])
+            if seg_key not in self.tested_path_segments:
+                new_injectable_segments.append(seg)
+                self.tested_path_segments.add(seg_key)
+        
+        if not new_injectable_segments:
             return
         
         if self.verbose:
-            print(f"  📍 Injectable path segments found: {len(injectable_segments)}")
-            for seg in injectable_segments:
+            print(f"  📍 Injectable path segments found: {len(new_injectable_segments)}")
+            for seg in new_injectable_segments:
                 print(f"    - {seg['name']}: {seg['value']} ({seg['type']})")
         
         # Create endpoint for path segments
@@ -2132,7 +2145,7 @@ class SmartCrawler:
             'source': 'path_segments'
         }
         
-        for segment_info in injectable_segments:
+        for segment_info in new_injectable_segments:
             param_data = {
                 'name': segment_info['name'],
                 'location': 'path',
@@ -2300,12 +2313,20 @@ class SmartCrawler:
                                 'value': param
                             })
         
-        if not dynamic_params:
+        # Filter out already tested parameters to avoid loops/redundancy
+        new_dynamic_params = []
+        for p in dynamic_params:
+            param_key = (p['source'], p['name'])
+            if param_key not in self.tested_dynamic_params:
+                new_dynamic_params.append(p)
+                self.tested_dynamic_params.add(param_key)
+        
+        if not new_dynamic_params:
             return
         
         if self.verbose:
-            print(f"  📍 Dynamic JavaScript parameters found: {len(dynamic_params)}")
-            for param in dynamic_params:
+            print(f"  📍 Dynamic JavaScript parameters found: {len(new_dynamic_params)}")
+            for param in new_dynamic_params:
                 print(f"    - {param['name']} (source: {param['source']})")
         
         # Create endpoint for JavaScript parameters
@@ -2317,7 +2338,7 @@ class SmartCrawler:
             'source': 'javascript_dynamic'
         }
         
-        for param_info in dynamic_params:
+        for param_info in new_dynamic_params:
             param_data = {
                 'name': param_info['name'],
                 'location': 'javascript',
