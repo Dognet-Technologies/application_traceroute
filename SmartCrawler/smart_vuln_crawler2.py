@@ -259,46 +259,6 @@ class VulnerabilityLogger:
             'by_type': self.vulnerabilities_data['total_by_type']
         }
     
-    def log_vulnerability(self, endpoint, parameter, payload, bypass_used, response_status, response_length):
-        """
-        Registra una vulnerabilità rilevata
-        
-        Args:
-            endpoint: URL dell'endpoint
-            parameter: Nome del parametro vulnerabile
-            payload: Payload utilizzato
-            bypass_used:  Tipo di bypass utilizzato (se applicato)
-            response_status: HTTP status code della risposta
-            response_length: Lunghezza della risposta
-        """
-        with self.lock:
-            vuln_entry = {
-                'endpoint': endpoint,
-                'parameter':  parameter,
-                'vulnerability_type': 'detected',  # Sarà specificato dal caller
-                'payload': payload,
-                'bypass_used': bypass_used,
-                'response_status': response_status,
-                'response_length': response_length,
-                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-                'unix_timestamp': int(time.time())
-            }
-            
-            # Aggiungi alla lista
-            self.vulnerabilities_data['vulnerabilities'].append(vuln_entry)
-            self.vulnerabilities_data['total_vulnerabilities'] = len(
-                self.vulnerabilities_data['vulnerabilities']
-            )
-            self.vulnerabilities_data['last_updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
-            
-            # Salva su file
-            self._save_to_file()
-            
-            logger.info(f"🚨 Vulnerability logged: {endpoint}? {parameter}={payload[: 30]}")
-    
-    def get_output_dir(self):
-        """Ritorna la directory di output"""
-        return self.output_dir
 
 class BehavioralContextEngine:
     """Deduce vulnerabilities through behavioral analysis, not assumptions"""
