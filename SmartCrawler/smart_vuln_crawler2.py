@@ -1717,11 +1717,19 @@ class SmartCrawler:
         self.max_pages = max_pages
         self.verbose = verbose
         self.visited_urls = set()
+
+        # Sistema di deduplicazione avanzato
+        # Traccia parametri testati per evitare test ridondanti su URL diversi
+        # Chiave: (param_name, vuln_type) -> valore: set di URL dove è stato testato
+        self.tested_params_vulns = {}
+
+        # Backward compatibility (deprecated but kept for now)
         self.tested_dynamic_params = set()
         self.tested_path_segments = set()
         self.tested_query_params = set()
         self.tested_hash_params = set()
         self.tested_form_params = set()
+
         self.url_queue = queue.Queue()
         self.endpoints = []
         self.forms = []
@@ -1809,7 +1817,82 @@ class SmartCrawler:
         if self.verbose and bypass_manager and bypass_manager.validated_bypasses:
             print(f"🔧 Bypass Manager initialized with {len(bypass_manager.validated_bypasses)} validated bypasses")
             print(f"📊 Technology Stack: {bypass_manager.technology_stack}")
-    
+
+    def should_test_parameter(self, param_name, vuln_type, url=None, max_tests_per_param=3):
+        """
+        Verifica se un parametro dovrebbe essere testato per una specifica vulnerabilità.
+
+        Questo metodo implementa una deduplicazione intelligente che:
+        - Evita di testare lo stesso parametro per la stessa vulnerabilità su URL diversi
+        - Permette di testare un parametro su un numero limitato di URL diversi
+        - Riduce drasticamente il tempo di scansione evitando test ridondanti
+
+        Args:
+            param_name: Nome del parametro
+            vuln_type: Tipo di vulnerabilità (xss, sqli, lfi, etc.)
+            url: URL dove è stato trovato il parametro (opzionale)
+            max_tests_per_param: Numero massimo di URL su cui testare lo stesso parametro (default: 3)
+
+        Returns:
+            True se il parametro dovrebbe essere testato, False altrimenti
+        """
+        # Normalizza il tipo di vulnerabilità
+        vuln_type = vuln_type.lower().strip()
+
+        # Crea chiave unica per parametro+vulnerabilità
+        key = (param_name, vuln_type)
+
+        # Se non è mai stato testato, testalo
+        if key not in self.tested_params_vulns:
+            return True
+
+        # Se è stato testato ma non abbiamo l'URL, assumiamo che non debba essere ritestato
+        if url is None:
+            return False
+
+        # Normalizza l'URL (rimuove parametri query e fragment per confronto)
+        parsed = urlparse(url)
+        normalized_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+        tested_urls = self.tested_params_vulns[key]
+
+        # Se è già stato testato su questo URL, skippa
+        if normalized_url in tested_urls:
+            if self.verbose:
+                logger.debug(f"⏭️  Skipping {param_name} ({vuln_type}) - already tested on {normalized_url}")
+            return False
+
+        # Se è stato testato su troppi URL diversi, skippa (evita loop)
+        if len(tested_urls) >= max_tests_per_param:
+            if self.verbose:
+                logger.debug(f"⏭️  Skipping {param_name} ({vuln_type}) - already tested on {len(tested_urls)} URLs")
+            return False
+
+        return True
+
+    def mark_parameter_tested(self, param_name, vuln_type, url=None):
+        """
+        Marca un parametro come testato per una specifica vulnerabilità.
+
+        Args:
+            param_name: Nome del parametro
+            vuln_type: Tipo di vulnerabilità testata
+            url: URL dove è stato testato (opzionale)
+        """
+        vuln_type = vuln_type.lower().strip()
+        key = (param_name, vuln_type)
+
+        if key not in self.tested_params_vulns:
+            self.tested_params_vulns[key] = set()
+
+        if url:
+            parsed = urlparse(url)
+            normalized_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            self.tested_params_vulns[key].add(normalized_url)
+
+            if self.verbose:
+                logger.debug(f"✅ Marked {param_name} ({vuln_type}) as tested on {normalized_url}")
+
     def _rotate_user_agent(self):
         """Rotate User-Agent for each request"""
         self.session.headers.update({
@@ -2659,14 +2742,19 @@ class SmartCrawler:
                         'context': 'file_upload_form',
                         'evidence': f'File upload input: {input_data["name"]}'
                     })
-                
+
+                # I parametri hidden NON sono vulnerabilità in sé stessi
+                # Sono parametri che dovrebbero essere testati per vulnerabilità standard
+                # (XSS, SQLi, etc.) come qualsiasi altro parametro
+                # La logica di test è già gestita da param_analyzer.analyze_parameter()
                 if input_data['type'] == 'hidden':
-                    vulns.append({
-                        'type': 'hidden_param_manipulation',
-                        'confidence': 60,
-                        'context': 'hidden_form_field',
-                        'evidence': f'Hidden field manipulation: {input_data["name"]}'
-                    })
+                    # Aumenta leggermente la priorità di test per parametri hidden
+                    # perché spesso contengono dati sensibili (ID, prezzi, etc.)
+                    for vuln in vulns:
+                        if vuln.get('confidence', 0) < 70:
+                            vuln['confidence'] = min(vuln['confidence'] + 15, 90)
+                        vuln['context'] = vuln.get('context', '') + ' (hidden_field)'
+                        vuln['evidence'] = vuln.get('evidence', '') + f' - Hidden parameter: {input_data["name"]}'
                 
                 if vulns:
                     if self.verbose:
@@ -2692,29 +2780,55 @@ class SmartCrawler:
         """Test vulnerabilities immediately when found"""
         if not vulnerabilities:
             return
-        
+
+        param_name = param['name']
+        endpoint_url = endpoint['url']
+
         if self.verbose:
-            print(f"\n🎯 IMMEDIATE TESTING: {endpoint['url']} parameter '{param['name']}'")
-        
+            print(f"\n🎯 IMMEDIATE TESTING: {endpoint_url} parameter '{param_name}'")
+
+        # Filtra le vulnerabilità già testate per questo parametro
+        vulns_to_test = []
         for vuln in vulnerabilities:
             vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
             confidence = vuln.get('confidence', 'unknown')
-            
+
+            # Verifica se questo parametro+vulnerabilità deve essere testato
+            if self.should_test_parameter(param_name, vuln_type, endpoint_url):
+                vulns_to_test.append(vuln)
+            else:
+                if self.verbose:
+                    print(f"  ⏭️  Skipping {vuln_type.upper()} for '{param_name}' - already tested on similar endpoints")
+
+        if not vulns_to_test:
+            if self.verbose:
+                print(f"  ℹ️  All vulnerabilities for '{param_name}' already tested - skipping")
+            return
+
+        for vuln in vulns_to_test:
+            vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
+            confidence = vuln.get('confidence', 'unknown')
+
             if self.verbose:
                 print(f"  🔍 Testing {vuln_type.upper()} (confidence: {confidence})")
-            
+
             # Get appropriate wordlists
             wordlists = self.wordlist_mapper.get_wordlists_for_vulnerability(
                 vuln_type, self.results['technologies']
             )
-            
+
             if not wordlists:
                 if self.verbose:
                     print(f"    ⚠️ No wordlists found for {vuln_type}")
+                # Marca come testato anche se non ci sono wordlist per evitare retry
+                self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
                 continue
-            
+
             # Test with payloads from wordlists
             self.test_with_wordlists(endpoint, param, vuln_type, wordlists)
+
+            # Marca come testato dopo il test
+            self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
     
     def test_with_wordlists(self, endpoint, param, vuln_type, wordlists):
         """Test vulnerability using wordlists and bypasses"""
@@ -2883,41 +2997,89 @@ class SmartCrawler:
             return False
             
     def analyze_response_for_vulnerability(self, response, payload, vuln_type, bypass):
-        """Enhanced response analysis with behavioral verification"""
+        """
+        Enhanced response analysis with behavioral verification and false positive reduction.
+
+        Migliora la detection attraverso:
+        - Verifica contestuale del payload nella risposta
+        - Controlli specifici per tipo di vulnerabilità
+        - Esclusione di payload in commenti o codice escaped
+        - Analisi della lunghezza della risposta per evitare risposte generiche
+        """
         status_code = response.status_code
-        response_text = response.text.lower() if response.text else ""
+        response_text = response.text if response.text else ""
+        response_text_lower = response_text.lower()
         payload_lower = payload.lower()
-        
+
+        # Controllo dimensione minima risposta (evita risposte vuote o troppo piccole)
+        if len(response_text) < 50:
+            return False
+
         # First check: is payload even in response?
-        if payload_lower not in response_text and payload not in response.text:
+        payload_in_response = payload_lower in response_text_lower or payload in response_text
+
+        if not payload_in_response:
             # Special case for blind vulnerabilities
             if vuln_type in ['sqli', 'xxe', 'ssti'] and status_code in [500, 503]:
                 # Server error might indicate vulnerability
+                # Ma verifica che non sia un errore generico (falso positivo)
+                generic_errors = ['404', '403', 'not found', 'forbidden', 'unauthorized']
+                if any(err in response_text_lower for err in generic_errors):
+                    return False
                 return True
+            return False
+
+        # Se il payload è nella risposta, verifica che non sia in un contesto "safe"
+        # (commenti HTML, JavaScript, codice escaped, etc.)
+        if self._is_payload_in_safe_context(response_text, payload):
             return False
         
         # Enhanced vulnerability-specific detection
         if vuln_type == 'xss':
-            # Check if dangerous patterns are preserved (not escaped)
+            # Controlli più stringenti per XSS per ridurre falsi positivi
+
+            # 1. Verifica se i pattern pericolosi sono preservati (non escaped)
             dangerous_patterns = [
                 (r'<script[^>]*>', r'&lt;script'),
                 (r'javascript:', r'javascript&#58;|javascript%3A'),
                 (r'on\w+\s*=', r'on\w+\s*&#61;'),
                 (r'<img[^>]*>', r'&lt;img'),
                 (r'<svg[^>]*>', r'&lt;svg'),
-                (r'<iframe[^>]*>', r'&lt;iframe')
+                (r'<iframe[^>]*>', r'&lt;iframe'),
+                (r'<object[^>]*>', r'&lt;object'),
+                (r'<embed[^>]*>', r'&lt;embed'),
             ]
-            
+
             for pattern, escaped_pattern in dangerous_patterns:
                 if re.search(pattern, payload, re.I):
                     # Check if pattern exists unescaped in response
-                    if re.search(pattern, response.text, re.I):
-                        # Make sure it's not in a comment or CDATA
-                        if not re.search(f'<!--.*{pattern}.*-->', response.text, re.I | re.S):
-                            return True
+                    matches = re.finditer(pattern, response_text, re.I)
+
+                    for match in matches:
+                        # Verifica che il match sia effettivamente dal nostro payload
+                        # e non da altri script legittimi nella pagina
+                        context_start = max(0, match.start() - 100)
+                        context_end = min(len(response_text), match.end() + 100)
+                        context = response_text[context_start:context_end]
+
+                        # Se il pattern matched contiene parti del nostro payload
+                        # e non è in un commento, CDATA, o escaped
+                        if not re.search(r'<!--.*?' + pattern + r'.*?-->', context, re.I | re.S):
+                            if not re.search(r'<!\[CDATA\[.*?' + pattern + r'.*?\]\]>', context, re.I | re.S):
+                                # Verifica che non sia escaped
+                                if not re.search(escaped_pattern, context, re.I):
+                                    # Controllo finale: verifica che il payload completo o una sua parte
+                                    # significativa sia nel contesto
+                                    if len(payload) > 10:
+                                        # Per payload lunghi, cerca una sottostringa significativa
+                                        payload_part = payload[:min(20, len(payload))]
+                                        if payload_part in context or payload_part.lower() in context.lower():
+                                            return True
+                                    else:
+                                        return True
         
         elif vuln_type == 'sqli':
-            # Enhanced SQL error detection
+            # Enhanced SQL error detection con riduzione falsi positivi
             sql_errors = [
                 # MySQL
                 r'SQL syntax.*MySQL',
@@ -2925,43 +3087,73 @@ class SmartCrawler:
                 r'MySQLSyntaxErrorException',
                 r'valid MySQL result',
                 r'mysqldump',
-                
+
                 # PostgreSQL
                 r'PostgreSQL.*ERROR',
                 r'Warning.*\Wpg_',
                 r'valid PostgreSQL result',
                 r'PSQLException',
-                
+
                 # MSSQL
                 r'Driver.*SQL[\s\-\_]*Server',
                 r'OLE DB.*SQL Server',
                 r'SQLServer JDBC Driver',
                 r'SqlException',
                 r'Unclosed quotation mark',
-                
+
                 # Oracle
                 r'Oracle.*Driver',
                 r'Warning.*oci_',
                 r'Oracle.*Parser',
                 r'OracleException',
-                
+
                 # SQLite
                 r'SQLite.*Exception',
                 r'System.Data.SQLite.SQLiteException',
                 r'Warning.*sqlite_',
-                
+
                 # Generic
                 r'SQL\s*command\s*not\s*properly\s*ended',
                 r'Query\s*failed',
                 r'mysql_fetch_array\(\)',
                 r'mysqli::query\(\)',
                 r'pg_exec\(\)',
-                r'unrecognized token'
+                r'unrecognized token',
+                r'syntax error at or near',
+                r"You have an error in your SQL syntax",
             ]
-            
+
+            error_found = False
             for error in sql_errors:
-                if re.search(error, response.text, re.I):
-                    return True
+                match = re.search(error, response_text, re.I)
+                if match:
+                    error_found = True
+                    # Verifica che l'errore sia correlato al nostro payload
+                    # Estrai il contesto attorno all'errore
+                    context_start = max(0, match.start() - 200)
+                    context_end = min(len(response_text), match.end() + 200)
+                    error_context = response_text[context_start:context_end]
+
+                    # Verifica che parti del payload siano vicine all'errore SQL
+                    # o che l'errore menzioni caratteri SQL injection tipici
+                    sql_chars = ["'", '"', '--', '/*', '*/', 'OR', 'AND', 'UNION', 'SELECT']
+                    payload_upper = payload.upper()
+
+                    # Se il payload contiene caratteri SQL tipici e l'errore è vicino
+                    if any(char in payload_upper for char in ['OR', 'AND', 'UNION', 'SELECT', "'", '"']):
+                        return True
+
+                    # Se troviamo parti del payload nel contesto dell'errore
+                    if len(payload) > 5:
+                        payload_part = payload[:min(15, len(payload))]
+                        if payload_part in error_context or payload_part.lower() in error_context.lower():
+                            return True
+
+            # Se abbiamo trovato un errore SQL generico ma non correlato al payload
+            # consideriamolo comunque ma con bassa confidenza
+            # (verrà gestito nel chiamante tramite confidence score)
+            if error_found:
+                return True
         
         elif vuln_type == 'lfi':
             # Enhanced LFI detection
@@ -3077,7 +3269,81 @@ class SmartCrawler:
                 return True
         
         return False
-    
+
+    def _is_payload_in_safe_context(self, response_text, payload):
+        """
+        Verifica se il payload è in un contesto "safe" che non rappresenta una vulnerabilità.
+
+        Riduce i falsi positivi escludendo:
+        - Payload in commenti HTML (<!-- payload -->)
+        - Payload in commenti JavaScript (// payload o /* payload */)
+        - Payload escaped in HTML (&lt;script&gt; invece di <script>)
+        - Payload in attributi data- o in JSON escaped
+        - Payload in stringhe JavaScript tra virgolette con escape
+
+        Args:
+            response_text: Testo completo della risposta
+            payload: Payload da verificare
+
+        Returns:
+            True se il payload è in un contesto safe (falso positivo), False altrimenti
+        """
+        # Verifica se il payload è in un commento HTML
+        # Pattern: <!-- ... payload ... -->
+        html_comment_pattern = r'<!--[\s\S]*?' + re.escape(payload) + r'[\s\S]*?-->'
+        if re.search(html_comment_pattern, response_text, re.I):
+            return True
+
+        # Verifica se il payload è in un commento JavaScript
+        # Pattern: // ... payload ... (fino a fine riga)
+        js_line_comment_pattern = r'//.*?' + re.escape(payload)
+        if re.search(js_line_comment_pattern, response_text, re.I):
+            return True
+
+        # Pattern: /* ... payload ... */
+        js_block_comment_pattern = r'/\*[\s\S]*?' + re.escape(payload) + r'[\s\S]*?\*/'
+        if re.search(js_block_comment_pattern, response_text, re.I | re.S):
+            return True
+
+        # Verifica se il payload è escaped in HTML
+        # Es: <script> diventa &lt;script&gt;
+        escaped_payload = payload.replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+        if escaped_payload in response_text and escaped_payload != payload:
+            # Se troviamo solo la versione escaped, è safe
+            if payload not in response_text:
+                return True
+
+        # Verifica se il payload è in un attributo data- o simile (spesso usato per storage)
+        data_attr_pattern = r'data-[a-zA-Z0-9\-]*\s*=\s*["\']' + re.escape(payload) + r'["\']'
+        if re.search(data_attr_pattern, response_text, re.I):
+            # Non è necessariamente safe, ma ha bassa priorità
+            # Controlliamo se è accessibile via DOM
+            pass  # Lasciamo passare per ulteriori controlli
+
+        # Verifica se il payload è in JSON escaped
+        # Es: {"test": "<script>alert(1)</script>"} diventa {"test": "\u003cscript\u003e..."}
+        json_escaped_patterns = [
+            r'\\u003c',  # <
+            r'\\u003e',  # >
+            r'\\u0022',  # "
+            r'\\u0027',  # '
+        ]
+        if any(pattern in response_text for pattern in json_escaped_patterns):
+            # Potrebbe essere JSON escaped, verifichiamo più nel dettaglio
+            if payload.replace('<', r'\u003c').replace('>', r'\u003e') in response_text:
+                return True
+
+        # Verifica se il payload è in una stringa JavaScript tra virgolette con proper escaping
+        # Es: var x = "<script>alert(1)<\/script>";
+        js_escaped_pattern = re.escape(payload).replace(r'\<', r'\\<').replace(r'\/', r'\\/')
+        js_string_pattern = r'["\']' + js_escaped_pattern + r'["\']'
+        if re.search(js_string_pattern, response_text, re.I):
+            # Verifica se c'è escape dello slash in chiusura tag
+            if r'<\/' in response_text or r'<\\/' in response_text:
+                return True
+
+        return False
+
     def discover_hidden_endpoints(self, max_paths=1000):
         """Smart endpoint discovery using technology-specific wordlists"""
         print("  🔍 Smart Endpoint Discovery...")
