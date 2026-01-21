@@ -50,6 +50,255 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class VulnerabilityLogger: 
+    """Gestisce il salvataggio immediato delle vulnerabilità rilevate"""
+    
+    def __init__(self, target_url):
+        """Inizializza il logger"""
+        parsed_url = urlparse(target_url)
+        self.target_domain = parsed_url.netloc. replace(':', '_').replace('.', '_')
+        
+        self.scan_timestamp = int(time.time())
+        self.scan_time_str = time.strftime('%Y-%m-%d %H:%M:%S')
+        
+        self.results_base = "results"
+        self.scan_dir = f"{self.target_domain}_{self.scan_timestamp}"
+        self.output_dir = os.path.join(self.results_base, self.scan_dir)
+        
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        self.vuln_file = os.path.join(
+            self.output_dir,
+            f"vulnerabilities_{self.target_domain}_{self.scan_timestamp}.json"
+        )
+        
+        self.vulnerabilities_data = {
+            'target':  target_url,
+            'scan_start': self.scan_time_str,
+            'vulnerabilities': [],
+            'total_vulnerabilities': 0,
+            'total_by_type': {},
+            'last_updated': self.scan_time_str
+        }
+        
+        self.lock = threading.Lock()
+        self._save_to_file()
+        
+        logger.info(f"✅ VulnerabilityLogger initialized at:  {self.output_dir}")
+    
+    def _save_to_file(self):
+        """Salva i dati in JSON"""
+        try:
+            with open(self. vuln_file, 'w') as f:
+                json.dump(self.vulnerabilities_data, f, indent=2, default=str)
+        except Exception as e:
+            logger.error(f"Error saving vulnerability file: {e}")
+    
+    def log_vulnerability(self, 
+                         endpoint, 
+                         parameter, 
+                         payload, 
+                         vulnerability_type,
+                         bypass_used=None,
+                         response_status=None,
+                         response_length=None,
+                         method='GET',
+                         headers=None,
+                         confidence=None):
+        """
+        Registra una vulnerabilità rilevata
+        
+        Args:
+            endpoint: URL dell'endpoint
+            parameter: Nome del parametro vulnerabile
+            payload: Payload utilizzato
+            vulnerability_type:  NOME SPECIFICO della vulnerabilità (XSS, SQLI, LFI, RCE, etc.)
+            bypass_used: Tipo di bypass utilizzato (se applicato)
+            response_status: HTTP status code della risposta
+            response_length: Lunghezza della risposta
+            method: HTTP method (GET, POST, PUT, DELETE, etc.)
+            headers: Dictionary degli headers della richiesta
+            confidence:  Livello di confidenza (0-100)
+        """
+        with self.lock:
+            # Prepara gli headers per il logging (evita informazioni sensibili)
+            request_headers = {}
+            if headers:
+                safe_headers = ['User-Agent', 'Content-Type', 'Accept', 'Accept-Encoding', 
+                               'Accept-Language', 'Referer', 'Origin', 'X-Requested-With']
+                for key, value in headers.items():
+                    if key in safe_headers:
+                        request_headers[key] = value
+                    elif key == 'Authorization':
+                        auth_type = value.split()[0] if ' ' in value else 'Bearer'
+                        request_headers['Authorization'] = f"{auth_type} [REDACTED]"
+                    elif key == 'Cookie': 
+                        request_headers['Cookie'] = "[REDACTED - Contains session data]"
+            
+            vuln_entry = {
+                'id': len(self.vulnerabilities_data['vulnerabilities']) + 1,
+                'vulnerability_type': vulnerability_type. upper(),
+                'endpoint': endpoint,
+                'parameter': parameter,
+                'payload': payload,
+                'confidence': confidence if confidence is not None else 75,
+                'request': {
+                    'method': method. upper(),
+                    'headers':  request_headers,
+                    'body_parameter': parameter
+                },
+                'response': {
+                    'status_code':  response_status,
+                    'content_length': response_length
+                },
+                'bypass': {
+                    'used': bypass_used is not None,
+                    'type': bypass_used if bypass_used else None
+                },
+                'timestamps':  {
+                    'detected_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'unix_timestamp':  int(time.time())
+                }
+            }
+            
+            self.vulnerabilities_data['vulnerabilities'].append(vuln_entry)
+            
+            self. vulnerabilities_data['total_vulnerabilities'] = len(
+                self.vulnerabilities_data['vulnerabilities']
+            )
+            
+            if vulnerability_type not in self.vulnerabilities_data['total_by_type']:
+                self.vulnerabilities_data['total_by_type'][vulnerability_type] = 0
+            self.vulnerabilities_data['total_by_type'][vulnerability_type] += 1
+            
+            self. vulnerabilities_data['last_updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            self._save_to_file()
+            
+            logger.info(f"🚨 [{vulnerability_type. upper()}] {endpoint} ? {parameter}={payload[: 30]}")
+    
+    def get_output_dir(self):
+        """Ritorna la directory di output"""
+        return self.output_dir
+    
+    def get_summary(self):
+        """Ritorna un riepilogo delle vulnerabilità trovate"""
+        return {
+            'total':  self.vulnerabilities_data['total_vulnerabilities'],
+            'by_type': self.vulnerabilities_data['total_by_type']
+        }
+
+    def _detect_method_confusion(self, headers, method):
+        """
+        Rileva possibili indicatori di Method Confusion
+        
+        Args:
+            headers: Dictionary degli header
+            method: Metodo HTTP utilizzato
+        
+        Returns: 
+            Dictionary con i dettagli rilevati
+        """
+        if not headers:
+            return {'detected': False}
+        
+        confusion_indicators = {}
+        
+        # Controlla per header di method override
+        if 'X-HTTP-Method-Override' in headers: 
+            override_method = headers['X-HTTP-Method-Override']
+            confusion_indicators['X-HTTP-Method-Override'] = {
+                'original_method': method,
+                'override_method': override_method,
+                'potential_bypass': method != override_method
+            }
+        
+        if 'X-Original-Method' in headers:
+            original_method = headers['X-Original-Method']
+            confusion_indicators['X-Original-Method'] = {
+                'original_method': original_method,
+                'used_method': method,
+                'potential_bypass': method != original_method
+            }
+        
+        if 'X-Method' in headers:
+            x_method = headers['X-Method']
+            confusion_indicators['X-Method'] = {
+                'x_method': x_method,
+                'used_method': method,
+                'potential_bypass': method != x_method
+            }
+        
+        # Controlla per POST con query string (Method Confusion comune)
+        if method and method.upper() == 'POST' and 'Content-Type' not in headers:
+            confusion_indicators['post_without_content_type'] = True
+        
+        return {
+            'detected': len(confusion_indicators) > 0,
+            'indicators': confusion_indicators
+        }
+    
+    def get_output_dir(self):
+        """Ritorna la directory di output"""
+        return self.output_dir
+    
+    def get_summary(self):
+        """Ritorna un riepilogo delle vulnerabilità trovate"""
+        return {
+            'total':  self.vulnerabilities_data['total_vulnerabilities'],
+            'by_type': self.vulnerabilities_data['total_by_type']
+        }    
+    def get_output_dir(self):
+        """Ritorna la directory di output"""
+        return self.output_dir
+    
+    def get_summary(self):
+        """Ritorna un riepilogo delle vulnerabilità trovate"""
+        return {
+            'total':  self.vulnerabilities_data['total_vulnerabilities'],
+            'by_type': self.vulnerabilities_data['total_by_type']
+        }
+    
+    def log_vulnerability(self, endpoint, parameter, payload, bypass_used, response_status, response_length):
+        """
+        Registra una vulnerabilità rilevata
+        
+        Args:
+            endpoint: URL dell'endpoint
+            parameter: Nome del parametro vulnerabile
+            payload: Payload utilizzato
+            bypass_used:  Tipo di bypass utilizzato (se applicato)
+            response_status: HTTP status code della risposta
+            response_length: Lunghezza della risposta
+        """
+        with self.lock:
+            vuln_entry = {
+                'endpoint': endpoint,
+                'parameter':  parameter,
+                'vulnerability_type': 'detected',  # Sarà specificato dal caller
+                'payload': payload,
+                'bypass_used': bypass_used,
+                'response_status': response_status,
+                'response_length': response_length,
+                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+                'unix_timestamp': int(time.time())
+            }
+            
+            # Aggiungi alla lista
+            self.vulnerabilities_data['vulnerabilities'].append(vuln_entry)
+            self.vulnerabilities_data['total_vulnerabilities'] = len(
+                self.vulnerabilities_data['vulnerabilities']
+            )
+            self.vulnerabilities_data['last_updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Salva su file
+            self._save_to_file()
+            
+            logger.info(f"🚨 Vulnerability logged: {endpoint}? {parameter}={payload[: 30]}")
+    
+    def get_output_dir(self):
+        """Ritorna la directory di output"""
+        return self.output_dir
 
 class BehavioralContextEngine:
     """Deduce vulnerabilities through behavioral analysis, not assumptions"""
@@ -1516,10 +1765,10 @@ class SmartCrawler:
         self.url_queue = queue.Queue()
         self.endpoints = []
         self.forms = []
-        
+        self.vuln_logger = VulnerabilityLogger(target_url)
         # Setup session with retry strategy
         self.session = requests.Session()
-        
+
         # Retry strategy
         retry_strategy = Retry(
             total=3,
@@ -1529,7 +1778,7 @@ class SmartCrawler:
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
-        
+
         # Rotating User-Agents
         self.user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
@@ -2573,7 +2822,7 @@ class SmartCrawler:
             param_name = param['name']
             
             # Determine how to inject payload
-            if endpoint.get('method', 'GET').upper() == 'GET':
+            if endpoint. get('method', 'GET').upper() == 'GET':
                 # GET request - add to URL parameters
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
@@ -2582,16 +2831,16 @@ class SmartCrawler:
                 test_url = base_url
             
             # Apply bypass if provided
-            if bypass:
-                request_params = self.bypass_manager.apply_bypass_to_request(
-                    test_url, bypass, payload, endpoint.get('method', 'GET')
+            if bypass: 
+                request_params = self. bypass_manager.apply_bypass_to_request(
+                    test_url, bypass, payload, endpoint. get('method', 'GET')
                 )
                 if not request_params:
                     return False
             else:
                 request_params = {
                     'url': test_url,
-                    'method': endpoint.get('method', 'GET'),
+                    'method': endpoint. get('method', 'GET'),
                     'timeout': 5,
                     'verify': False,
                     'allow_redirects': True
@@ -2601,7 +2850,7 @@ class SmartCrawler:
             if request_params['method'].upper() == 'GET':
                 response = self.session.get(
                     request_params['url'],
-                    headers=request_params.get('headers'),
+                    headers=request_params. get('headers'),
                     timeout=request_params['timeout'],
                     verify=request_params['verify'],
                     allow_redirects=request_params['allow_redirects']
@@ -2630,18 +2879,35 @@ class SmartCrawler:
                     'payload': payload,
                     'bypass_used': bypass['type'] if bypass else None,
                     'response_status': response.status_code,
-                    'response_length': len(response.content),
+                    'response_length':  len(response.content),
                     'timestamp': time.strftime('%H:%M:%S'),
                     'confidence': 85 if bypass else 75
                 }
                 
                 self.results['vulnerability_test_results'].append(test_result)
                 
+                # ✅ SALVA IMMEDIATAMENTE SU FILE CON TUTTI I DETTAGLI
+                self.vuln_logger.log_vulnerability(
+                    endpoint=endpoint['url'],
+                    parameter=param_name,
+                    payload=payload,
+                    vulnerability_type=vuln_type,  # XSS, SQLI, LFI, RCE, etc.
+                    bypass_used=bypass['type'] if bypass else None,
+                    response_status=response. status_code,
+                    response_length=len(response.content),
+                    method=request_params['method'],  # Passa il metodo reale utilizzato
+                    headers=dict(response.request.headers),  # Usa gli header della richiesta effettiva
+                    confidence=85 if bypass else 75
+                )
+                
                 if self.verbose:
                     bypass_info = f" with {bypass['type']}" if bypass else ""
                     print(f"      🚨 VULNERABILITY DETECTED{bypass_info}!")
+                    print(f"         Type: {vuln_type. upper()}")
                     print(f"         Payload: {payload[:50]}{'...' if len(payload) > 50 else ''}")
                     print(f"         Status: {response.status_code}, Length: {len(response.content)}")
+                    print(f"         Method: {endpoint.get('method', 'GET')}")
+                    print(f"         📁 Saved to: {self.vuln_logger.get_output_dir()}")
                 
                 return True
             
@@ -2651,11 +2917,11 @@ class SmartCrawler:
             
             return False
             
-        except Exception as e:
+        except Exception as e: 
             if self.verbose:
                 print(f"      ❌ Error testing payload: {e}")
             return False
-    
+            
     def analyze_response_for_vulnerability(self, response, payload, vuln_type, bypass):
         """Enhanced response analysis with behavioral verification"""
         status_code = response.status_code
