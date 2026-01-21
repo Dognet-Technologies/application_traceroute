@@ -38,6 +38,8 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import concurrent.futures
 import os
+import itertools
+from functools import lru_cache
 
 # Disabilita SSL warnings per security testing
 import urllib3
@@ -49,6 +51,167 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Optional import for performance monitoring
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    logger.warning("psutil not available - performance monitoring will be limited")
+
+
+class RateLimiter:
+    """
+    Token bucket rate limiter per evitare blocchi IP/WAF.
+
+    Implementa un sistema di rate limiting globale che limita il numero di richieste
+    per secondo, distribuendo uniformemente le richieste nel tempo.
+    """
+
+    def __init__(self, requests_per_second=5):
+        """
+        Inizializza il rate limiter.
+
+        Args:
+            requests_per_second: Numero massimo di richieste per secondo (default: 5)
+        """
+        self.rate = requests_per_second
+        self.min_interval = 1.0 / self.rate
+        self.last_request_time = 0
+        self.lock = threading.Lock()
+
+    def wait(self):
+        """
+        Aspetta il tempo necessario per rispettare il rate limit.
+        Thread-safe.
+        """
+        with self.lock:
+            current_time = time.time()
+            elapsed = current_time - self.last_request_time
+
+            if elapsed < self.min_interval:
+                sleep_time = self.min_interval - elapsed
+                time.sleep(sleep_time)
+                self.last_request_time = time.time()
+            else:
+                self.last_request_time = current_time
+
+    def set_rate(self, requests_per_second):
+        """Modifica il rate limit dinamicamente"""
+        with self.lock:
+            self.rate = requests_per_second
+            self.min_interval = 1.0 / self.rate
+
+
+class PerformanceMonitor:
+    """
+    Monitora performance e risorse durante la scansione.
+
+    Traccia:
+    - Tempo totale di esecuzione
+    - Numero di payload testati
+    - Vulnerabilità trovate
+    - Utilizzo memoria (se psutil disponibile)
+    - Richieste HTTP effettuate
+    """
+
+    def __init__(self):
+        """Inizializza il monitor"""
+        self.start_time = time.time()
+        self.payloads_tested = 0
+        self.vulnerabilities_found = 0
+        self.http_requests = 0
+        self.errors = 0
+        self.lock = threading.Lock()
+
+    def increment_payloads(self, count=1):
+        """Incrementa contatore payload testati"""
+        with self.lock:
+            self.payloads_tested += count
+
+    def increment_vulnerabilities(self, count=1):
+        """Incrementa contatore vulnerabilità trovate"""
+        with self.lock:
+            self.vulnerabilities_found += count
+
+    def increment_requests(self, count=1):
+        """Incrementa contatore richieste HTTP"""
+        with self.lock:
+            self.http_requests += count
+
+    def increment_errors(self, count=1):
+        """Incrementa contatore errori"""
+        with self.lock:
+            self.errors += count
+
+    def get_stats(self):
+        """
+        Ritorna statistiche correnti.
+
+        Returns:
+            Dictionary con statistiche di performance
+        """
+        elapsed = time.time() - self.start_time
+
+        stats = {
+            'elapsed_seconds': elapsed,
+            'elapsed_formatted': self._format_time(elapsed),
+            'payloads_tested': self.payloads_tested,
+            'vulnerabilities_found': self.vulnerabilities_found,
+            'http_requests': self.http_requests,
+            'errors': self.errors,
+            'requests_per_second': self.http_requests / elapsed if elapsed > 0 else 0,
+            'payloads_per_second': self.payloads_tested / elapsed if elapsed > 0 else 0,
+        }
+
+        # Aggiungi info memoria se psutil disponibile
+        if PSUTIL_AVAILABLE:
+            try:
+                process = psutil.Process()
+                memory_info = process.memory_info()
+                stats['memory_mb'] = memory_info.rss / 1024 / 1024
+                stats['memory_percent'] = process.memory_percent()
+            except Exception as e:
+                logger.debug(f"Error getting memory stats: {e}")
+
+        return stats
+
+    def log_stats(self, prefix="Performance"):
+        """
+        Logga statistiche correnti.
+
+        Args:
+            prefix: Prefisso per il messaggio di log
+        """
+        stats = self.get_stats()
+
+        log_msg = (
+            f"{prefix}: {stats['elapsed_formatted']} elapsed, "
+            f"{stats['http_requests']} HTTP requests ({stats['requests_per_second']:.1f}/s), "
+            f"{stats['payloads_tested']} payloads tested ({stats['payloads_per_second']:.1f}/s), "
+            f"{stats['vulnerabilities_found']} vulnerabilities found"
+        )
+
+        if 'memory_mb' in stats:
+            log_msg += f", Memory: {stats['memory_mb']:.1f}MB ({stats['memory_percent']:.1f}%)"
+
+        if stats['errors'] > 0:
+            log_msg += f", Errors: {stats['errors']}"
+
+        logger.info(log_msg)
+
+    def _format_time(self, seconds):
+        """Formatta secondi in formato leggibile"""
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+        elif seconds < 3600:
+            minutes = seconds / 60
+            return f"{minutes:.1f}m"
+        else:
+            hours = seconds / 3600
+            return f"{hours:.1f}h"
+
 
 class VulnerabilityLogger: 
     """Gestisce il salvataggio immediato delle vulnerabilità rilevate"""
@@ -260,11 +423,73 @@ class VulnerabilityLogger:
         }
     
 
+class LRUCache:
+    """
+    Implementazione semplice di LRU Cache con limite di dimensione.
+
+    Evita memory leak mantenendo solo le N entry più recenti.
+    """
+
+    def __init__(self, maxsize=1000):
+        """
+        Inizializza cache con limite.
+
+        Args:
+            maxsize: Numero massimo di entry da mantenere
+        """
+        self.maxsize = maxsize
+        self.cache = {}
+        self.access_order = []  # Track access order for LRU
+        self.lock = threading.Lock()
+
+    def __contains__(self, key):
+        """Supporta 'in' operator"""
+        with self.lock:
+            return key in self.cache
+
+    def __getitem__(self, key):
+        """Supporta cache[key]"""
+        with self.lock:
+            if key in self.cache:
+                # Move to end (most recently used)
+                self.access_order.remove(key)
+                self.access_order.append(key)
+                return self.cache[key]
+            raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        """Supporta cache[key] = value"""
+        with self.lock:
+            # Se già esiste, aggiorna e muovi a fine
+            if key in self.cache:
+                self.access_order.remove(key)
+            # Se raggiungiamo il limite, rimuovi oldest
+            elif len(self.cache) >= self.maxsize:
+                oldest_key = self.access_order.pop(0)
+                del self.cache[oldest_key]
+
+            self.cache[key] = value
+            self.access_order.append(key)
+
+    def get(self, key, default=None):
+        """Ottieni valore con default"""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def clear(self):
+        """Svuota cache"""
+        with self.lock:
+            self.cache.clear()
+            self.access_order.clear()
+
+
 class BehavioralContextEngine:
     """Deduce vulnerabilities through behavioral analysis, not assumptions"""
-    
+
     def __init__(self):
-        self.cache = {}  # Cache results per evitare test ripetuti
+        self.cache = LRUCache(maxsize=1000)  # LRU cache con limite per evitare OOM
         self.rate_limit_delay = 0.5  # Delay tra probe requests
         self.technology_hints = {}
         
@@ -1730,10 +1955,19 @@ class SmartCrawler:
         self.tested_hash_params = set()
         self.tested_form_params = set()
 
-        self.url_queue = queue.Queue()
+        # Queue con limite per evitare OOM con discovery aggressivo
+        self.url_queue = queue.Queue(maxsize=5000)
         self.endpoints = []
         self.forms = []
         self.vuln_logger = VulnerabilityLogger(target_url)
+
+        # Inizializza rate limiter e performance monitor
+        self.rate_limiter = RateLimiter(requests_per_second=5)
+        self.performance_monitor = PerformanceMonitor()
+
+        # Hash set per payload validation (evita test duplicati)
+        self.tested_payloads_hash = set()
+
         # Setup session with retry strategy
         self.session = requests.Session()
 
@@ -1893,6 +2127,58 @@ class SmartCrawler:
             if self.verbose:
                 logger.debug(f"✅ Marked {param_name} ({vuln_type}) as tested on {normalized_url}")
 
+    def cleanup(self):
+        """
+        Pulizia risorse prima della chiusura.
+
+        Chiude connessioni HTTP, svuota cache, logga statistiche finali.
+        Chiamare questo metodo al termine della scansione per evitare memory leak.
+        """
+        try:
+            # Log statistiche finali
+            if hasattr(self, 'performance_monitor'):
+                self.performance_monitor.log_stats(prefix="Final Stats")
+
+            # Chiudi sessione HTTP
+            if hasattr(self, 'session'):
+                self.session.close()
+                logger.debug("HTTP session closed")
+
+            # Svuota cache
+            if hasattr(self, 'behavioral_engine') and hasattr(self.behavioral_engine, 'cache'):
+                self.behavioral_engine.cache.clear()
+                logger.debug("Behavioral cache cleared")
+
+            # Svuota results per liberare memoria
+            if hasattr(self, 'results'):
+                self.results.clear()
+
+            # Svuota queue
+            if hasattr(self, 'url_queue'):
+                while not self.url_queue.empty():
+                    try:
+                        self.url_queue.get_nowait()
+                    except queue.Empty:
+                        break
+
+            logger.info("✅ Cleanup completed successfully")
+
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}", exc_info=True)
+
+    def __del__(self):
+        """
+        Destructor - chiama cleanup quando oggetto viene distrutto.
+
+        Garantisce che le risorse vengano rilasciate anche se cleanup()
+        non viene chiamato esplicitamente.
+        """
+        try:
+            self.cleanup()
+        except:
+            # Ignora errori nel destructor per evitare problemi durante shutdown
+            pass
+
     def _rotate_user_agent(self):
         """Rotate User-Agent for each request"""
         self.session.headers.update({
@@ -2043,37 +2329,65 @@ class SmartCrawler:
             
             # Parse HTML
             soup = BeautifulSoup(response.text, 'html.parser')
-            
+
             # Extract JavaScript content for analysis
-            js_content = ""
+            # ⚡ OTTIMIZZAZIONE: usa list + join invece di concatenazione ripetuta
+            js_content_parts = []
+
             for script in soup.find_all('script'):
                 src = script.get('src')
                 if src:
                     js_url = urljoin(url, src)
                     self.results['javascript_files'].append(js_url)
-                    
+
                     # Analyze external JS
+                    js_response = None
                     try:
+                        # ⚡ Rate limiting
+                        self.rate_limiter.wait()
+
                         js_response = self.session.get(js_url, timeout=5)
-                        js_content += js_response.text + "\n"
+
+                        # Incrementa contatore HTTP requests
+                        self.performance_monitor.increment_requests()
+
+                        js_content_parts.append(js_response.text)
                         js_urls = self.extract_urls_from_js(js_response.text, url)
                         for js_url_found in js_urls:
                             if self.is_valid_url(js_url_found):
                                 self.url_queue.put((js_url_found, depth + 1))
                                 if '/api/' in js_url_found or '/v1/' in js_url_found:
                                     self.results['api_endpoints'].append(js_url_found)
-                    except:
-                        pass
-                
+
+                    except requests.Timeout:
+                        logger.warning(f"Timeout fetching JS file: {js_url}")
+                        self.performance_monitor.increment_errors()
+                    except requests.ConnectionError:
+                        logger.warning(f"Connection error fetching JS file: {js_url}")
+                        self.performance_monitor.increment_errors()
+                    except Exception as e:
+                        logger.debug(f"Error fetching JS file {js_url}: {e}")
+                        self.performance_monitor.increment_errors()
+                    finally:
+                        # ✅ CLEANUP: chiudi response
+                        if js_response is not None:
+                            try:
+                                js_response.close()
+                            except:
+                                pass
+
                 # Analyze inline JS
                 if script.string:
-                    js_content += script.string + "\n"
+                    js_content_parts.append(script.string)
                     js_urls = self.extract_urls_from_js(script.string, url)
                     for js_url_found in js_urls:
                         if self.is_valid_url(js_url_found):
                             self.url_queue.put((js_url_found, depth + 1))
                             if '/api/' in js_url_found or '/v1/' in js_url_found:
                                 self.results['api_endpoints'].append(js_url_found)
+
+            # ⚡ Crea js_content una volta sola (più efficiente di concatenazione ripetuta)
+            js_content = "\n".join(js_content_parts)
             
             # Extract URLs for further crawling
             for tag in soup.find_all(['a', 'link']):
@@ -2831,113 +3145,210 @@ class SmartCrawler:
             self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
     
     def test_with_wordlists(self, endpoint, param, vuln_type, wordlists):
-        """Test vulnerability using wordlists and bypasses"""
+        """
+        Test vulnerability using wordlists and bypasses con lazy loading.
+
+        Migliorie:
+        - Lazy loading con itertools.islice (no caricamento file interi)
+        - Payload validation per skippare payload invalidi
+        - Rate limiting integrato
+        - Performance monitoring
+        """
         tested_payloads = set()  # Per evitare duplicati
         max_payloads_per_list = 10  # Limit for immediate testing
-        
-        # Collect all payloads first (cat)
+
+        # Collect payloads con LAZY LOADING
         all_payloads = []
         for wordlist in wordlists[:3]:  # Limit to first 3 wordlists
             if not os.path.exists(wordlist['path']):
                 continue
-            
+
             try:
                 with open(wordlist['path'], 'r', encoding='utf-8', errors='ignore') as f:
-                    payloads = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-                    all_payloads.extend(payloads[:max_payloads_per_list])
-                
-                if self.verbose:
-                    print(f"    📚 Loading from: {wordlist['source']}/{wordlist['relative_path']} ({len(payloads)} payloads)")
-                
+                    # ⚡ LAZY LOADING: leggi solo i payload necessari, non tutto il file
+                    payload_count = 0
+                    for line in itertools.islice(f, max_payloads_per_list * 10):  # Max 100 lines per file
+                        line = line.strip()
+                        # Skippa commenti e righe vuote
+                        if not line or line.startswith('#'):
+                            continue
+
+                        # ✅ PAYLOAD VALIDATION
+                        if self._is_valid_payload(line):
+                            all_payloads.append(line)
+                            payload_count += 1
+                            if payload_count >= max_payloads_per_list:
+                                break
+
+                if self.verbose and payload_count > 0:
+                    print(f"    📚 Loaded {payload_count} payloads from: {wordlist['source']}/{wordlist['relative_path']}")
+
+            except IOError as e:
+                logger.error(f"IO error reading wordlist {wordlist['path']}: {e}")
+                self.performance_monitor.increment_errors()
             except Exception as e:
-                if self.verbose:
-                    print(f"    ❌ Error reading wordlist {wordlist['path']}: {e}")
+                logger.error(f"Unexpected error reading wordlist {wordlist['path']}: {e}", exc_info=True)
+                self.performance_monitor.increment_errors()
                 continue
-        
+
         # Sort and unique (sort | uniq)
         unique_payloads = sorted(list(set(all_payloads)))
-        
+
         if self.verbose:
             print(f"    📊 Total unique payloads: {len(unique_payloads)} (from {len(all_payloads)} total)")
-        
+
         # Test unique payloads
         tested_count = 0
         for payload in unique_payloads[:max_payloads_per_list * 2]:  # Total limit
             if tested_count >= max_payloads_per_list * 2:
                 break
-            
+
+            # ⚡ Rate limiting
+            self.rate_limiter.wait()
+
             # Test without bypass first
             success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
-            
+
             if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
                 # Test with each validated bypass
                 for bypass in self.bypass_manager.validated_bypasses:
                     if self.verbose:
                         print(f"      🔧 Applying bypass: {bypass['type']}")
-                    
+
+                    self.rate_limiter.wait()
                     success = self.test_single_payload(endpoint, param, payload, vuln_type, bypass)
                     if success:
                         break  # Stop trying bypasses once one works
-            
+
             tested_count += 1
             tested_payloads.add(payload)
-            
-            # Small delay between requests
-            time.sleep(0.1)
-        
+
+            # Incrementa contatore performance
+            self.performance_monitor.increment_payloads()
+
         if self.verbose:
             print(f"    ✅ Tested {tested_count} unique payloads for {vuln_type}")
+
+    def _is_valid_payload(self, payload):
+        """
+        Valida un payload prima di testarlo.
+
+        Skippa:
+        - Payload vuoti o troppo lunghi (>10k)
+        - Payload con caratteri non-printable
+        - Payload già testati (hash check)
+
+        Returns:
+            True se payload è valido, False altrimenti
+        """
+        # Controllo lunghezza
+        if not payload or len(payload) > 10000:
+            return False
+
+        # Controllo caratteri printable (permetti alcuni caratteri speciali comuni)
+        # Permettiamo: lettere, numeri, spazi, punteggiatura comune, newline, tab
+        try:
+            # Verifica se contiene troppi caratteri non-ASCII o control characters
+            non_printable = sum(1 for c in payload if ord(c) < 32 and c not in '\n\r\t')
+            if non_printable > len(payload) * 0.3:  # Max 30% caratteri non-printable
+                return False
+        except:
+            return False
+
+        # Controllo duplicati via hash
+        payload_hash = hashlib.md5(payload.encode('utf-8', errors='ignore')).digest()
+        if payload_hash in self.tested_payloads_hash:
+            return False
+
+        # Aggiungi hash al set
+        self.tested_payloads_hash.add(payload_hash)
+
+        # Limita dimensione hash set per evitare OOM
+        if len(self.tested_payloads_hash) > 50000:
+            # Rimuovi metà dei vecchi hash (approccio semplice)
+            self.tested_payloads_hash = set(list(self.tested_payloads_hash)[25000:])
+
+        return True
     
     def test_single_payload(self, endpoint, param, payload, vuln_type, bypass=None):
-        """Test a single payload against an endpoint"""
+        """
+        Test a single payload against an endpoint.
+
+        Migliorie:
+        - Rate limiting integrato
+        - Performance monitoring
+        - Error handling migliorato con eccezioni specifiche
+        - Response cleanup automatico
+        """
+        response = None
         try:
             # Build test URL
             base_url = endpoint['url']
             param_name = param['name']
-            
+
             # Determine how to inject payload
-            if endpoint. get('method', 'GET').upper() == 'GET':
+            if endpoint.get('method', 'GET').upper() == 'GET':
                 # GET request - add to URL parameters
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
             else:
                 # POST request - would need form data
                 test_url = base_url
-            
+
             # Apply bypass if provided
-            if bypass: 
-                request_params = self. bypass_manager.apply_bypass_to_request(
-                    test_url, bypass, payload, endpoint. get('method', 'GET')
+            if bypass:
+                request_params = self.bypass_manager.apply_bypass_to_request(
+                    test_url, bypass, payload, endpoint.get('method', 'GET')
                 )
                 if not request_params:
                     return False
             else:
                 request_params = {
                     'url': test_url,
-                    'method': endpoint. get('method', 'GET'),
+                    'method': endpoint.get('method', 'GET'),
                     'timeout': 5,
                     'verify': False,
                     'allow_redirects': True
                 }
-            
-            # Make request
-            if request_params['method'].upper() == 'GET':
-                response = self.session.get(
-                    request_params['url'],
-                    headers=request_params. get('headers'),
-                    timeout=request_params['timeout'],
-                    verify=request_params['verify'],
-                    allow_redirects=request_params['allow_redirects']
-                )
-            else:
-                response = self.session.post(
-                    request_params['url'],
-                    headers=request_params.get('headers'),
-                    data=request_params.get('data'),
-                    timeout=request_params['timeout'],
-                    verify=request_params['verify'],
-                    allow_redirects=request_params['allow_redirects']
-                )
+
+            # ⚡ Rate limiting
+            self.rate_limiter.wait()
+
+            # Make request con error handling specifico
+            try:
+                if request_params['method'].upper() == 'GET':
+                    response = self.session.get(
+                        request_params['url'],
+                        headers=request_params.get('headers'),
+                        timeout=request_params['timeout'],
+                        verify=request_params['verify'],
+                        allow_redirects=request_params['allow_redirects']
+                    )
+                else:
+                    response = self.session.post(
+                        request_params['url'],
+                        headers=request_params.get('headers'),
+                        data=request_params.get('data'),
+                        timeout=request_params['timeout'],
+                        verify=request_params['verify'],
+                        allow_redirects=request_params['allow_redirects']
+                    )
+
+                # Incrementa contatore HTTP requests
+                self.performance_monitor.increment_requests()
+
+            except requests.Timeout:
+                logger.warning(f"Timeout testing payload on {base_url}")
+                self.performance_monitor.increment_errors()
+                return False
+            except requests.ConnectionError as e:
+                logger.warning(f"Connection error testing payload on {base_url}: {e}")
+                self.performance_monitor.increment_errors()
+                return False
+            except requests.RequestException as e:
+                logger.error(f"Request error testing payload on {base_url}: {e}")
+                self.performance_monitor.increment_errors()
+                return False
             
             # Analyze response for vulnerability indicators
             vulnerability_detected = self.analyze_response_for_vulnerability(
@@ -2945,6 +3356,9 @@ class SmartCrawler:
             )
             
             if vulnerability_detected:
+                # Incrementa contatore vulnerabilità
+                self.performance_monitor.increment_vulnerabilities()
+
                 # Record successful test
                 test_result = {
                     'endpoint': endpoint['url'],
@@ -2957,9 +3371,9 @@ class SmartCrawler:
                     'timestamp': time.strftime('%H:%M:%S'),
                     'confidence': 85 if bypass else 75
                 }
-                
+
                 self.results['vulnerability_test_results'].append(test_result)
-                
+
                 # ✅ SALVA IMMEDIATAMENTE SU FILE CON TUTTI I DETTAGLI
                 self.vuln_logger.log_vulnerability(
                     endpoint=endpoint['url'],
@@ -2967,34 +3381,44 @@ class SmartCrawler:
                     payload=payload,
                     vulnerability_type=vuln_type,  # XSS, SQLI, LFI, RCE, etc.
                     bypass_used=bypass['type'] if bypass else None,
-                    response_status=response. status_code,
+                    response_status=response.status_code,
                     response_length=len(response.content),
                     method=request_params['method'],  # Passa il metodo reale utilizzato
                     headers=dict(response.request.headers),  # Usa gli header della richiesta effettiva
                     confidence=85 if bypass else 75
                 )
-                
+
                 if self.verbose:
                     bypass_info = f" with {bypass['type']}" if bypass else ""
                     print(f"      🚨 VULNERABILITY DETECTED{bypass_info}!")
-                    print(f"         Type: {vuln_type. upper()}")
+                    print(f"         Type: {vuln_type.upper()}")
                     print(f"         Payload: {payload[:50]}{'...' if len(payload) > 50 else ''}")
                     print(f"         Status: {response.status_code}, Length: {len(response.content)}")
                     print(f"         Method: {endpoint.get('method', 'GET')}")
                     print(f"         📁 Saved to: {self.vuln_logger.get_output_dir()}")
-                
+
                 return True
-            
+
             elif self.verbose:
                 bypass_info = f" + {bypass['type']}" if bypass else ""
                 print(f"      ⚪ {payload[:30]}{'...' if len(payload) > 30 else ''}{bypass_info} → {response.status_code}")
-            
+
             return False
-            
-        except Exception as e: 
+
+        except Exception as e:
+            logger.error(f"Unexpected error in test_single_payload: {e}", exc_info=True)
+            self.performance_monitor.increment_errors()
             if self.verbose:
                 print(f"      ❌ Error testing payload: {e}")
             return False
+
+        finally:
+            # ✅ CLEANUP: Chiudi response object per evitare memory leak
+            if response is not None:
+                try:
+                    response.close()
+                except:
+                    pass
             
     def analyze_response_for_vulnerability(self, response, payload, vuln_type, bypass):
         """
