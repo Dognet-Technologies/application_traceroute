@@ -61,6 +61,24 @@ except ImportError:
     ADVANCED_MODULES_AVAILABLE = False
     print("⚠️  Advanced modules not available - using standard tests only")
 
+# Import Suite modules for causal inference
+import sys
+from pathlib import Path
+SUITE_PATH = Path(__file__).parent.parent / 'Suite'
+sys.path.insert(0, str(SUITE_PATH.parent))
+
+try:
+    from Suite.core.graph.causal_graph import CausalSecurityGraph
+    from Suite.core.graph.causal_node import NodeType
+    from Suite.core.graph.causal_edge import CausalityType
+    from Suite.core.correlation.hybrid_correlator import HybridCorrelationEngine, CorrelationType
+    from Suite.core.validation.bayesian_validator import BayesianBypassValidator, ValidationResult
+    from Suite.core.behavioral.differential_analyzer import DifferentialCausalAnalyzer
+    SUITE_MODULES_AVAILABLE = True
+except ImportError as e:
+    SUITE_MODULES_AVAILABLE = False
+    print(f"⚠️  Suite modules not available: {e}")
+
 # Suppress SSL warnings for security testing
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
@@ -5282,28 +5300,183 @@ APPLICATION STACK TRACEROUTE v3.5-Dev - INTELLIGENT RECONSTRUCTION
 class ApplicationTraceroute:
     """
     Main orchestrator for the complete analysis workflow.
+    Enhanced with Suite causal inference modules.
     """
-    
-    def __init__(self, target_url: str, forbidden_endpoint: Optional[str] = None, 
+
+    def __init__(self, target_url: str, forbidden_endpoint: Optional[str] = None,
                  skip_forbidden_tests: bool = False):
         self.target_url = target_url.rstrip('/')
         self.forbidden_endpoint = forbidden_endpoint
         self.skip_forbidden_tests = skip_forbidden_tests
-        
+
         # Initialize session
         self.session = requests.Session()
         self.session.verify = False
-        
+
         # Components
         self.stack_analyzer = ProgressiveStackAnalyzer(target_url)
         self.stack_analyzer.session = self.session  # Share session
-        
+
         self.forbidden_finder = ForbiddenEndpointFinder(target_url, self.session)
         self.discrepancy_tester = None
         self.bypass_generator = None
         self.bypass_validator = None
         self.report_generator = None
-    
+
+        # Suite Causal Inference modules
+        self.causal_graph = None
+        self.correlation_engine = None
+        self.bayesian_validator = None
+        self.differential_analyzer = None
+
+        if SUITE_MODULES_AVAILABLE:
+            self._init_suite_modules()
+
+    def _init_suite_modules(self):
+        """Initialize Suite causal inference modules."""
+        try:
+            # Causal Graph for modeling infrastructure relationships
+            self.causal_graph = CausalSecurityGraph()
+
+            # Correlation Engine for finding relationships between findings
+            self.correlation_engine = HybridCorrelationEngine()
+
+            # Bayesian Validator for intelligent bypass testing
+            self.bayesian_validator = BayesianBypassValidator()
+
+            # Differential Analyzer for behavioral analysis
+            self.differential_analyzer = DifferentialCausalAnalyzer()
+
+            print("  ✅ Suite causal inference modules initialized")
+        except Exception as e:
+            print(f"  ⚠️ Failed to initialize Suite modules: {e}")
+            self.causal_graph = None
+            self.correlation_engine = None
+            self.bayesian_validator = None
+            self.differential_analyzer = None
+
+    def _build_causal_graph_from_stack(self):
+        """Build causal graph from discovered stack layers."""
+        if not self.causal_graph or not self.stack_analyzer.stack['layers']:
+            return
+
+        layers = self.stack_analyzer.stack['layers']
+
+        # Add nodes for each layer
+        for i, layer in enumerate(layers):
+            layer_id = f"layer_{i}_{layer.get('type', 'unknown')}"
+            self.causal_graph.add_node(
+                layer_id,
+                NodeType.INFRASTRUCTURE,
+                layer.get('name', f"Layer {i}")
+            )
+
+            # Add observations from confidence scores
+            if 'confidence' in layer:
+                self.causal_graph.nodes[layer_id].add_observation(
+                    layer['confidence'] * 100,
+                    time.time()
+                )
+
+        # Add edges between consecutive layers (causal chain)
+        for i in range(len(layers) - 1):
+            src_id = f"layer_{i}_{layers[i].get('type', 'unknown')}"
+            dst_id = f"layer_{i+1}_{layers[i+1].get('type', 'unknown')}"
+
+            # Calculate edge strength from confidence
+            src_conf = layers[i].get('confidence', 0.5)
+            dst_conf = layers[i+1].get('confidence', 0.5)
+            strength = min(src_conf, dst_conf)
+
+            self.causal_graph.add_edge(
+                src_id, dst_id,
+                CausalityType.DIRECT,
+                strength
+            )
+
+        print(f"    ✅ Causal graph built: {self.causal_graph.node_count} nodes, {self.causal_graph.edge_count} edges")
+
+    def _run_bayesian_bypass_validation(self, bypasses: List) -> List:
+        """
+        Use Bayesian validator for intelligent bypass testing.
+        Uses Thompson Sampling to prioritize promising bypasses.
+        """
+        if not self.bayesian_validator or not bypasses:
+            return []
+
+        print("\n  📊 Running Bayesian Bypass Validation...")
+
+        validated = []
+        max_tests = min(len(bypasses) * 2, 50)  # Cap total tests
+
+        # Add all bypass candidates
+        for i, bypass in enumerate(bypasses):
+            bypass_type = bypass.get('type', 'unknown')
+            payload = bypass.get('payload', bypass.get('url', ''))
+            self.bayesian_validator.add_candidate(
+                f"bypass_{i}",
+                bypass_type,
+                str(payload)[:200]
+            )
+
+        # Thompson Sampling based testing
+        tests_done = 0
+        while tests_done < max_tests:
+            # Select next bypass using Thompson Sampling
+            selected = self.bayesian_validator.select_next_exploit_thompson()
+            if not selected:
+                break
+
+            # Find the original bypass data
+            bypass_idx = int(selected.exploit_id.split('_')[1])
+            if bypass_idx >= len(bypasses):
+                break
+
+            bypass = bypasses[bypass_idx]
+            url = bypass.get('url', self.forbidden_endpoint)
+
+            # Test the bypass
+            try:
+                response = self.session.get(url, timeout=10, allow_redirects=False)
+                status = response.status_code
+
+                # Determine result
+                if status in [200, 201, 301, 302]:
+                    result = ValidationResult.SUCCESS
+                    bypass['validated'] = True
+                    bypass['validation_status'] = status
+                    validated.append(bypass)
+                elif status in [403, 401]:
+                    result = ValidationResult.FAILURE
+                else:
+                    result = ValidationResult.PARTIAL
+
+                # Record result for Bayesian update
+                self.bayesian_validator.record_result(
+                    selected.exploit_id,
+                    url,
+                    result,
+                    status,
+                    0.5
+                )
+
+            except Exception as e:
+                self.bayesian_validator.record_result(
+                    selected.exploit_id,
+                    url,
+                    ValidationResult.ERROR,
+                    0,
+                    0.0
+                )
+
+            tests_done += 1
+
+        summary = self.bayesian_validator.get_summary()
+        print(f"    ✅ Bayesian validation: {summary.total_attempts} tests, {len(validated)} successful")
+        print(f"    📈 Success rate: {summary.success_rate:.1%}")
+
+        return validated
+
     async def run_full_analysis(self):
         """Run complete analysis workflow"""
         print("\n" + "=" * 80)
@@ -5335,7 +5508,11 @@ class ApplicationTraceroute:
         
         # 2c: Correlate Stack
         self.stack_analyzer.correlate_stack()
-        
+
+        # 2d: Build Causal Graph (Suite Integration)
+        if SUITE_MODULES_AVAILABLE and self.causal_graph:
+            self._build_causal_graph_from_stack()
+
         # Phase 3: Discrepancy Testing
         if self.forbidden_endpoint and not self.skip_forbidden_tests:
             self.discrepancy_tester = DiscrepancyTester(
@@ -5359,7 +5536,16 @@ class ApplicationTraceroute:
         # Phase 5: Bypass Validation
         self.bypass_validator = BypassValidator(bypasses, self.session)
         validated_bypasses = self.bypass_validator.validate_all()
-        
+
+        # Phase 5b: Bayesian Bypass Validation (Suite Integration)
+        if SUITE_MODULES_AVAILABLE and self.bayesian_validator and bypasses:
+            bayesian_validated = self._run_bayesian_bypass_validation(bypasses)
+            # Merge results (avoid duplicates)
+            existing_urls = {b.get('url') for b in validated_bypasses}
+            for bv in bayesian_validated:
+                if bv.get('url') not in existing_urls:
+                    validated_bypasses.append(bv)
+
         # Phase 6: Report Generation
         self.report_generator = ReportGenerator(
             self.target_url,

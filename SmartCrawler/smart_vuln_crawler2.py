@@ -60,6 +60,22 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     logger.warning("psutil not available - performance monitoring will be limited")
 
+# Import Suite modules for adaptive taxonomy
+import sys
+from pathlib import Path
+SUITE_PATH = Path(__file__).parent.parent / 'Suite'
+sys.path.insert(0, str(SUITE_PATH.parent))
+
+try:
+    from Suite.modules.taxonomy.adaptive_taxonomy import SelfLearningTaxonomy
+    from Suite.core.graph.causal_graph import CausalSecurityGraph
+    from Suite.core.graph.causal_node import NodeType
+    from Suite.core.graph.causal_edge import CausalityType
+    SUITE_MODULES_AVAILABLE = True
+except ImportError as e:
+    SUITE_MODULES_AVAILABLE = False
+    logger.warning(f"Suite modules not available: {e}")
+
 
 class RateLimiter:
     """
@@ -2131,9 +2147,77 @@ class SmartCrawler:
             'emails': [],
             'potential_vulnerabilities': defaultdict(list),
             'vulnerability_test_results': [],  # Store immediate test results
-            'behavioral_analysis_results': []  # Store behavioral analysis results
+            'behavioral_analysis_results': [],  # Store behavioral analysis results
+            'taxonomy_classifications': []  # Store Suite taxonomy classifications
         }
-    
+
+        # Initialize Suite modules
+        self.taxonomy = None
+        self.causal_graph = None
+        if SUITE_MODULES_AVAILABLE:
+            self._init_suite_modules()
+
+    def _init_suite_modules(self):
+        """Initialize Suite causal inference modules."""
+        try:
+            # Self-learning taxonomy for vulnerability classification
+            self.taxonomy = SelfLearningTaxonomy()
+
+            # Causal graph for modeling vulnerability relationships
+            self.causal_graph = CausalSecurityGraph()
+
+            logger.info("Suite causal inference modules initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Suite modules: {e}")
+            self.taxonomy = None
+            self.causal_graph = None
+
+    def classify_vulnerability(self, vuln_data: dict) -> Optional[dict]:
+        """
+        Classify a vulnerability using the self-learning taxonomy.
+
+        Args:
+            vuln_data: Vulnerability data with 'type', 'payload', 'url', etc.
+
+        Returns:
+            Classification result with category, confidence, and path
+        """
+        if not self.taxonomy:
+            return None
+
+        try:
+            payload = vuln_data.get('payload', '')
+            vuln_type = vuln_data.get('type', 'unknown')
+
+            # Classify using the taxonomy
+            result = self.taxonomy.classify(payload)
+
+            classification = {
+                'original_type': vuln_type,
+                'classified_category': result.node_name,
+                'confidence': result.confidence,
+                'taxonomy_path': result.path,
+                'payload': payload[:100],
+                'url': vuln_data.get('url', '')
+            }
+
+            # Store classification
+            self.results['taxonomy_classifications'].append(classification)
+
+            # Add to causal graph if available
+            if self.causal_graph:
+                node_id = f"vuln_{len(self.results['taxonomy_classifications'])}"
+                self.causal_graph.add_node(
+                    node_id,
+                    NodeType.VULNERABILITY,
+                    result.node_name
+                )
+
+            return classification
+        except Exception as e:
+            logger.debug(f"Failed to classify vulnerability: {e}")
+            return None
+
     def set_bypass_manager(self, bypass_manager):
         """Set the bypass manager for the crawler"""
         self.bypass_manager = bypass_manager
@@ -3638,6 +3722,17 @@ class SmartCrawler:
                 }
 
                 self.results['vulnerability_test_results'].append(test_result)
+
+                # Classify vulnerability using Suite taxonomy
+                if SUITE_MODULES_AVAILABLE and self.taxonomy:
+                    classification = self.classify_vulnerability({
+                        'type': vuln_type,
+                        'payload': payload,
+                        'url': endpoint['url'],
+                        'parameter': param_name
+                    })
+                    if classification:
+                        test_result['taxonomy_classification'] = classification
 
                 # ✅ SALVA IMMEDIATAMENTE SU FILE CON TUTTI I DETTAGLI
                 self.vuln_logger.log_vulnerability(
