@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Security Testing Suite - CLI Entry Point
+Security Testing Suite v4.0 - CLI Entry Point
+Interactive security testing with Application Traceroute and SmartCrawler.
 """
 
 import sys
@@ -9,7 +10,7 @@ import os
 # Add project to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from Suite.cli.orchestrator import main
+from security_suite_cli import main
 
 if __name__ == '__main__':
-    sys.exit(main())
+    main()
