@@ -649,7 +649,9 @@ class DifferentialCausalAnalyzer:
         baseline: Dict[str, float]
     ) -> List[PerturbationResult]:
         """
-        Detect anomalies using KL-divergence.
+        Detect anomalies using statistical deviation.
+
+        Uses Z-score based detection which is deterministic and mathematically sound.
 
         Args:
             results: Perturbation results
@@ -660,28 +662,23 @@ class DifferentialCausalAnalyzer:
         """
         anomalies = []
 
-        # Build distributions
-        baseline_times = np.random.normal(
-            baseline['response_time_mean'],
-            max(baseline['response_time_std'], 0.001),
-            100
-        )
+        baseline_mean = baseline['response_time_mean']
+        baseline_std = max(baseline['response_time_std'], 1e-10)
 
         for result in results:
             if result.is_anomalous:
                 anomalies.append(result)
                 continue
 
-            # KL divergence check
+            # Z-score based anomaly detection (deterministic)
             if result.response_time > 0:
-                perturbed_sample = np.array([result.response_time] * 10 +
-                                           list(np.random.normal(result.response_time, 0.01, 90)))
+                z_score = abs(result.response_time - baseline_mean) / baseline_std
 
-                kl_div = self._kl_divergence(baseline_times, perturbed_sample)
-
-                if kl_div > self.kl_threshold:
+                # High z-score indicates anomaly (>2.5 corresponds to ~99% CI)
+                if z_score > 2.5:
                     result.is_anomalous = True
-                    result.anomaly_score = max(result.anomaly_score, kl_div)
+                    # Normalize score to reasonable range
+                    result.anomaly_score = max(result.anomaly_score, min(z_score / 5, 2.0))
                     anomalies.append(result)
 
         logger.debug(f"Detected {len(anomalies)} anomalies")
@@ -732,22 +729,49 @@ class DifferentialCausalAnalyzer:
         results: List[PerturbationResult],
         baseline: Dict[str, float]
     ) -> float:
-        """Calculate overall KL divergence between baseline and perturbed distributions."""
+        """
+        Calculate overall KL divergence between baseline and perturbed distributions.
+
+        Uses closed-form KL divergence for normal distributions (deterministic).
+
+        KL(P||Q) = log(σ_q/σ_p) + (σ_p² + (μ_p - μ_q)²)/(2σ_q²) - 1/2
+
+        Args:
+            results: Perturbation results
+            baseline: Baseline statistics
+
+        Returns:
+            KL divergence value (symmetric average)
+        """
         if not results:
             return 0.0
-
-        baseline_times = np.random.normal(
-            baseline['response_time_mean'],
-            max(baseline['response_time_std'], 0.001),
-            100
-        )
 
         perturbed_times = np.array([r.response_time for r in results if r.response_time > 0])
 
         if len(perturbed_times) < 10:
             return 0.0
 
-        return self._kl_divergence(baseline_times, perturbed_times)
+        # Baseline distribution parameters
+        mu_p = baseline['response_time_mean']
+        sigma_p = max(baseline['response_time_std'], 1e-10)
+
+        # Perturbed distribution parameters (empirical)
+        mu_q = float(np.mean(perturbed_times))
+        sigma_q = max(float(np.std(perturbed_times)), 1e-10)
+
+        # Closed-form KL divergence for Gaussians
+        # KL(P||Q) where P=baseline, Q=perturbed
+        kl_pq = np.log(sigma_q / sigma_p) + \
+                (sigma_p**2 + (mu_p - mu_q)**2) / (2 * sigma_q**2) - 0.5
+
+        # KL(Q||P)
+        kl_qp = np.log(sigma_p / sigma_q) + \
+                (sigma_q**2 + (mu_q - mu_p)**2) / (2 * sigma_p**2) - 0.5
+
+        # Symmetric KL (Jensen-Shannon like)
+        symmetric_kl = (kl_pq + kl_qp) / 2
+
+        return max(0.0, float(symmetric_kl))
 
     def _save_results(self, result: AnalysisResult, results_dir: Path) -> None:
         """Save analysis results to file."""

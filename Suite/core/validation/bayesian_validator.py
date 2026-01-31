@@ -48,8 +48,8 @@ class ExploitCandidate:
     payload: str
     alpha: float = 1.0
     beta: float = 1.0
-    successes: int = 0
-    failures: int = 0
+    successes: float = 0.0  # Float to support partial successes
+    failures: float = 0.0   # Float for consistency
     last_tested: float = 0.0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
