@@ -187,8 +187,15 @@ class SecuritySuite:
         print("=" * 60)
 
         try:
-            # Try to import the module
-            from application_traceroute_v3_5 import ApplicationTraceroute
+            # Import module using importlib (file has dot in name)
+            import importlib.util
+            script_path = SCRIPT_DIR / 'Application_tracereout_3.5' / 'application_traceroute_v3.5.py'
+
+            spec = importlib.util.spec_from_file_location("application_traceroute", str(script_path))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            ApplicationTraceroute = module.ApplicationTraceroute
 
             tracer = ApplicationTraceroute(
                 self.target_url,
@@ -202,14 +209,10 @@ class SecuritySuite:
             self.last_traceroute_completed = True
             print("\nApplication Traceroute completed successfully!")
 
-        except ImportError as e:
-            print(f"Import error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
             print("Trying to run script directly...")
             self._run_traceroute_subprocess()
-        except Exception as e:
-            print(f"Error running traceroute: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _run_traceroute_subprocess(self):
         """Run traceroute by executing the script directly."""
