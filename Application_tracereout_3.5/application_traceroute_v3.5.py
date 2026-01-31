@@ -5373,10 +5373,12 @@ class ApplicationTraceroute:
 
             # Add observations from confidence scores
             if 'confidence' in layer:
-                self.causal_graph.nodes[layer_id].add_observation(
-                    layer['confidence'] * 100,
-                    time.time()
-                )
+                node = self.causal_graph.get_node(layer_id)
+                if node:
+                    node.add_observation(
+                        layer['confidence'] * 100,
+                        time.time()
+                    )
 
         # Add edges between consecutive layers (causal chain)
         for i in range(len(layers) - 1):
