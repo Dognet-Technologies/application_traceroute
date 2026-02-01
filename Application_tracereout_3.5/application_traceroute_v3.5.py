@@ -2224,33 +2224,73 @@ class ForbiddenEndpointFinder:
         ]
         
         print(f"  🔎 Testing {len(common_paths)} common forbidden paths...")
-        
+
+        # Track response codes for debugging
+        response_counts = {}
+        tested_count = 0
+        redirect_candidates = []  # Endpoints that redirect to login
+
         for path in common_paths:
             url = self.target_url + path
-            if self._is_truly_forbidden(url):
-                print(f"  ✅ Found forbidden endpoint: {path}")
+            result = self._check_endpoint(url)
+            tested_count += 1
+
+            if result:
+                status_code, location = result
+                response_counts[status_code] = response_counts.get(status_code, 0) + 1
+
+                # True forbidden: 401/403
+                if status_code in [401, 403]:
+                    print(f"  ✅ Found forbidden endpoint: {path} (HTTP {status_code})")
+                    return url
+
+                # Track login redirects as potential candidates
+                if status_code in [301, 302, 307, 308] and location:
+                    if any(kw in location.lower() for kw in ['login', 'auth', 'signin', 'sso']):
+                        redirect_candidates.append((path, location))
+
+            # Show progress every 50 paths
+            if tested_count % 50 == 0:
+                print(f"    ... tested {tested_count}/{len(common_paths)} paths")
+
+        # Summary of responses
+        if response_counts:
+            summary = ', '.join([f"{code}: {count}" for code, count in sorted(response_counts.items())])
+            print(f"  📊 Response summary: {summary}")
+
+        # If no 403/401 found, try redirect-to-login endpoints
+        if redirect_candidates:
+            print(f"  🔄 No 403/401 found, trying {len(redirect_candidates)} redirect-to-login endpoints...")
+            for path, location in redirect_candidates[:5]:  # Try first 5
+                url = self.target_url + path
+                print(f"  ✅ Using redirect-protected endpoint: {path} (redirects to {location})")
                 return url
-        
+
         print("  ⚠️ No forbidden endpoint found - bypass testing will be limited")
+        print("  💡 Tip: Use --forbidden-endpoint to specify a protected path manually")
         return None
-    
-    def _is_truly_forbidden(self, url: str) -> bool:
-        """Check if URL returns true 403/401 (not redirect)"""
+
+    def _check_endpoint(self, url: str) -> Optional[tuple]:
+        """Check endpoint and return (status_code, location) or None on error"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
             }
-            
+
             response = self.session.get(url, headers=headers, timeout=5, allow_redirects=False)
-            
-            # True forbidden: 401/403 without redirect
-            if response.status_code in [401, 403] and response.status_code != 302:
-                return True
-            
-            return False
-        except:
-            return False
+            location = response.headers.get('Location', '')
+            return (response.status_code, location)
+        except Exception:
+            return None
+
+    def _is_truly_forbidden(self, url: str) -> bool:
+        """Check if URL returns true 403/401 (not redirect)"""
+        result = self._check_endpoint(url)
+        if result:
+            status_code, _ = result
+            return status_code in [401, 403]
+        return False
 
 
 class DiscrepancyTester:

@@ -1,0 +1,67 @@
+# SmartCrawler Configuration File
+# Copy this file to ~/.smartcrawler/config.yaml for user-specific settings
+
+# Wordlist paths - uncomment and modify as needed
+wordlists:
+  # Base directory for wordlists (SecLists, fuzzdb, PayloadsAllTheThings)
+  # base_path: /home/user/wordlists
+
+  # Individual wordlist sources
+  seclists: /usr/share/wordlists/SecLists
+  fuzzdb: /usr/share/wordlists/fuzzdb
+  payloads: /usr/share/wordlists/PayloadsAllTheThings
+
+  # Custom wordlist directory (optional)
+  # custom: /path/to/custom/wordlists
+
+# Crawler settings
+crawler:
+  # Maximum crawl depth
+  max_depth: 3
+
+  # Maximum pages to crawl
+  max_pages: 1000
+
+  # Request timeout in seconds
+  timeout: 10
+
+  # Delay between requests (seconds) - for rate limiting
+  request_delay: 0.1
+
+  # Maximum concurrent threads for discovery
+  max_workers: 10
+
+  # User agent rotation
+  rotate_user_agent: true
+
+# Vulnerability testing
+testing:
+  # Maximum payloads to test per parameter
+  max_payloads_per_param: 20
+
+  # Skip testing if confidence below this threshold
+  min_confidence: 30
+
+  # Test only first occurrence of each parameter (deduplication)
+  deduplicate_params: true
+
+# Output settings
+output:
+  # Default output directory
+  results_dir: results
+
+  # Verbose logging
+  verbose: false
+
+  # Export formats: json, txt, html
+  formats:
+    - json
+    - txt
+
+# Authentication (optional)
+# auth:
+#   type: cookie  # basic, bearer, cookie, form
+#   cookies: "PHPSESSID=xxx;security=low"
+#   # Or for basic auth:
+#   # username: admin
+#   # password: password123

@@ -41,6 +41,13 @@ import os
 import itertools
 from functools import lru_cache
 
+# YAML for configuration file
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+
 # Disabilita SSL warnings per security testing
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -75,6 +82,125 @@ try:
 except ImportError as e:
     SUITE_MODULES_AVAILABLE = False
     logger.warning(f"Suite modules not available: {e}")
+
+
+class ConfigManager:
+    """
+    Gestisce la configurazione di SmartCrawler da file YAML.
+
+    Cerca la configurazione in questi percorsi (in ordine di priorità):
+    1. ./config.yaml (directory corrente)
+    2. ./SmartCrawler/config.yaml
+    3. ~/.smartcrawler/config.yaml
+    4. /etc/smartcrawler/config.yaml
+    """
+
+    DEFAULT_CONFIG = {
+        'wordlists': {
+            'seclists': '/usr/share/wordlists/SecLists',
+            'fuzzdb': '/usr/share/wordlists/fuzzdb',
+            'payloads': '/usr/share/wordlists/PayloadsAllTheThings',
+        },
+        'crawler': {
+            'max_depth': 3,
+            'max_pages': 1000,
+            'timeout': 10,
+            'request_delay': 0.1,
+            'max_workers': 10,
+            'rotate_user_agent': True,
+        },
+        'testing': {
+            'max_payloads_per_param': 20,
+            'min_confidence': 30,
+            'deduplicate_params': True,
+        },
+        'output': {
+            'results_dir': 'results',
+            'verbose': False,
+            'formats': ['json', 'txt'],
+        }
+    }
+
+    CONFIG_PATHS = [
+        Path('./config.yaml'),
+        Path('./SmartCrawler/config.yaml'),
+        Path.home() / '.smartcrawler' / 'config.yaml',
+        Path('/etc/smartcrawler/config.yaml'),
+    ]
+
+    def __init__(self):
+        self.config = self.DEFAULT_CONFIG.copy()
+        self.config_file = None
+        self._load_config()
+
+    def _load_config(self):
+        """Carica la configurazione dal primo file trovato."""
+        if not YAML_AVAILABLE:
+            logger.debug("PyYAML not installed, using default configuration")
+            return
+
+        for config_path in self.CONFIG_PATHS:
+            if config_path.exists():
+                try:
+                    with open(config_path, 'r') as f:
+                        user_config = yaml.safe_load(f)
+                        if user_config:
+                            self._merge_config(user_config)
+                            self.config_file = config_path
+                            logger.info(f"Loaded configuration from: {config_path}")
+                            return
+                except Exception as e:
+                    logger.warning(f"Error loading config from {config_path}: {e}")
+
+        logger.debug("No config file found, using defaults")
+
+    def _merge_config(self, user_config: dict):
+        """Merge user config with defaults (deep merge)."""
+        for key, value in user_config.items():
+            if key in self.config and isinstance(self.config[key], dict) and isinstance(value, dict):
+                self.config[key].update(value)
+            else:
+                self.config[key] = value
+
+    def get(self, *keys, default=None):
+        """
+        Get a configuration value by key path.
+
+        Example: config.get('wordlists', 'seclists')
+        """
+        value = self.config
+        for key in keys:
+            if isinstance(value, dict) and key in value:
+                value = value[key]
+            else:
+                return default
+        return value
+
+    def get_wordlist_paths(self) -> dict:
+        """Get all wordlist paths as a dictionary."""
+        wordlists = self.config.get('wordlists', {})
+
+        # Handle base_path shortcut
+        base_path = wordlists.get('base_path')
+        if base_path:
+            return {
+                'seclists': os.path.join(base_path, 'SecLists'),
+                'fuzzdb': os.path.join(base_path, 'fuzzdb'),
+                'payloads': os.path.join(base_path, 'PayloadsAllTheThings'),
+            }
+
+        return {
+            'seclists': wordlists.get('seclists', self.DEFAULT_CONFIG['wordlists']['seclists']),
+            'fuzzdb': wordlists.get('fuzzdb', self.DEFAULT_CONFIG['wordlists']['fuzzdb']),
+            'payloads': wordlists.get('payloads', self.DEFAULT_CONFIG['wordlists']['payloads']),
+        }
+
+    def __repr__(self):
+        return f"ConfigManager(file={self.config_file})"
+
+
+# Global configuration instance
+CONFIG = ConfigManager()
 
 
 class RateLimiter:
@@ -2213,14 +2339,11 @@ class SmartCrawler:
         # Initialize components
         self.tech_detector = TechnologyDetector()
         self.param_analyzer = ParameterAnalyzer()
-        
-        # Set default base paths
-        self.default_base_paths = {
-            'fuzzdb': '/usr/share/wordlists/fuzzdb',
-            'payloads': '/usr/share/wordlists/PayloadsAllTheThings',
-            'seclists': '/usr/share/wordlists/SecLists'
-        }
-        
+
+        # Set base paths from configuration
+        self.default_base_paths = CONFIG.get_wordlist_paths()
+        logger.info(f"Wordlist paths: {self.default_base_paths}")
+
         self.wordlist_mapper = WordlistMapper(self.default_base_paths)
         self.discovery_mapper = DiscoveryWordlistMapper(self.default_base_paths)
         
