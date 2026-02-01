@@ -107,20 +107,32 @@ def index():
         <h1>Test Server for Security Suite Validation</h1>
         <p>Endpoints disponibili:</p>
         <ul>
-            <li>/public - Accessibile a tutti</li>
-            <li>/admin - Protetto (richiede auth)</li>
-            <li>/api/internal - API interna protetta</li>
-            <li>/config - Configurazione protetta</li>
-            <li>/debug - Debug info protetta</li>
-            <li>/private - Area privata</li>
+            <li><a href="/public">Public</a> - Accessibile a tutti</li>
+            <li><a href="/admin">Admin</a> - Protetto (richiede auth)</li>
+            <li><a href="/api/internal">API Internal</a> - API interna protetta</li>
+            <li><a href="/config">Config</a> - Configurazione protetta</li>
+            <li><a href="/debug">Debug</a> - Debug info protetta</li>
+            <li><a href="/private">Private</a> - Area privata</li>
         </ul>
+        <p><strong>Test form vulnerabile:</strong></p>
+        <form action="/search" method="GET">
+            <input type="text" name="q" placeholder="Search...">
+            <input type="hidden" name="debug" value="false">
+            <button type="submit">Search</button>
+        </form>
+        <form action="/login" method="POST">
+            <input type="text" name="username" placeholder="Username">
+            <input type="password" name="password" placeholder="Password">
+            <button type="submit">Login</button>
+        </form>
         <p><strong>Bypass intenzionali per testing:</strong></p>
         <ul>
-            <li>Case sensitivity bypass (/Admin vs /admin)</li>
-            <li>Path normalization (//admin, /./admin)</li>
-            <li>Header injection (X-Original-URL)</li>
-            <li>URL encoding (%2fadmin)</li>
+            <li><a href="/Admin">Case bypass: /Admin</a></li>
+            <li><a href="/admin/">Trailing slash: /admin/</a></li>
+            <li><a href="//admin">Double slash: //admin</a></li>
         </ul>
+        <!-- TODO: remove debug endpoint before production -->
+        <!-- DEBUG: admin password is admin123 -->
     </body>
     </html>
     """, mimetype='text/html')
@@ -131,6 +143,76 @@ def index():
 def public():
     """Endpoint pubblico."""
     resp = Response('{"status": "ok", "public": true}', mimetype='application/json')
+    return add_stack_headers(resp)
+
+
+@app.route('/search')
+def search():
+    """Search endpoint - VULNERABILE a XSS e SQL injection (intenzionale)."""
+    query = request.args.get('q', '')
+    debug = request.args.get('debug', 'false')
+
+    # VULNERABILITA XSS: riflette input non sanitizzato
+    resp = Response(f"""
+    <html>
+    <head><title>Search Results</title></head>
+    <body>
+        <h1>Search Results for: {query}</h1>
+        <p>Debug mode: {debug}</p>
+        <p>No results found for your query.</p>
+        <a href="/">Back to home</a>
+    </body>
+    </html>
+    """, mimetype='text/html')
+    return add_stack_headers(resp)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login endpoint - VULNERABILE a SQL injection (intenzionale)."""
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password = request.form.get('password', '')
+
+        # VULNERABILITA: SQL injection simulation
+        # In un vero scenario: SELECT * FROM users WHERE username='{username}' AND password='{password}'
+        if "'" in username or "'" in password or "OR" in username.upper():
+            # Simula bypass SQL injection
+            resp = Response(f"""
+            <html>
+            <body>
+                <h1>SQL Injection Detected!</h1>
+                <p>Your payload: {username}</p>
+                <p>In a real scenario, you would have bypassed authentication!</p>
+                <p>Secret data: DATABASE_PASSWORD=supersecret123</p>
+            </body>
+            </html>
+            """, mimetype='text/html')
+            resp.headers['X-Vulnerability'] = 'SQL-Injection'
+            return add_stack_headers(resp)
+
+        if username == 'admin' and password == 'admin123':
+            resp = Response('{"status": "success", "token": "secret-admin-token-xyz"}',
+                          mimetype='application/json')
+            return add_stack_headers(resp)
+
+        resp = Response('{"status": "error", "message": "Invalid credentials"}',
+                       status=401, mimetype='application/json')
+        return add_stack_headers(resp)
+
+    # GET request - show login form
+    resp = Response("""
+    <html>
+    <body>
+        <h1>Login</h1>
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username"><br>
+            <input type="password" name="password" placeholder="Password"><br>
+            <button type="submit">Login</button>
+        </form>
+    </body>
+    </html>
+    """, mimetype='text/html')
     return add_stack_headers(resp)
 
 
