@@ -123,7 +123,9 @@ class SecuritySuite:
             'rate_limit': 3.0,
             'timeout': 30,
             'verbose': True,
-            'save_results': True
+            'save_results': True,
+            'wordlist_base': '/usr/share/wordlists',
+            'auto_find_forbidden': True
         }
 
     def prompt(self, message: str, default: str = "") -> str:
@@ -197,10 +199,14 @@ class SecuritySuite:
 
             ApplicationTraceroute = module.ApplicationTraceroute
 
+            # Se auto_find_forbidden è True e l'utente non ha specificato un endpoint,
+            # NON skippiamo i test - lasciamo che ForbiddenEndpointFinder cerchi automaticamente
+            skip_tests = not self.settings['auto_find_forbidden'] and not self.forbidden_endpoint
+
             tracer = ApplicationTraceroute(
                 self.target_url,
                 forbidden_endpoint=self.forbidden_endpoint,
-                skip_forbidden_tests=not self.forbidden_endpoint
+                skip_forbidden_tests=skip_tests
             )
 
             # Run analysis
@@ -262,7 +268,8 @@ class SecuritySuite:
                 sys.executable, str(script_path),
                 self.target_url,
                 '--output', str(output_file),
-                '--max-pages', '50'
+                '--max-pages', '50',
+                '--wordlist-base', self.settings['wordlist_base']
             ]
 
             print(f"Running: {' '.join(cmd)}\n")
@@ -283,15 +290,19 @@ class SecuritySuite:
         """Show and modify settings."""
         while True:
             clear_screen()
-            print("\n" + "=" * 40)
+            print("\n" + "=" * 50)
             print("SETTINGS")
-            print("=" * 40)
+            print("=" * 50)
 
             print(f"\n  [1] Rate Limit: {self.settings['rate_limit']} req/s")
             print(f"  [2] Timeout: {self.settings['timeout']}s")
             print(f"  [3] Verbose: {self.settings['verbose']}")
             print(f"  [4] Save Results: {self.settings['save_results']}")
             print(f"  [5] Results Dir: {self.results_dir}")
+            print(f"\n  --- SmartCrawler ---")
+            print(f"  [6] Wordlist Base Path: {self.settings['wordlist_base']}")
+            print(f"\n  --- Application Traceroute ---")
+            print(f"  [7] Auto-find Forbidden Endpoint: {self.settings['auto_find_forbidden']}")
             print(f"\n  [0] Back to Main Menu")
 
             choice = self.prompt("\nSelect option", "0")
@@ -323,6 +334,23 @@ class SecuritySuite:
                 if val:
                     self.results_dir = Path(val)
                     self.results_dir.mkdir(exist_ok=True)
+            elif choice == "6":
+                print("\n  Common paths:")
+                print("    /usr/share/wordlists")
+                print("    ~/wordlists")
+                print("    /opt/wordlists")
+                val = self.prompt(f"New wordlist base path", self.settings['wordlist_base'])
+                if val:
+                    if os.path.isdir(val):
+                        self.settings['wordlist_base'] = val
+                        print(f"  Wordlist path set to: {val}")
+                    else:
+                        print(f"  Warning: Directory '{val}' doesn't exist, setting anyway")
+                        self.settings['wordlist_base'] = val
+            elif choice == "7":
+                self.settings['auto_find_forbidden'] = not self.settings['auto_find_forbidden']
+                status = "enabled" if self.settings['auto_find_forbidden'] else "disabled"
+                print(f"  Auto-find forbidden endpoint: {status}")
 
     def view_results(self):
         """View saved results."""
