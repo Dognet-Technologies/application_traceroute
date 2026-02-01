@@ -483,30 +483,42 @@ class DifferentialCausalAnalyzer:
         """
         logger.debug("Generating perturbations")
 
-        # Extract a parameter value to perturb, or use path
+        # Extract parameter values to perturb, or use path
         parsed = urlparse(url)
         params = parse_qs(parsed.query)
 
+        # Collect all base values to perturb (all params + path)
+        base_values = []
         if params:
-            # Use first parameter value
-            param_name = list(params.keys())[0]
-            base_value = params[param_name][0]
-        else:
-            # Use path
-            base_value = parsed.path or '/'
+            # Use ALL parameters, not just the first
+            for param_name, values in params.items():
+                for value in values:
+                    base_values.append((param_name, value))
+        if not base_values:
+            # Use path if no params
+            base_values.append(('path', parsed.path or '/'))
 
         perturbations = []
-        per_type = self.n_perturbations // len(self._perturbations)
+        # Distribute perturbations across all base values
+        per_value = max(1, self.n_perturbations // len(base_values))
+        per_type = max(1, per_value // len(self._perturbations))
 
-        for generator in self._perturbations:
-            perturbed_values = generator.apply(base_value)[:per_type]
+        for param_name, base_value in base_values:
+            for generator in self._perturbations:
+                perturbed_values = generator.apply(base_value)[:per_type]
 
-            for perturbed in perturbed_values:
-                perturbations.append((
-                    generator.perturbation_type,
-                    base_value,
-                    perturbed
-                ))
+                for perturbed in perturbed_values:
+                    perturbations.append((
+                        generator.perturbation_type,
+                        base_value,
+                        perturbed
+                    ))
+                    if len(perturbations) >= self.n_perturbations:
+                        break
+                if len(perturbations) >= self.n_perturbations:
+                    break
+            if len(perturbations) >= self.n_perturbations:
+                break
 
         # Ensure exactly n_perturbations
         while len(perturbations) < self.n_perturbations:

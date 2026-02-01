@@ -315,10 +315,11 @@ class HybridCorrelationEngine:
                     co_occurrences += 1
                     break
 
-        if total_events == 0:
+        if total_events == 0 or len(times1) == 0:
             return 0.0
 
-        return co_occurrences / (len(times1) + 0.001)
+        # Proportion of events in times1 that have co-occurring events in times2
+        return co_occurrences / len(times1)
 
     def find_all_correlations(
         self,

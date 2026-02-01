@@ -269,6 +269,8 @@ class SelfLearningTaxonomy:
 
         # Pattern matching
         for node_id, patterns in self._compiled_patterns.items():
+            if not patterns:  # Skip empty pattern lists
+                continue
             match_count = sum(1 for p in patterns if p.search(text))
             if match_count > 0:
                 scores[node_id] = match_count / len(patterns)
@@ -495,8 +497,11 @@ class SelfLearningTaxonomy:
             # Sum TF-IDF scores
             scores = np.array(vectors.sum(axis=0)).flatten()
 
-            # Get feature names
-            feature_names = self._vectorizer.get_feature_names_out()
+            # Get feature names (sklearn >= 1.0 uses get_feature_names_out)
+            try:
+                feature_names = self._vectorizer.get_feature_names_out()
+            except AttributeError:
+                feature_names = self._vectorizer.get_feature_names()
 
             # Top keywords
             top_indices = scores.argsort()[-max_keywords:][::-1]

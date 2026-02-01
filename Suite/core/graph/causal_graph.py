@@ -57,7 +57,7 @@ class CausalSecurityGraph:
     """
 
     # Configuration
-    MAX_CYCLE_DETECTION_DEPTH = 100
+    MAX_CYCLE_DETECTION_DEPTH = 500  # Increased from 100 for deeper graphs
     DEFAULT_EDGE_STRENGTH = 0.5
     PROPAGATION_DECAY = 0.9
 
@@ -230,7 +230,8 @@ class CausalSecurityGraph:
             node_id, depth = stack.pop()
 
             if depth > self._max_cycle_depth:
-                # Depth limit reached, assume no cycle
+                # Depth limit reached, assume no cycle (may miss deep cycles)
+                logger.warning(f"Cycle detection depth limit ({self._max_cycle_depth}) reached")
                 continue
 
             if node_id == source_id:
@@ -365,11 +366,12 @@ class CausalSecurityGraph:
 
             current_path = path + [node_id]
 
-            # Check if this could be a source (has few or no incoming edges)
+            # Check if this is a source (no incoming edges) or near-source
             incoming = self._incoming.get(node_id, set())
-            is_potential_source = len(incoming) <= 1
+            is_true_source = len(incoming) == 0
+            is_near_source = len(incoming) == 1  # Has exactly one predecessor
 
-            if is_potential_source and len(current_path) > 1:
+            if (is_true_source or is_near_source) and len(current_path) > 1:
                 # Found potential source
                 node = self._nodes.get(node_id)
                 explanation = self._generate_explanation(current_path)
@@ -455,9 +457,13 @@ class CausalSecurityGraph:
                         message = beliefs[parent_id] * edge.strength
                         incoming_messages.append(message)
 
-                # Update belief
+                # Update belief using weighted combination
+                # Use max of incoming messages (conservative: strongest evidence)
+                # Alternative: noisy-OR: 1 - prod(1 - msg for msg in incoming_messages)
                 if incoming_messages:
-                    new_belief = np.mean(incoming_messages)
+                    # Noisy-OR combination (probabilistically sound)
+                    new_belief = 1.0 - np.prod([1.0 - msg for msg in incoming_messages])
+                    new_belief = min(1.0, max(0.0, new_belief))  # Clamp to [0, 1]
                     change = abs(new_belief - beliefs[node_id])
                     max_change = max(max_change, change)
                     new_beliefs[node_id] = new_belief

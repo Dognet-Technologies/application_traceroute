@@ -213,15 +213,15 @@ class CausalEdge:
         """
         Update Bayesian posterior for strength.
 
-        Uses Beta-Bernoulli conjugate model where each evidence
-        is treated as a weighted success/failure observation.
+        Uses Beta-Bernoulli conjugate model with binary outcomes.
+        Contribution > 0.5 is treated as success, otherwise failure.
+        This follows standard Bayesian inference: alpha += 1 or beta += 1.
         """
-        # Interpret contribution as probability of success
-        # Add to alpha (successes) or beta (failures)
+        # Binary Bayesian update (standard Beta-Bernoulli)
         if contribution > 0.5:
-            self._alpha += contribution
+            self._alpha += 1.0  # Success observation
         else:
-            self._beta += (1 - contribution)
+            self._beta += 1.0  # Failure observation
 
     def update_strength(self) -> float:
         """
