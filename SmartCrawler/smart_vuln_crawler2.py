@@ -2338,20 +2338,20 @@ class SmartCrawler:
             print(f"🔧 Bypass Manager initialized with {len(bypass_manager.validated_bypasses)} validated bypasses")
             print(f"📊 Technology Stack: {bypass_manager.technology_stack}")
 
-    def should_test_parameter(self, param_name, vuln_type, url=None, max_tests_per_param=3):
+    def should_test_parameter(self, param_name, vuln_type, url=None, max_tests_per_param=1):
         """
         Verifica se un parametro dovrebbe essere testato per una specifica vulnerabilità.
 
-        Questo metodo implementa una deduplicazione intelligente che:
-        - Evita di testare lo stesso parametro per la stessa vulnerabilità su URL diversi
-        - Permette di testare un parametro su un numero limitato di URL diversi
-        - Riduce drasticamente il tempo di scansione evitando test ridondanti
+        Questo metodo implementa una deduplicazione AGGRESSIVA che:
+        - Testa ogni combinazione parametro+vulnerabilità UNA SOLA VOLTA per endpoint
+        - Usa solo il path dell'URL per il confronto (ignora query params e valori)
+        - Evita completamente test ridondanti su listproducts.php?cat=1,2,3,4...
 
         Args:
             param_name: Nome del parametro
             vuln_type: Tipo di vulnerabilità (xss, sqli, lfi, etc.)
             url: URL dove è stato trovato il parametro (opzionale)
-            max_tests_per_param: Numero massimo di URL su cui testare lo stesso parametro (default: 3)
+            max_tests_per_param: Numero massimo di endpoint diversi su cui testare (default: 1)
 
         Returns:
             True se il parametro dovrebbe essere testato, False altrimenti
@@ -2364,30 +2364,32 @@ class SmartCrawler:
 
         # Se non è mai stato testato, testalo
         if key not in self.tested_params_vulns:
+            logger.info(f"🆕 First test for {param_name}/{vuln_type}")
             return True
 
         # Se è stato testato ma non abbiamo l'URL, assumiamo che non debba essere ritestato
         if url is None:
+            logger.info(f"⏭️ Skipping {param_name}/{vuln_type} - no URL provided and already tested")
             return False
 
-        # Normalizza l'URL (rimuove parametri query e fragment per confronto)
+        # Normalizza l'URL - usa SOLO il path senza query/fragment
         parsed = urlparse(url)
-        normalized_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        # Usa solo netloc + path per normalizzazione (ignora scheme per http/https equivalence)
+        normalized_path = f"{parsed.netloc}{parsed.path}".rstrip('/')
 
-        tested_urls = self.tested_params_vulns[key]
+        tested_paths = self.tested_params_vulns[key]
 
-        # Se è già stato testato su questo URL, skippa
-        if normalized_url in tested_urls:
-            if self.verbose:
-                logger.debug(f"⏭️  Skipping {param_name} ({vuln_type}) - already tested on {normalized_url}")
+        # Se è già stato testato su questo path, skippa
+        if normalized_path in tested_paths:
+            logger.info(f"⏭️ Skipping {param_name}/{vuln_type} - already tested on {normalized_path}")
             return False
 
-        # Se è stato testato su troppi URL diversi, skippa (evita loop)
-        if len(tested_urls) >= max_tests_per_param:
-            if self.verbose:
-                logger.debug(f"⏭️  Skipping {param_name} ({vuln_type}) - already tested on {len(tested_urls)} URLs")
+        # Se è stato testato su troppi path diversi, skippa (evita loop)
+        if len(tested_paths) >= max_tests_per_param:
+            logger.info(f"⏭️ Skipping {param_name}/{vuln_type} - already tested on {len(tested_paths)} endpoints (max: {max_tests_per_param})")
             return False
 
+        logger.info(f"✅ Will test {param_name}/{vuln_type} on {normalized_path} (tested on {len(tested_paths)} other endpoints)")
         return True
 
     def mark_parameter_tested(self, param_name, vuln_type, url=None):
@@ -2407,11 +2409,11 @@ class SmartCrawler:
 
         if url:
             parsed = urlparse(url)
-            normalized_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-            self.tested_params_vulns[key].add(normalized_url)
+            # Usa SOLO netloc + path per normalizzazione (stesso formato di should_test_parameter)
+            normalized_path = f"{parsed.netloc}{parsed.path}".rstrip('/')
+            self.tested_params_vulns[key].add(normalized_path)
 
-            if self.verbose:
-                logger.debug(f"✅ Marked {param_name} ({vuln_type}) as tested on {normalized_url}")
+            logger.debug(f"✅ Marked {param_name}/{vuln_type} as tested on {normalized_path}")
 
     def _compile_regex_patterns(self):
         """
