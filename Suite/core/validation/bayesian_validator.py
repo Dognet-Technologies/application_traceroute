@@ -6,6 +6,8 @@ Implements intelligent validation using:
 - UCB algorithm for exploration/exploitation balance
 - Bayesian prior updates based on results
 - Adaptive confidence estimation
+
+Supports reproducible runs via configurable random seed.
 """
 
 import logging
@@ -15,6 +17,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from collections import defaultdict
+
+# Import random generator from config for reproducibility
+try:
+    from Suite.utils.config import get_rng
+except ImportError:
+    # Fallback if config not available
+    def get_rng():
+        return np.random.default_rng()
 
 logger = logging.getLogger('security_suite.bayesian_validator')
 
@@ -70,8 +80,9 @@ class ExploitCandidate:
         return 1.0 / (1.0 + self.variance * 10)
 
     def sample(self) -> float:
-        """Sample from posterior (Thompson Sampling)."""
-        return np.random.beta(self.alpha, self.beta)
+        """Sample from posterior (Thompson Sampling). Uses seeded RNG for reproducibility."""
+        rng = get_rng()
+        return rng.beta(self.alpha, self.beta)
 
     def ucb_score(self, total_trials: int, exploration_weight: float = 2.0) -> float:
         """

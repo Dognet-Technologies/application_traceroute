@@ -535,6 +535,134 @@ class DifferentialCausalAnalyzer:
 
         return perturbations[:self.n_perturbations]
 
+    def _generate_multi_param_perturbations(
+        self,
+        url: str,
+        max_combinations: int = 10
+    ) -> List[Tuple[str, Dict[str, str]]]:
+        """
+        Generate multi-parameter perturbations (perturb multiple params at once).
+
+        Real attacks often combine multiple vectors. This generates combinations
+        of perturbations across different parameters.
+
+        Args:
+            url: Target URL
+            max_combinations: Maximum number of multi-param combinations
+
+        Returns:
+            List of (description, param_dict) tuples for URL reconstruction
+        """
+        from itertools import combinations, product
+
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+
+        if len(params) < 2:
+            # Need at least 2 params for multi-param perturbations
+            return []
+
+        multi_perturbations = []
+
+        # Get perturbation values for each param
+        param_perturbations = {}
+        for param_name, values in list(params.items())[:4]:  # Limit to 4 params
+            base_value = values[0]
+            perturbed = []
+            for generator in self._perturbations[:3]:  # Use first 3 generators
+                perturbed.extend(generator.apply(base_value)[:2])  # 2 per generator
+            param_perturbations[param_name] = perturbed[:3]  # Max 3 perturbations per param
+
+        # Generate 2-parameter combinations
+        param_names = list(param_perturbations.keys())
+        for p1, p2 in combinations(param_names, 2):
+            for v1, v2 in product(param_perturbations[p1][:2], param_perturbations[p2][:2]):
+                if len(multi_perturbations) >= max_combinations:
+                    break
+
+                new_params = dict(params)
+                new_params[p1] = [v1]
+                new_params[p2] = [v2]
+
+                description = f"multi({p1}+{p2})"
+                multi_perturbations.append((description, new_params))
+
+            if len(multi_perturbations) >= max_combinations:
+                break
+
+        logger.debug(f"Generated {len(multi_perturbations)} multi-param perturbations")
+        return multi_perturbations
+
+    def analyze_with_multi_param(
+        self,
+        url: str,
+        include_multi_param: bool = True
+    ) -> AnalysisResult:
+        """
+        Run differential analysis including multi-parameter perturbations.
+
+        This is an enhanced version of analyze() that also tests combinations
+        of perturbations across multiple parameters for more realistic attack simulation.
+
+        Args:
+            url: Target URL
+            include_multi_param: Whether to include multi-parameter tests
+
+        Returns:
+            AnalysisResult with findings
+        """
+        # First run standard analysis
+        result = self.analyze(url)
+
+        if not include_multi_param:
+            return result
+
+        # Add multi-parameter perturbation testing
+        multi_perturbs = self._generate_multi_param_perturbations(url)
+
+        if not multi_perturbs:
+            return result
+
+        parsed = urlparse(url)
+        baseline = self._collect_baseline(url)
+
+        for description, new_params in multi_perturbs:
+            try:
+                # Build URL with multiple perturbed params
+                perturbed_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                if new_params:
+                    perturbed_url += "?" + urlencode(new_params, doseq=True)
+
+                # Test the multi-param perturbation
+                response = self.session.get(perturbed_url, timeout=self.request_timeout)
+
+                # Create result entry
+                multi_result = PerturbationResult(
+                    perturbation_type=PerturbationType.SPECIAL_CHARS,  # Use as proxy
+                    original_value="multiple",
+                    perturbed_value=description,
+                    response_time=response.elapsed.total_seconds() * 1000,
+                    status_code=response.status_code,
+                    content_length=len(response.content),
+                    headers=dict(response.headers),
+                    is_anomalous=False,
+                    anomaly_score=0.0
+                )
+
+                # Check for anomalies
+                self._detect_anomalies([multi_result], baseline)
+
+                # Add to results if anomalous
+                if multi_result.is_anomalous:
+                    result.anomalies.append(multi_result)
+                    logger.info(f"Multi-param anomaly detected: {description}")
+
+            except Exception as e:
+                logger.debug(f"Multi-param test failed for {description}: {e}")
+                continue
+
+        return result
+
     def _apply_perturbations(
         self,
         url: str,

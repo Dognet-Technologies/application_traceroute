@@ -3,16 +3,62 @@ config.py - Configuration management for security-suite
 
 Handles loading, merging, and accessing configuration values
 with support for defaults and deep merging.
+Includes random seed management for reproducibility.
 """
 
 import json
 import logging
+import random
 from pathlib import Path
 from typing import Any, Dict, Optional, TypeVar, Union
+
+import numpy as np
 
 logger = logging.getLogger('security_suite.config')
 
 T = TypeVar('T')
+
+# Global random state for reproducibility
+_random_seed: Optional[int] = None
+_rng: Optional[np.random.Generator] = None
+
+
+def set_global_seed(seed: int) -> None:
+    """
+    Set global random seed for reproducibility.
+
+    This affects:
+    - numpy.random operations
+    - Python random module
+    - All Suite modules using get_rng()
+
+    Args:
+        seed: Random seed value
+    """
+    global _random_seed, _rng
+    _random_seed = seed
+    _rng = np.random.default_rng(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    logger.info(f"Global random seed set to {seed}")
+
+
+def get_rng() -> np.random.Generator:
+    """
+    Get the global random number generator.
+
+    Returns:
+        numpy random Generator (seeded if set_global_seed was called)
+    """
+    global _rng
+    if _rng is None:
+        _rng = np.random.default_rng()
+    return _rng
+
+
+def get_seed() -> Optional[int]:
+    """Get the current random seed (None if not set)."""
+    return _random_seed
 
 
 class Config:
@@ -66,7 +112,8 @@ class Config:
             'level': 'INFO',
             'file': 'security_suite.log',
             'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        }
+        },
+        'random_seed': None  # Set to integer for reproducible runs
     }
 
     def __init__(self, config_path: Optional[Union[str, Path]] = None):

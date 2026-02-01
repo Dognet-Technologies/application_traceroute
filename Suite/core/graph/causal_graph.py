@@ -583,9 +583,82 @@ class CausalSecurityGraph:
             }
         }
 
+    def validate_dag(self) -> Tuple[bool, List[str]]:
+        """
+        Validate that the graph is a valid DAG (Directed Acyclic Graph).
+
+        Uses Kahn's algorithm for topological sort to detect cycles.
+
+        Returns:
+            Tuple of (is_valid, list_of_issues)
+        """
+        issues = []
+
+        # Check for self-loops
+        for edge_id, edge in self._edges.items():
+            if edge.source_id == edge.target_id:
+                issues.append(f"Self-loop detected: {edge_id}")
+
+        # Kahn's algorithm for cycle detection
+        in_degree = {node_id: 0 for node_id in self._nodes}
+        for edge in self._edges.values():
+            if edge.target_id in in_degree:
+                in_degree[edge.target_id] += 1
+
+        # Queue of nodes with no incoming edges
+        queue = [node_id for node_id, degree in in_degree.items() if degree == 0]
+        visited_count = 0
+
+        while queue:
+            node_id = queue.pop(0)
+            visited_count += 1
+
+            for neighbor_id in self._outgoing.get(node_id, set()):
+                if neighbor_id in in_degree:
+                    in_degree[neighbor_id] -= 1
+                    if in_degree[neighbor_id] == 0:
+                        queue.append(neighbor_id)
+
+        # If we didn't visit all nodes, there's a cycle
+        if visited_count < len(self._nodes):
+            unvisited = [n for n, d in in_degree.items() if d > 0]
+            issues.append(f"Cycle detected involving nodes: {unvisited[:5]}...")
+
+        # Check for orphan edges (edges with missing nodes)
+        for edge_id, edge in self._edges.items():
+            if edge.source_id not in self._nodes:
+                issues.append(f"Orphan edge {edge_id}: source node {edge.source_id} not found")
+            if edge.target_id not in self._nodes:
+                issues.append(f"Orphan edge {edge_id}: target node {edge.target_id} not found")
+
+        is_valid = len(issues) == 0
+        if not is_valid:
+            logger.warning(f"DAG validation failed: {len(issues)} issues found")
+        else:
+            logger.debug("DAG validation passed")
+
+        return is_valid, issues
+
+    def is_valid_dag(self) -> bool:
+        """Check if graph is a valid DAG. Returns True if valid."""
+        is_valid, _ = self.validate_dag()
+        return is_valid
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'CausalSecurityGraph':
-        """Deserialize graph from dictionary."""
+    def from_dict(cls, data: Dict[str, Any], validate: bool = True) -> 'CausalSecurityGraph':
+        """
+        Deserialize graph from dictionary.
+
+        Args:
+            data: Serialized graph data
+            validate: If True, validate DAG after loading (default: True)
+
+        Returns:
+            Restored CausalSecurityGraph
+
+        Raises:
+            ValueError: If validate=True and graph is not a valid DAG
+        """
         graph = cls(config=data.get('config', {}))
 
         # Restore nodes
@@ -599,6 +672,12 @@ class CausalSecurityGraph:
             graph._edges[edge_id] = edge
             graph._outgoing[edge.source_id].add(edge.target_id)
             graph._incoming[edge.target_id].add(edge.source_id)
+
+        # Validate DAG integrity
+        if validate:
+            is_valid, issues = graph.validate_dag()
+            if not is_valid:
+                raise ValueError(f"Invalid DAG after deserialization: {issues}")
 
         return graph
 

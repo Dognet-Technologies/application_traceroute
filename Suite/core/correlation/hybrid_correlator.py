@@ -324,19 +324,25 @@ class HybridCorrelationEngine:
     def find_all_correlations(
         self,
         entity_ids: Optional[List[str]] = None,
-        correlation_types: Optional[List[CorrelationType]] = None
+        correlation_types: Optional[List[CorrelationType]] = None,
+        offset: int = 0,
+        limit: Optional[int] = None,
+        max_pairs: int = 10000
     ) -> List[Correlation]:
         """
-        Find correlations between all registered entities.
+        Find correlations between all registered entities with pagination support.
 
         Args:
             entity_ids: Specific entities to analyze (or all if None)
             correlation_types: Types of correlations to compute
+            offset: Skip first N pairs (for pagination)
+            limit: Maximum correlations to return (None = unlimited)
+            max_pairs: Maximum pairs to process (prevents O(n²) explosion)
 
         Returns:
             List of discovered correlations
 
-        Complexity: O(n²) where n = number of entities
+        Complexity: O(min(n², max_pairs)) where n = number of entities
         """
         if entity_ids is None:
             entity_ids = list(set(
@@ -350,12 +356,38 @@ class HybridCorrelationEngine:
 
         discovered = []
         n = len(entity_ids)
+        total_pairs = n * (n - 1) // 2
 
-        logger.debug(f"Computing correlations for {n} entities")
+        # Warn if large dataset
+        if total_pairs > max_pairs:
+            logger.warning(
+                f"Large dataset: {n} entities = {total_pairs} pairs. "
+                f"Processing only first {max_pairs} pairs. Use pagination or reduce entities."
+            )
+
+        logger.debug(f"Computing correlations for {n} entities (offset={offset}, limit={limit})")
+
+        pair_count = 0
+        processed_count = 0
 
         for i in range(n):
             for j in range(i + 1, n):
+                # Skip pairs before offset
+                if pair_count < offset:
+                    pair_count += 1
+                    continue
+
+                # Stop if max_pairs reached
+                if processed_count >= max_pairs:
+                    break
+
+                # Stop if limit reached
+                if limit is not None and len(discovered) >= limit:
+                    break
+
                 e1, e2 = entity_ids[i], entity_ids[j]
+                pair_count += 1
+                processed_count += 1
 
                 # Cosine similarity
                 if CorrelationType.STRUCTURAL in correlation_types:
@@ -414,8 +446,56 @@ class HybridCorrelationEngine:
                             if corr:
                                 discovered.append(corr)
 
-        logger.info(f"Found {len(discovered)} correlations among {n} entities")
+            # Check outer loop limits
+            if processed_count >= max_pairs:
+                break
+            if limit is not None and len(discovered) >= limit:
+                break
+
+        logger.info(f"Found {len(discovered)} correlations (processed {processed_count}/{total_pairs} pairs)")
         return discovered
+
+    def find_correlations_batched(
+        self,
+        entity_ids: Optional[List[str]] = None,
+        correlation_types: Optional[List[CorrelationType]] = None,
+        batch_size: int = 1000
+    ):
+        """
+        Generator that yields correlations in batches for memory efficiency.
+
+        Args:
+            entity_ids: Specific entities to analyze
+            correlation_types: Types of correlations to compute
+            batch_size: Number of pairs to process per batch
+
+        Yields:
+            List[Correlation]: Batch of correlations
+        """
+        if entity_ids is None:
+            entity_ids = list(set(
+                list(self._entity_vectors.keys()) +
+                list(self._entity_features.keys()) +
+                list(self._entity_timestamps.keys())
+            ))
+
+        n = len(entity_ids)
+        total_pairs = n * (n - 1) // 2
+        offset = 0
+
+        logger.info(f"Batched correlation search: {total_pairs} pairs in batches of {batch_size}")
+
+        while offset < total_pairs:
+            batch = self.find_all_correlations(
+                entity_ids=entity_ids,
+                correlation_types=correlation_types,
+                offset=offset,
+                limit=None,
+                max_pairs=batch_size
+            )
+            if batch:
+                yield batch
+            offset += batch_size
 
     def _compute_feature_similarity(
         self,
