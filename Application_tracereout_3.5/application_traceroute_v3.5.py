@@ -2031,14 +2031,14 @@ class ForbiddenEndpointFinder:
         """Find forbidden endpoint"""
         print("\n🔍 Phase 0: Finding Forbidden Endpoint for Bypass Testing")
         print("=" * 70)
-
-        # If user provided one, always use it (trust the user)
+        
+        # If user provided one, validate it
         if user_provided:
             if self._is_truly_forbidden(user_provided):
                 print(f"  ✅ User-provided endpoint validated: {user_provided}")
+                return user_provided
             else:
-                print(f"  ⚠️ User-provided endpoint doesn't return 403/401, using it anyway...")
-            return user_provided
+                print(f"  ⚠️ User-provided endpoint doesn't return 403/401, searching alternatives...")
         
         # Common forbidden paths
         common_paths = [
