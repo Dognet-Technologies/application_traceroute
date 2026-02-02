@@ -2700,9 +2700,10 @@ class DiscrepancyTester:
         """Test path parsing discrepancies - EXPANDED"""
         print("  🔬 Testing Path Normalization...")
 
-        # Extract path from forbidden endpoint
+        # Extract path and query from forbidden endpoint
         parsed = urlparse(self.forbidden_endpoint)
         base_path = parsed.path
+        original_query = parsed.query  # Preserve the original query string
 
         path_variants = [
             base_path,
@@ -2758,10 +2759,14 @@ class DiscrepancyTester:
             base_path + '%23/',
             base_path + '::$INDEX_ALLOCATION'
         ]
-        
+
         for variant in path_variants:
             try:
-                test_url = f"{parsed.scheme}://{parsed.netloc}{variant}"
+                # Build URL preserving original query string when variant doesn't add its own
+                if original_query and '?' not in variant and '#' not in variant:
+                    test_url = f"{parsed.scheme}://{parsed.netloc}{variant}?{original_query}"
+                else:
+                    test_url = f"{parsed.scheme}://{parsed.netloc}{variant}"
                 response = self.session.get(test_url, timeout=5, allow_redirects=False)
                 
                 if response.status_code not in [400, 401, 403, 404, 429]:
