@@ -2778,7 +2778,11 @@ class DiscrepancyTester:
                         'response_code': response.status_code,
                         'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM'
                     })
-                    print(f"    ✅ Discrepancy found: {variant} → {response.status_code}")
+                    # Show path portion of test_url for clearer output
+                    display_path = urlparse(test_url).path
+                    if urlparse(test_url).query:
+                        display_path += '?' + urlparse(test_url).query
+                    print(f"    ✅ Discrepancy found: {display_path} → {response.status_code}")
             except Exception as e:
                 pass
     
