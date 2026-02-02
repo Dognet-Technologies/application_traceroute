@@ -42,17 +42,17 @@ import warnings
 
 # Import advanced modules
 try:
-    from advanced_bypass_engine import (
+    from core.engines.advanced_bypass_engine import (
         ResponseDifferentialAnalyzer,
         BayesianBypassInference,
         BypassConfidence
     )
-    from semantic_bypass_engine import (
+    from core.engines.semantic_bypass_engine import (
         SemanticBypassEngine,
         AttackVector,
         EvolutionaryMutationEngine
     )
-    from graph_attack_planner import (
+    from core.engines.graph_attack_planner import (
         GraphAttackPlanner,
         AttackCategory
     )
