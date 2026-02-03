@@ -23,6 +23,7 @@ from typing import Dict, List, Optional, Tuple, Set, Any, Generator, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from datetime import datetime
 import logging
 
 # Import analyzers
@@ -36,6 +37,15 @@ from .vulnerability.causal_vulnerability_analyzer import (
 )
 from .vulnerability.extended_analyzers import ExtendedAnalyzerRegistry
 from .taxonomy import SelfLearningTaxonomy
+
+# Import internal wordlist manager
+from .internal_wordlist import (
+    InternalWordlistManager,
+    CombinedWordlistProvider,
+    PayloadMutationEngine,
+    LearnedPayload,
+    MutationResult
+)
 
 logger = logging.getLogger(__name__)
 
@@ -670,7 +680,9 @@ class PayloadManager:
     def __init__(
         self,
         wordlist_paths: Dict[str, str] = None,
-        max_payloads_per_type: int = 30
+        max_payloads_per_type: int = 30,
+        internal_wordlist_path: str = None,
+        enable_mutations: bool = True
     ):
         """
         Initialize Payload Manager
@@ -678,6 +690,8 @@ class PayloadManager:
         Args:
             wordlist_paths: Custom wordlist paths
             max_payloads_per_type: Max payloads per vulnerability type
+            internal_wordlist_path: Custom path for internal wordlist storage
+            enable_mutations: Enable automatic mutation generation
         """
         self.inferencer = VulnerabilityInferencer()
         self.wordlist_loader = WordlistLoader(wordlist_paths)
@@ -685,10 +699,27 @@ class PayloadManager:
         self.extended_analyzer = ExtendedAnalyzerRegistry()
         self.taxonomy = SelfLearningTaxonomy()
         self.max_payloads = max_payloads_per_type
+        self.enable_mutations = enable_mutations
+
+        # Internal wordlist manager (persistent, self-learning)
+        self.internal_wordlist = InternalWordlistManager(
+            storage_path=Path(internal_wordlist_path) if internal_wordlist_path else None
+        )
+
+        # Combined wordlist provider (internal + external)
+        self.combined_provider = CombinedWordlistProvider(
+            internal_manager=self.internal_wordlist,
+            external_loader=self.wordlist_loader
+        )
+
+        # Mutation engine for on-the-fly mutations
+        self.mutation_engine = PayloadMutationEngine()
 
         # Statistics
         self._total_tests = 0
         self._vulnerabilities_found = 0
+        self._mutations_generated = 0
+        self._payloads_learned = 0
 
     def create_testing_plan(
         self,
@@ -697,7 +728,10 @@ class PayloadManager:
         parameter_value: str = "",
         context: ParameterContext = ParameterContext.QUERY_PARAM,
         content_type: str = "",
-        technologies: List[str] = None
+        technologies: List[str] = None,
+        use_internal_wordlist: bool = True,
+        use_external_wordlist: bool = True,
+        generate_mutations: bool = None
     ) -> TestingPlan:
         """
         Create a complete testing plan for an endpoint/parameter
@@ -709,6 +743,9 @@ class PayloadManager:
             context: Parameter context
             content_type: Request content-type
             technologies: Detected technologies
+            use_internal_wordlist: Include learned payloads
+            use_external_wordlist: Include external wordlist payloads
+            generate_mutations: Generate mutations (None = use default)
 
         Returns:
             TestingPlan with prioritized vulnerabilities and payloads
@@ -722,18 +759,48 @@ class PayloadManager:
             technologies=technologies or []
         )
 
+        # Determine if mutations are enabled
+        do_mutations = generate_mutations if generate_mutations is not None else self.enable_mutations
+
         # Load payloads for each inferred vulnerability
         payloads_by_type = {}
         total_payloads = 0
 
         for inference in inferred[:5]:  # Top 5 vulnerability types
-            payloads = list(self.wordlist_loader.get_payloads(
-                inference.vuln_type,
-                max_payloads=self.max_payloads
-            ))
+            vuln_type = inference.vuln_type
+
+            # Get combined payloads (internal prioritized + external)
+            payloads = list(self.combined_provider.get_payloads(
+                vuln_type=vuln_type,
+                include_internal=use_internal_wordlist,
+                include_external=use_external_wordlist,
+                internal_limit=self.max_payloads // 2,
+                external_limit=self.max_payloads,
+                deduplicate=True,
+                prioritize_internal=True  # Internal (learned) first
+            ))[:self.max_payloads]
+
+            # Optionally generate mutations for top payloads
+            if do_mutations and payloads:
+                top_payloads = payloads[:5]  # Mutate top 5
+                mutations_to_add = []
+
+                for base_payload in top_payloads:
+                    mutations = self.mutation_engine.mutate(
+                        payload=base_payload,
+                        vuln_type=vuln_type,
+                        max_mutations=3  # 3 mutations per payload
+                    )
+                    for m in mutations:
+                        if m.mutated not in payloads:
+                            mutations_to_add.append(m.mutated)
+                            self._mutations_generated += 1
+
+                # Add mutations (limited)
+                payloads.extend(mutations_to_add[:10])
 
             if payloads:
-                payloads_by_type[inference.vuln_type] = payloads
+                payloads_by_type[vuln_type] = payloads
                 total_payloads += len(payloads)
 
         return TestingPlan(
@@ -837,12 +904,27 @@ class PayloadManager:
         # Learn from result
         if result.is_vulnerable:
             self._vulnerabilities_found += 1
+
+            # Learn to taxonomy (pattern learning)
             self.taxonomy.learn(
                 vuln_type=vuln_type,
                 payload=payload,
                 response=response_text[:500],
                 is_confirmed=True
             )
+
+            # Learn to internal wordlist (generate mutations for future use)
+            if self.enable_mutations:
+                learned_count = self.internal_wordlist.learn_from_success(
+                    payload=payload,
+                    vuln_type=vuln_type,
+                    confidence=result.confidence,
+                    technique=result.technique,
+                    generate_mutations=True,
+                    max_mutations=15
+                )
+                self._payloads_learned += learned_count
+                logger.info(f"Learned {learned_count} payloads from successful {vuln_type} attack")
 
         return result
 
@@ -865,6 +947,8 @@ class PayloadManager:
 
     def get_statistics(self) -> Dict:
         """Get testing statistics"""
+        internal_stats = self.internal_wordlist.get_statistics()
+
         return {
             'total_tests': self._total_tests,
             'vulnerabilities_found': self._vulnerabilities_found,
@@ -872,9 +956,159 @@ class PayloadManager:
                 self._vulnerabilities_found / self._total_tests
                 if self._total_tests > 0 else 0.0
             ),
+            'mutations_generated': self._mutations_generated,
+            'payloads_learned': self._payloads_learned,
             'available_sources': self.wordlist_loader.get_available_sources(),
-            'learned_patterns': len(self.taxonomy.pattern_learner.learned_patterns)
+            'learned_patterns': len(self.taxonomy.pattern_learner.learned_patterns),
+            'internal_wordlist': internal_stats
         }
+
+    # =========================================================================
+    # INTERNAL WORDLIST METHODS
+    # =========================================================================
+
+    def get_internal_payloads(self, vuln_type: str,
+                             min_fitness: float = 0.0,
+                             limit: int = None) -> List[str]:
+        """
+        Get payloads from internal wordlist only
+
+        Args:
+            vuln_type: Vulnerability type
+            min_fitness: Minimum fitness score
+            limit: Maximum payloads
+
+        Returns:
+            List of learned/mutated payloads
+        """
+        return self.internal_wordlist.get_payloads(
+            vuln_type=vuln_type,
+            min_fitness=min_fitness,
+            limit=limit,
+            sort_by_fitness=True
+        )
+
+    def get_combined_payloads(self, vuln_type: str,
+                             internal_limit: int = 50,
+                             external_limit: int = 100) -> Generator[str, None, None]:
+        """
+        Get combined payloads (internal prioritized + external)
+
+        Args:
+            vuln_type: Vulnerability type
+            internal_limit: Max internal payloads
+            external_limit: Max external payloads
+
+        Yields:
+            Payload strings
+        """
+        return self.combined_provider.get_payloads(
+            vuln_type=vuln_type,
+            include_internal=True,
+            include_external=True,
+            internal_limit=internal_limit,
+            external_limit=external_limit,
+            deduplicate=True,
+            prioritize_internal=True
+        )
+
+    def generate_mutations(self, payload: str, vuln_type: str,
+                          max_mutations: int = 20,
+                          save_to_internal: bool = False) -> List[str]:
+        """
+        Generate mutations for a payload
+
+        Args:
+            payload: Base payload
+            vuln_type: Vulnerability type for targeted mutations
+            max_mutations: Maximum mutations
+            save_to_internal: Save mutations to internal wordlist
+
+        Returns:
+            List of mutated payloads
+        """
+        mutations = self.mutation_engine.mutate(
+            payload=payload,
+            vuln_type=vuln_type,
+            max_mutations=max_mutations
+        )
+
+        mutated_payloads = [m.mutated for m in mutations]
+        self._mutations_generated += len(mutated_payloads)
+
+        if save_to_internal:
+            for m in mutations:
+                self.internal_wordlist.add_payload(
+                    payload=m.mutated,
+                    vuln_type=vuln_type,
+                    fitness_score=0.5,
+                    source="mutated",
+                    parent_payload=payload,
+                    mutation_operator=m.operator
+                )
+
+        return mutated_payloads
+
+    def import_successful_payloads(self, payloads: List[Tuple[str, str, float]]):
+        """
+        Import payloads from external successful tests
+
+        Args:
+            payloads: List of (payload, vuln_type, confidence) tuples
+        """
+        for payload, vuln_type, confidence in payloads:
+            self.internal_wordlist.learn_from_success(
+                payload=payload,
+                vuln_type=vuln_type,
+                confidence=confidence,
+                generate_mutations=self.enable_mutations
+            )
+
+    def evolve_internal_wordlist(self, vuln_type: str = None,
+                                max_new_payloads: int = 50) -> Dict[str, int]:
+        """
+        Evolve internal wordlist(s) based on fitness
+
+        Args:
+            vuln_type: Specific type or None for all
+            max_new_payloads: Max new payloads per type
+
+        Returns:
+            Dict of {vuln_type: new_payloads_count}
+        """
+        results = {}
+
+        if vuln_type:
+            types_to_evolve = [vuln_type]
+        else:
+            types_to_evolve = list(self.internal_wordlist.payloads.keys())
+
+        for vt in types_to_evolve:
+            new_count = self.internal_wordlist.evolve_wordlist(
+                vuln_type=vt,
+                max_new_payloads=max_new_payloads
+            )
+            results[vt] = new_count
+            self._mutations_generated += new_count
+
+        return results
+
+    def prune_internal_wordlist(self, min_fitness: float = 0.1,
+                               keep_learned: bool = True) -> int:
+        """
+        Remove low-fitness payloads from internal wordlist
+
+        Args:
+            min_fitness: Minimum fitness to keep
+            keep_learned: Always keep originally learned payloads
+
+        Returns:
+            Number of payloads removed
+        """
+        return self.internal_wordlist.prune_low_fitness(
+            min_fitness=min_fitness,
+            keep_learned=keep_learned
+        )
 
 
 # =============================================================================

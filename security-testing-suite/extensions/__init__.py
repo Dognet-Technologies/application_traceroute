@@ -6,6 +6,7 @@ Packages:
 - vulnerability: CausalVulnerabilityAnalyzer + ExtendedAnalyzers
 - taxonomy: SelfLearningTaxonomy for CWE/OWASP mapping
 - payload_manager: Intelligent wordlist + analyzer integration
+- internal_wordlist: Self-learning persistent wordlist with mutations
 """
 
 from .response import CausalResponseAnalyzer
@@ -27,6 +28,19 @@ try:
 except ImportError:
     PAYLOAD_MANAGER_AVAILABLE = False
 
+# InternalWordlistManager import
+try:
+    from .internal_wordlist import (
+        InternalWordlistManager,
+        CombinedWordlistProvider,
+        PayloadMutationEngine,
+        LearnedPayload,
+        MutationResult
+    )
+    INTERNAL_WORDLIST_AVAILABLE = True
+except ImportError:
+    INTERNAL_WORDLIST_AVAILABLE = False
+
 __all__ = [
     # Core analyzers
     'CausalResponseAnalyzer',
@@ -42,8 +56,16 @@ __all__ = [
     'TestingPlan',
     'PayloadResult',
 
-    # Availability flag
-    'PAYLOAD_MANAGER_AVAILABLE'
+    # Internal wordlist (if available)
+    'InternalWordlistManager',
+    'CombinedWordlistProvider',
+    'PayloadMutationEngine',
+    'LearnedPayload',
+    'MutationResult',
+
+    # Availability flags
+    'PAYLOAD_MANAGER_AVAILABLE',
+    'INTERNAL_WORDLIST_AVAILABLE'
 ]
 
 __version__ = "4.0.0"
