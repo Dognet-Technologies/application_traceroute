@@ -336,21 +336,21 @@ class ContentClassifier:
         if content_hash in self._classification_cache:
             return self._classification_cache[content_hash]
 
-        # Check redirect
+        # Check redirect first
         if status in [301, 302, 303, 307, 308]:
             result = ContentType.REDIRECT
-        # Check empty
-        elif len(content.strip()) < 50:
-            result = ContentType.EMPTY
-        # Check error page first
+        # Check error page BEFORE empty (status code takes precedence)
         elif self._is_error_page(content, status):
             result = ContentType.ERROR_PAGE
+        # Check API response BEFORE empty (JSON content-type takes precedence)
+        elif self._is_api_response(response):
+            result = ContentType.API_RESPONSE
+        # Check empty AFTER error page and API response checks
+        elif len(content.strip()) < 50:
+            result = ContentType.EMPTY
         # Check login page
         elif self._is_login_page(content):
             result = ContentType.LOGIN_PAGE
-        # Check API response
-        elif self._is_api_response(response):
-            result = ContentType.API_RESPONSE
         # Check protected content
         elif self._has_protected_content(content, response):
             result = ContentType.PROTECTED_CONTENT
