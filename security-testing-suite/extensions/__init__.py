@@ -7,6 +7,7 @@ Packages:
 - taxonomy: SelfLearningTaxonomy for CWE/OWASP mapping
 - payload_manager: Intelligent wordlist + analyzer integration
 - internal_wordlist: Self-learning persistent wordlist with mutations
+- active_scanner: Burp Suite-level intelligent vulnerability detection
 """
 
 from .response import CausalResponseAnalyzer
@@ -41,6 +42,24 @@ try:
 except ImportError:
     INTERNAL_WORDLIST_AVAILABLE = False
 
+# ActiveScanner import
+try:
+    from .active_scanner import (
+        ActiveScanner,
+        ResponseDifferentialAnalyzer,
+        ReflectionDetector,
+        BehaviorProber,
+        TimingAnalyzer,
+        InjectionContext,
+        VulnSusceptibility,
+        InjectionPointAnalysis,
+        VulnerabilitySusceptibility,
+        ReflectionPoint
+    )
+    ACTIVE_SCANNER_AVAILABLE = True
+except ImportError:
+    ACTIVE_SCANNER_AVAILABLE = False
+
 __all__ = [
     # Core analyzers
     'CausalResponseAnalyzer',
@@ -63,9 +82,22 @@ __all__ = [
     'LearnedPayload',
     'MutationResult',
 
+    # Active Scanner (if available)
+    'ActiveScanner',
+    'ResponseDifferentialAnalyzer',
+    'ReflectionDetector',
+    'BehaviorProber',
+    'TimingAnalyzer',
+    'InjectionContext',
+    'VulnSusceptibility',
+    'InjectionPointAnalysis',
+    'VulnerabilitySusceptibility',
+    'ReflectionPoint',
+
     # Availability flags
     'PAYLOAD_MANAGER_AVAILABLE',
-    'INTERNAL_WORDLIST_AVAILABLE'
+    'INTERNAL_WORDLIST_AVAILABLE',
+    'ACTIVE_SCANNER_AVAILABLE'
 ]
 
 __version__ = "4.0.0"

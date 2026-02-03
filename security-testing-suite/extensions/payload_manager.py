@@ -47,6 +47,22 @@ from .internal_wordlist import (
     MutationResult
 )
 
+# Import active scanner (optional)
+try:
+    from .active_scanner import (
+        ActiveScanner,
+        ResponseDifferentialAnalyzer,
+        ReflectionDetector,
+        BehaviorProber,
+        InjectionPointAnalysis,
+        VulnerabilitySusceptibility,
+        VulnSusceptibility
+    )
+    ACTIVE_SCANNER_AVAILABLE = True
+except ImportError:
+    ACTIVE_SCANNER_AVAILABLE = False
+    ActiveScanner = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -682,7 +698,9 @@ class PayloadManager:
         wordlist_paths: Dict[str, str] = None,
         max_payloads_per_type: int = 30,
         internal_wordlist_path: str = None,
-        enable_mutations: bool = True
+        enable_mutations: bool = True,
+        stack_info: Dict = None,
+        enable_active_scanning: bool = True
     ):
         """
         Initialize Payload Manager
@@ -692,6 +710,8 @@ class PayloadManager:
             max_payloads_per_type: Max payloads per vulnerability type
             internal_wordlist_path: Custom path for internal wordlist storage
             enable_mutations: Enable automatic mutation generation
+            stack_info: Technology stack from ProgressiveStackAnalyzer
+            enable_active_scanning: Enable Burp-like active scanning
         """
         self.inferencer = VulnerabilityInferencer()
         self.wordlist_loader = WordlistLoader(wordlist_paths)
@@ -700,6 +720,7 @@ class PayloadManager:
         self.taxonomy = SelfLearningTaxonomy()
         self.max_payloads = max_payloads_per_type
         self.enable_mutations = enable_mutations
+        self.stack_info = stack_info or {}
 
         # Internal wordlist manager (persistent, self-learning)
         self.internal_wordlist = InternalWordlistManager(
@@ -715,11 +736,19 @@ class PayloadManager:
         # Mutation engine for on-the-fly mutations
         self.mutation_engine = PayloadMutationEngine()
 
+        # Active Scanner (Burp-like deep analysis)
+        self.active_scanner = None
+        self.enable_active_scanning = enable_active_scanning
+        if ACTIVE_SCANNER_AVAILABLE and enable_active_scanning:
+            self.active_scanner = ActiveScanner(stack_info=self.stack_info)
+            logger.info("Active Scanner enabled with Burp-level detection")
+
         # Statistics
         self._total_tests = 0
         self._vulnerabilities_found = 0
         self._mutations_generated = 0
         self._payloads_learned = 0
+        self._active_scans = 0
 
     def create_testing_plan(
         self,
@@ -949,7 +978,7 @@ class PayloadManager:
         """Get testing statistics"""
         internal_stats = self.internal_wordlist.get_statistics()
 
-        return {
+        stats = {
             'total_tests': self._total_tests,
             'vulnerabilities_found': self._vulnerabilities_found,
             'success_rate': (
@@ -958,10 +987,20 @@ class PayloadManager:
             ),
             'mutations_generated': self._mutations_generated,
             'payloads_learned': self._payloads_learned,
+            'active_scans': self._active_scans,
             'available_sources': self.wordlist_loader.get_available_sources(),
             'learned_patterns': len(self.taxonomy.pattern_learner.learned_patterns),
-            'internal_wordlist': internal_stats
+            'internal_wordlist': internal_stats,
+            'active_scanner_available': self.active_scanner is not None,
         }
+
+        # Add active scanner info if available
+        if self.active_scanner:
+            stats['detected_technologies'] = self.active_scanner.detected_technologies
+            stats['waf_detected'] = self.active_scanner.waf_detected
+            stats['waf_name'] = self.active_scanner.waf_name
+
+        return stats
 
     # =========================================================================
     # INTERNAL WORDLIST METHODS
@@ -1109,6 +1148,191 @@ class PayloadManager:
             min_fitness=min_fitness,
             keep_learned=keep_learned
         )
+
+    # =========================================================================
+    # ACTIVE SCANNING (Burp-level deep analysis)
+    # =========================================================================
+
+    def active_scan_injection_point(
+        self,
+        parameter_name: str,
+        parameter_value: str,
+        location: str,
+        send_request_func,
+        baseline_response: Tuple = None
+    ) -> Optional[Dict]:
+        """
+        Perform Burp-like deep analysis on an injection point.
+
+        Uses ActiveScanner to:
+        - Analyze reflection points and contexts
+        - Probe for vulnerability susceptibility
+        - Determine optimal attack vectors
+        - Prioritize testing based on technology stack
+
+        Args:
+            parameter_name: Name of the parameter
+            parameter_value: Current parameter value
+            location: Where parameter is (query, body, header, cookie, path)
+            send_request_func: Function(value) -> (status, body, headers, time)
+            baseline_response: Optional (status, body, headers, time) tuple
+
+        Returns:
+            Analysis result dict or None if active scanning not available
+        """
+        if not self.active_scanner:
+            logger.warning("Active Scanner not available")
+            return None
+
+        self._active_scans += 1
+
+        # Perform deep analysis
+        analysis = self.active_scanner.analyze_injection_point(
+            parameter_name=parameter_name,
+            parameter_value=parameter_value,
+            location=location,
+            send_request=send_request_func,
+            baseline_response=baseline_response
+        )
+
+        # Convert to dict with summary
+        result = self.active_scanner.get_summary(analysis)
+
+        # Update internal state based on findings
+        if analysis.susceptibilities:
+            # Learn recommended payloads for high-confidence susceptibilities
+            for susc in analysis.susceptibilities:
+                if susc.confidence >= 0.7 and susc.recommended_payloads:
+                    for payload in susc.recommended_payloads[:3]:
+                        self.internal_wordlist.add_payload(
+                            payload=payload,
+                            vuln_type=susc.vuln_type,
+                            fitness_score=susc.confidence * 0.8,
+                            source="active_scan",
+                            metadata={
+                                'detection': susc.detection_technique,
+                                'context': susc.context.value if susc.context else None
+                            }
+                        )
+
+        return result
+
+    def get_smart_testing_plan(
+        self,
+        endpoint: str,
+        parameter_name: str,
+        parameter_value: str,
+        location: str,
+        send_request_func,
+        baseline_response: Tuple = None
+    ) -> Dict:
+        """
+        Create intelligent testing plan using active scanning + inference.
+
+        Combines:
+        1. Static inference (parameter name, context, technology)
+        2. Active scanning (reflection, differential, probing)
+        3. Internal wordlist (learned successful payloads)
+
+        Args:
+            endpoint: Target URL
+            parameter_name: Parameter name
+            parameter_value: Current value
+            location: Parameter location
+            send_request_func: Request function for active probing
+            baseline_response: Optional baseline
+
+        Returns:
+            Smart testing plan with prioritized tests
+        """
+        result = {
+            'endpoint': endpoint,
+            'parameter': parameter_name,
+            'location': location,
+            'static_inference': [],
+            'active_analysis': None,
+            'combined_susceptibilities': [],
+            'recommended_order': [],
+            'payloads_by_type': {},
+        }
+
+        # 1. Static inference
+        context_map = {
+            'query': ParameterContext.QUERY_PARAM,
+            'body': ParameterContext.POST_BODY,
+            'header': ParameterContext.HEADER,
+            'cookie': ParameterContext.COOKIE,
+            'path': ParameterContext.URL_PATH,
+            'json': ParameterContext.JSON_FIELD,
+            'xml': ParameterContext.XML_ELEMENT,
+        }
+        param_context = context_map.get(location, ParameterContext.QUERY_PARAM)
+
+        static_inferences = self.inferencer.infer_vulnerabilities(
+            parameter_name=parameter_name,
+            parameter_value=parameter_value,
+            context=param_context,
+            technologies=self.active_scanner.detected_technologies if self.active_scanner else []
+        )
+        result['static_inference'] = [
+            {'type': i.vuln_type, 'confidence': i.confidence, 'reason': i.reason}
+            for i in static_inferences[:5]
+        ]
+
+        # 2. Active scanning (if available)
+        if self.active_scanner and send_request_func:
+            active_result = self.active_scan_injection_point(
+                parameter_name=parameter_name,
+                parameter_value=parameter_value,
+                location=location,
+                send_request_func=send_request_func,
+                baseline_response=baseline_response
+            )
+            result['active_analysis'] = active_result
+
+            # Combine susceptibilities
+            if active_result and active_result.get('susceptibilities'):
+                for susc in active_result['susceptibilities']:
+                    result['combined_susceptibilities'].append({
+                        'type': susc['vuln_type'],
+                        'level': susc['level'],
+                        'confidence': susc['confidence'],
+                        'source': 'active',
+                        'evidence': susc['evidence'],
+                    })
+
+        # 3. Add static inferences not in active
+        active_types = {s['type'] for s in result['combined_susceptibilities']}
+        for inf in static_inferences:
+            if inf.vuln_type not in active_types:
+                result['combined_susceptibilities'].append({
+                    'type': inf.vuln_type,
+                    'level': 'medium' if inf.confidence >= 0.6 else 'low',
+                    'confidence': f"{inf.confidence:.0%}",
+                    'source': 'static',
+                    'evidence': [inf.reason],
+                })
+
+        # 4. Determine recommended order
+        if result.get('active_analysis', {}).get('recommended_test_order'):
+            result['recommended_order'] = result['active_analysis']['recommended_test_order']
+        else:
+            result['recommended_order'] = [i.vuln_type for i in static_inferences[:5]]
+
+        # 5. Get payloads for each type
+        for vuln_type in result['recommended_order'][:5]:
+            payloads = list(self.combined_provider.get_payloads(
+                vuln_type=vuln_type,
+                include_internal=True,
+                include_external=True,
+                internal_limit=10,
+                external_limit=20,
+                deduplicate=True,
+                prioritize_internal=True
+            ))[:self.max_payloads]
+            result['payloads_by_type'][vuln_type] = payloads
+
+        return result
 
 
 # =============================================================================
