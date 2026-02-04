@@ -1,4 +1,46 @@
 # Advanced Bypass Engine v3.5 - Revolutionary Implementation
+[ITA]
+Application_traceroute è un suite di 4 tools utili nella fase di discovery.
+Il primo tool da utilizzare è application_traceroute:
+  
+      python Application_tracereout_3.5/application_traceroute3.5.py --help                          
+      usage: application_traceroute2.py [-h] [--forbidden-endpoint FORBIDDEN_ENDPOINT] [--skip-forbidden-tests] target
+
+
+Il quale ricostruisce lo stack tecnologico, ne individua le discrepanze e genera dei possibili bypass testandoli e verificandoli. Il risultato viene esportato in 2 file: 1) *.txt e 2) *.json
+Il file in json contieni i bypass e può/deve essere usato nei 2 tool successivi, il secondo tool:
+            
+    python Application_tracereout_3.5/intelligent_bypass_validator.py bypasses_www.XXXXX.it_1753971402.json
+    usage: python3 intelligent_bypass_validator.py --help 
+✅ Advanced Bypass Engine loaded successfully
+usage: intelligent_bypass_validator.py [-h] --baseline-url BASELINE_URL [--rate-limit RATE_LIMIT] [--output OUTPUT] json_file
+
+Intelligent Bypass Validator v5.0 - Bayesian validation system
+
+positional arguments:
+  json_file             Enhanced JSON file with bypasses
+
+options:
+  -h, --help            show this help message and exit
+  --baseline-url BASELINE_URL
+                        Baseline URL for comparison
+  --rate-limit RATE_LIMIT
+                        Requests per second
+  --output OUTPUT       Output file
+
+
+    python SmartCrawler/smart_vuln_crawler2.py https://www.target.it --bypass-file AppTraceroute/bypass_validation_www.target.it_1753971634.json --wordlist-base ~/path_to_worlist
+    usage: smart_vuln_crawler2.py [-h] [--depth DEPTH] [--max-pages MAX_PAGES] [--output OUTPUT] [--wordlist-base WORDLIST_BASE] [--discovery-limit DISCOVERY_LIMIT] [--skip-discovery]
+                              [--bypass-file BYPASS_FILE] [-v] [--auth-type {basic,bearer,cookie,form,custom_header}] [--auth-username AUTH_USERNAME] [--auth-password AUTH_PASSWORD]
+                              [--auth-token AUTH_TOKEN] [--auth-login-url AUTH_LOGIN_URL] [--auth-cookies AUTH_COOKIES] [--auth-headers AUTH_HEADERS] [--auth-config AUTH_CONFIG]
+                              target
+
+
+=======
+
+
+## 📊 Architecture Overview
+
 
 ## 🎓 MIT-Level Engineering Innovation
 
@@ -10,9 +52,6 @@
 - **Information Theory** for entropy analysis
 - **Statistical Anomaly Detection** for differential analysis
 
----
-
-## 📊 Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -34,8 +73,6 @@
 
 ## 🧠 Module 1: ResponseDifferentialAnalyzer
 
-**File**: `advanced_bypass_engine.py` (679 lines)
-
 ### Innovation
 First-ever Bayesian inference engine for security bypass probability calculation.
 
@@ -49,6 +86,7 @@ Using log-odds for numerical stability:
 log(odds_posterior) = log(odds_prior) + Σ log(LR_i)
 ```
 
+=======
 #### 2. Z-Score Anomaly Detection
 ```
 z = (x - μ) / σ
@@ -62,7 +100,6 @@ Where:
 #### 3. Shannon Entropy
 ```
 H(X) = -Σ p(x_i) × log₂(p(x_i))
-
 Measures information content (0-8 bits for byte data)
 ```
 
