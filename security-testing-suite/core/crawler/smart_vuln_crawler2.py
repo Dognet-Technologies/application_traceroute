@@ -5009,7 +5009,8 @@ def main():
     parser.add_argument('--depth', type=int, default=3, help='Maximum crawl depth (default: 3)')
     parser.add_argument('--max-pages', type=int, default=1000, help='Maximum pages to crawl (default: 1000)')
     parser.add_argument('--output', default='attack_surface.json', help='Output JSON file')
-    parser.add_argument('--wordlist-base', help='Base path for wordlists')
+    parser.add_argument('--wordlist-base', required=True,
+                        help='Base path for wordlists (REQUIRED). Example: /usr/share/wordlists or ~/wordlists')
     parser.add_argument('--discovery-limit', type=int, default=1000, help='Max paths to test')
     parser.add_argument('--skip-discovery', action='store_true', help='Skip wordlist discovery')
     parser.add_argument('--bypass-file', help='JSON file with bypasses')
@@ -5030,6 +5031,28 @@ def main():
     auth_group.add_argument('--auth-config', help='JSON file with auth configuration')
     
     args = parser.parse_args()
+
+    # ========== VALIDATE WORDLIST-BASE (REQUIRED) ==========
+    wordlist_base = os.path.expanduser(args.wordlist_base)  # Expand ~ if used
+    if not os.path.isdir(wordlist_base):
+        print(f"\n  ✗ ERROR: Wordlist base path does not exist: {wordlist_base}")
+        print(f"    Please specify a valid path with --wordlist-base")
+        print(f"    Example: --wordlist-base /usr/share/wordlists")
+        print(f"             --wordlist-base ~/SecLists")
+        sys.exit(1)
+
+    # Check for expected subdirectories
+    expected_dirs = ['SecLists', 'PayloadsAllTheThings', 'fuzzdb']
+    found_dirs = [d for d in expected_dirs if os.path.isdir(os.path.join(wordlist_base, d))]
+
+    if not found_dirs:
+        print(f"\n  ⚠ WARNING: No standard wordlist directories found in {wordlist_base}")
+        print(f"    Expected one of: {', '.join(expected_dirs)}")
+        print(f"    Detection capabilities may be limited.")
+        print(f"    Consider installing SecLists: git clone https://github.com/danielmiessler/SecLists.git")
+    else:
+        print(f"\n  ✓ Wordlist base: {wordlist_base}")
+        print(f"    Found: {', '.join(found_dirs)}")
 
     # Build auth configuration
     # Priority: command line args > JSON file > defaults
@@ -5100,19 +5123,18 @@ def main():
     # Set bypass manager
     if bypass_manager:
         crawler.set_bypass_manager(bypass_manager)
-    
-    # Set custom wordlist base path if provided
-    if args.wordlist_base:
-        crawler.wordlist_mapper.base_paths = {
-            'fuzzdb': f"{args.wordlist_base}/fuzzdb",
-            'payloads': f"{args.wordlist_base}/PayloadsAllTheThings",
-            'seclists': f"{args.wordlist_base}/SecLists"
-        }
-        crawler.discovery_mapper.base_paths = {
-            'fuzzdb': f"{args.wordlist_base}/fuzzdb",
-            'payloads': f"{args.wordlist_base}/PayloadsAllTheThings",
-            'seclists': f"{args.wordlist_base}/SecLists"
-        }
+
+    # Set wordlist base path (REQUIRED - already validated above)
+    crawler.wordlist_mapper.base_paths = {
+        'fuzzdb': f"{wordlist_base}/fuzzdb",
+        'payloads': f"{wordlist_base}/PayloadsAllTheThings",
+        'seclists': f"{wordlist_base}/SecLists"
+    }
+    crawler.discovery_mapper.base_paths = {
+        'fuzzdb': f"{wordlist_base}/fuzzdb",
+        'payloads': f"{wordlist_base}/PayloadsAllTheThings",
+        'seclists': f"{wordlist_base}/SecLists"
+    }
     
     # Run crawler
     results = crawler.run(discovery_limit=args.discovery_limit, skip_discovery=args.skip_discovery)
