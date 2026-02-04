@@ -745,51 +745,189 @@ class AuthenticationManager:
         return True
     
     def setup_form_auth(self, config):
-        """Setup form-based authentication with login"""
+        """
+        Setup form-based authentication with CSRF token support.
+
+        Supports automatic extraction of CSRF tokens from:
+        - Hidden input fields (csrf_token, _token, user_token, etc.)
+        - Meta tags
+        - Response headers
+        """
         login_url = config.get('login_url')
         username_field = config.get('username_field', 'username')
         password_field = config.get('password_field', 'password')
         username = config.get('username')
         password = config.get('password')
-        
+
         if not all([login_url, username, password]):
             logger.error("Missing required form auth parameters")
             return False
-        
+
+        # Common CSRF token field names
+        csrf_field_names = [
+            'csrf_token', 'csrftoken', 'csrf', '_csrf', 'csrfmiddlewaretoken',
+            '_token', 'authenticity_token', '__RequestVerificationToken',
+            'user_token', 'token', 'CSRFToken', 'antiForgery', 'nonce'
+        ]
+
         try:
-            # Perform login
+            # Step 1: GET the login page to obtain session cookies and CSRF token
+            logger.info(f"Fetching login page: {login_url}")
+            login_page = self.session.get(login_url, timeout=30)
+
+            if login_page.status_code != 200:
+                logger.warning(f"Login page returned status {login_page.status_code}")
+
+            # Step 2: Extract CSRF token
+            csrf_token = None
+            csrf_field = None
+
+            # Try to parse HTML for CSRF token
+            try:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(login_page.text, 'html.parser')
+
+                # Search in hidden input fields
+                for field_name in csrf_field_names:
+                    # Try by name attribute
+                    token_input = soup.find('input', {'name': field_name})
+                    if token_input and token_input.get('value'):
+                        csrf_token = token_input['value']
+                        csrf_field = field_name
+                        logger.info(f"Found CSRF token in input field: {field_name}")
+                        break
+
+                    # Try by id attribute
+                    token_input = soup.find('input', {'id': field_name})
+                    if token_input and token_input.get('value'):
+                        csrf_token = token_input['value']
+                        csrf_field = field_name
+                        logger.info(f"Found CSRF token in input id: {field_name}")
+                        break
+
+                # If not found, try meta tags
+                if not csrf_token:
+                    for meta_name in ['csrf-token', 'csrf_token', '_token']:
+                        meta_tag = soup.find('meta', {'name': meta_name})
+                        if meta_tag and meta_tag.get('content'):
+                            csrf_token = meta_tag['content']
+                            csrf_field = meta_name
+                            logger.info(f"Found CSRF token in meta tag: {meta_name}")
+                            break
+
+                # Check for all hidden inputs if still not found
+                if not csrf_token:
+                    hidden_inputs = soup.find_all('input', {'type': 'hidden'})
+                    for hidden in hidden_inputs:
+                        name = hidden.get('name', '').lower()
+                        if any(csrf_name in name for csrf_name in ['csrf', 'token', 'nonce']):
+                            csrf_token = hidden.get('value')
+                            csrf_field = hidden.get('name')
+                            if csrf_token:
+                                logger.info(f"Found CSRF token in hidden input: {csrf_field}")
+                                break
+
+            except ImportError:
+                logger.warning("BeautifulSoup not available, trying regex for CSRF extraction")
+                # Fallback to regex
+                import re
+                for field_name in csrf_field_names:
+                    pattern = rf'name=["\']?{field_name}["\']?\s+value=["\']?([^"\'>\s]+)'
+                    match = re.search(pattern, login_page.text, re.IGNORECASE)
+                    if match:
+                        csrf_token = match.group(1)
+                        csrf_field = field_name
+                        logger.info(f"Found CSRF token via regex: {field_name}")
+                        break
+
+            # Step 3: Build login data
             login_data = {
                 username_field: username,
                 password_field: password
             }
-            
-            # Add any additional fields
+
+            # Add CSRF token if found
+            if csrf_token:
+                login_data[csrf_field] = csrf_token
+                logger.info(f"Including CSRF token in login request")
+            else:
+                logger.warning("No CSRF token found - login may fail if required")
+
+            # Add any additional fields from config
             extra_fields = config.get('extra_fields', {})
             login_data.update(extra_fields)
-            
-            response = self.session.post(login_url, data=login_data, timeout=30)
-            
-            # Check login success
+
+            # Step 4: Submit login form
+            logger.info(f"Submitting login form for user: {username}")
+            response = self.session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
+
+            # Step 5: Verify login success
+            success = False
+
+            # Check custom success indicators first
             success_indicators = config.get('success_indicators', [])
+            failure_indicators = config.get('failure_indicators', ['login failed', 'invalid', 'incorrect', 'wrong password'])
+
+            # Check for failure indicators
+            response_lower = response.text.lower()
+            if any(fail.lower() in response_lower for fail in failure_indicators):
+                logger.error("Login failed: failure indicator found in response")
+                return False
+
+            # Check success indicators
             if success_indicators:
-                success = any(indicator in response.text for indicator in success_indicators)
+                success = any(indicator.lower() in response_lower for indicator in success_indicators)
             else:
-                success = response.status_code in [200, 302]
-            
+                # Default success checks:
+                # 1. No longer on login page (redirected away)
+                # 2. Login form not present in response
+                # 3. Got a session cookie
+
+                current_url = response.url.lower()
+                login_url_lower = login_url.lower()
+
+                # Check if redirected away from login page
+                if 'login' not in current_url and login_url_lower != current_url:
+                    success = True
+                    logger.info("Login success: redirected away from login page")
+
+                # Check if login form is no longer present
+                elif username_field not in response.text and password_field not in response.text:
+                    success = True
+                    logger.info("Login success: login form no longer present")
+
+                # Check for session cookies
+                elif any(cookie.name.lower() in ['phpsessid', 'sessionid', 'session', 'sid']
+                        for cookie in self.session.cookies):
+                    # Session cookie exists, but we need to verify it's authenticated
+                    # Try to access a protected page if verify_url is provided
+                    verify_url = config.get('verify_url')
+                    if verify_url:
+                        verify_response = self.session.get(verify_url, timeout=10)
+                        if verify_response.status_code == 200 and 'login' not in verify_response.url.lower():
+                            success = True
+                            logger.info("Login success: verified via protected page")
+                    else:
+                        # Assume success if we have session cookie and no failure indicators
+                        success = True
+                        logger.info("Login success: session cookie present")
+
             if success:
                 logger.info(f"Form authentication successful for user: {username}")
-                
-                # Check if we need to handle 2FA
+
+                # Handle 2FA if required
                 if config.get('2fa_required'):
                     self.handle_2fa(config, response)
-                
+
                 return True
             else:
-                logger.error("Form authentication failed")
+                logger.error("Form authentication failed - could not verify successful login")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Form authentication error: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
             return False
     
     def handle_2fa(self, config, login_response):
