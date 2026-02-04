@@ -748,10 +748,10 @@ class AuthenticationManager:
         """
         Setup form-based authentication with CSRF token support.
 
-        Supports automatic extraction of CSRF tokens from:
-        - Hidden input fields (csrf_token, _token, user_token, etc.)
-        - Meta tags
-        - Response headers
+        Supports automatic extraction of:
+        - CSRF tokens from hidden input fields, meta tags
+        - Submit button fields
+        - All hidden form fields
         """
         login_url = config.get('login_url')
         username_field = config.get('username_field', 'username')
@@ -763,99 +763,78 @@ class AuthenticationManager:
             logger.error("Missing required form auth parameters")
             return False
 
-        # Common CSRF token field names
-        csrf_field_names = [
-            'csrf_token', 'csrftoken', 'csrf', '_csrf', 'csrfmiddlewaretoken',
-            '_token', 'authenticity_token', '__RequestVerificationToken',
-            'user_token', 'token', 'CSRFToken', 'antiForgery', 'nonce'
-        ]
-
         try:
-            # Step 1: GET the login page to obtain session cookies and CSRF token
+            # Step 1: GET the login page to obtain session cookies and form fields
             logger.info(f"Fetching login page: {login_url}")
             login_page = self.session.get(login_url, timeout=30)
+
+            logger.debug(f"Session cookies after GET: {dict(self.session.cookies)}")
 
             if login_page.status_code != 200:
                 logger.warning(f"Login page returned status {login_page.status_code}")
 
-            # Step 2: Extract CSRF token
-            csrf_token = None
-            csrf_field = None
+            # Step 2: Parse form and extract ALL necessary fields
+            login_data = {}
 
-            # Try to parse HTML for CSRF token
             try:
                 from bs4 import BeautifulSoup
                 soup = BeautifulSoup(login_page.text, 'html.parser')
 
-                # Search in hidden input fields
-                for field_name in csrf_field_names:
-                    # Try by name attribute
-                    token_input = soup.find('input', {'name': field_name})
-                    if token_input and token_input.get('value'):
-                        csrf_token = token_input['value']
-                        csrf_field = field_name
-                        logger.info(f"Found CSRF token in input field: {field_name}")
-                        break
+                # Find the login form
+                form = soup.find('form')
+                if form:
+                    # Extract ALL input fields from the form
+                    for inp in form.find_all('input'):
+                        name = inp.get('name')
+                        if not name:
+                            continue
 
-                    # Try by id attribute
-                    token_input = soup.find('input', {'id': field_name})
-                    if token_input and token_input.get('value'):
-                        csrf_token = token_input['value']
-                        csrf_field = field_name
-                        logger.info(f"Found CSRF token in input id: {field_name}")
-                        break
+                        input_type = inp.get('type', 'text').lower()
+                        value = inp.get('value', '')
 
-                # If not found, try meta tags
-                if not csrf_token:
-                    for meta_name in ['csrf-token', 'csrf_token', '_token']:
-                        meta_tag = soup.find('meta', {'name': meta_name})
-                        if meta_tag and meta_tag.get('content'):
-                            csrf_token = meta_tag['content']
-                            csrf_field = meta_name
-                            logger.info(f"Found CSRF token in meta tag: {meta_name}")
-                            break
+                        if input_type == 'hidden':
+                            # Include all hidden fields (CSRF tokens, etc.)
+                            login_data[name] = value
+                            logger.info(f"Found hidden field: {name}")
+                        elif input_type == 'submit':
+                            # Include submit button
+                            login_data[name] = value
+                            logger.info(f"Found submit button: {name}={value}")
+                        # Skip text/password - we'll add those with user values
 
-                # Check for all hidden inputs if still not found
-                if not csrf_token:
-                    hidden_inputs = soup.find_all('input', {'type': 'hidden'})
-                    for hidden in hidden_inputs:
-                        name = hidden.get('name', '').lower()
-                        if any(csrf_name in name for csrf_name in ['csrf', 'token', 'nonce']):
-                            csrf_token = hidden.get('value')
-                            csrf_field = hidden.get('name')
-                            if csrf_token:
-                                logger.info(f"Found CSRF token in hidden input: {csrf_field}")
-                                break
+                    logger.info(f"Extracted {len(login_data)} fields from form")
+                else:
+                    logger.warning("No form found on login page, using basic extraction")
+                    # Fallback: extract hidden inputs anyway
+                    for inp in soup.find_all('input', {'type': 'hidden'}):
+                        name = inp.get('name')
+                        value = inp.get('value', '')
+                        if name:
+                            login_data[name] = value
 
             except ImportError:
-                logger.warning("BeautifulSoup not available, trying regex for CSRF extraction")
-                # Fallback to regex
+                logger.warning("BeautifulSoup not available, trying regex extraction")
                 import re
-                for field_name in csrf_field_names:
-                    pattern = rf'name=["\']?{field_name}["\']?\s+value=["\']?([^"\'>\s]+)'
-                    match = re.search(pattern, login_page.text, re.IGNORECASE)
-                    if match:
-                        csrf_token = match.group(1)
-                        csrf_field = field_name
-                        logger.info(f"Found CSRF token via regex: {field_name}")
-                        break
+                # Extract hidden fields via regex
+                hidden_pattern = r'<input[^>]*type=["\']?hidden["\']?[^>]*name=["\']?([^"\'>\s]+)["\']?[^>]*value=["\']?([^"\'>\s]*)["\']?'
+                for match in re.finditer(hidden_pattern, login_page.text, re.IGNORECASE):
+                    login_data[match.group(1)] = match.group(2)
+                # Also try reversed order (value before name)
+                hidden_pattern2 = r'<input[^>]*name=["\']?([^"\'>\s]+)["\']?[^>]*value=["\']?([^"\'>\s]*)["\']?[^>]*type=["\']?hidden["\']?'
+                for match in re.finditer(hidden_pattern2, login_page.text, re.IGNORECASE):
+                    login_data[match.group(1)] = match.group(2)
 
-            # Step 3: Build login data
-            login_data = {
-                username_field: username,
-                password_field: password
-            }
-
-            # Add CSRF token if found
-            if csrf_token:
-                login_data[csrf_field] = csrf_token
-                logger.info(f"Including CSRF token in login request")
-            else:
-                logger.warning("No CSRF token found - login may fail if required")
+            # Step 3: Add username and password (override if form had placeholders)
+            login_data[username_field] = username
+            login_data[password_field] = password
 
             # Add any additional fields from config
             extra_fields = config.get('extra_fields', {})
             login_data.update(extra_fields)
+
+            # Log what we're sending
+            safe_data = {k: ('***' if 'pass' in k.lower() else v) for k, v in login_data.items()}
+            logger.info(f"Login POST data: {safe_data}")
 
             # Step 4: Submit login form
             logger.info(f"Submitting login form for user: {username}")
@@ -864,15 +843,23 @@ class AuthenticationManager:
             # Step 5: Verify login success with REAL verification
             success = False
 
-            # Check custom success indicators first
+            # Check custom success/failure indicators
             success_indicators = config.get('success_indicators', [])
-            failure_indicators = config.get('failure_indicators', ['login failed', 'invalid', 'incorrect', 'wrong password', 'Login failed'])
+            # Use specific failure messages, not generic words
+            failure_indicators = config.get('failure_indicators', [
+                'login failed', 'Login failed', 'invalid username', 'invalid password',
+                'incorrect password', 'wrong password', 'authentication failed',
+                'access denied', 'bad credentials'
+            ])
 
-            # Check for failure indicators in response
-            response_lower = response.text.lower()
-            if any(fail.lower() in response_lower for fail in failure_indicators):
-                logger.error("Login failed: failure indicator found in response")
-                return False
+            # Check for failure indicators in response (only if not redirected)
+            # Redirects usually mean success, so skip failure check if redirected
+            if response.url.lower() == login_url.lower():
+                response_lower = response.text.lower()
+                for fail in failure_indicators:
+                    if fail.lower() in response_lower:
+                        logger.error(f"Login failed: found '{fail}' in response")
+                        return False
 
             # Check success indicators if provided
             if success_indicators:
