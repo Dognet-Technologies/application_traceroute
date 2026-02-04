@@ -65,8 +65,35 @@ try:
     from debug_logger import DebugLogger, DebugSession
     DEBUG_LOGGER_AVAILABLE = True
 except ImportError:
-    DEBUG_LOGGER_AVAILABLE = False
-    logger.warning("debug_logger not available - debug mode will be limited")
+    try:
+        # Try parent directory (debug_logger is in /core/, crawler is in /core/crawler/)
+        import sys
+        from pathlib import Path
+        parent_dir = str(Path(__file__).parent.parent)
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
+        from debug_logger import DebugLogger, DebugSession
+        DEBUG_LOGGER_AVAILABLE = True
+    except ImportError:
+        DEBUG_LOGGER_AVAILABLE = False
+        logger.warning("debug_logger not available - debug mode will be limited")
+
+# Optional import for vulnerability verification
+try:
+    from vulnerability_verifier import VulnerabilityVerifier
+    VERIFIER_AVAILABLE = True
+except ImportError:
+    try:
+        # Try parent directory
+        from pathlib import Path
+        parent_dir = str(Path(__file__).parent.parent)
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
+        from vulnerability_verifier import VulnerabilityVerifier
+        VERIFIER_AVAILABLE = True
+    except ImportError:
+        VERIFIER_AVAILABLE = False
+        logger.warning("vulnerability_verifier not available - using basic detection")
 
 
 class RateLimiter:
@@ -2510,6 +2537,14 @@ class SmartCrawler:
         elif debug_mode and not DEBUG_LOGGER_AVAILABLE:
             print("  ⚠ Debug mode requested but debug_logger module not available")
 
+        # Initialize vulnerability verifier with learning
+        self.vuln_verifier = None
+        if VERIFIER_AVAILABLE:
+            self.vuln_verifier = VulnerabilityVerifier(enable_learning=True)
+            print("  🔬 Vulnerability verifier enabled with auto-learning")
+        else:
+            print("  ⚠ Vulnerability verifier not available - using basic detection")
+
         # Sistema di deduplicazione avanzato
         # Traccia parametri testati per evitare test ridondanti su URL diversi
         # Chiave: (param_name, vuln_type) -> valore: set di URL dove è stato testato
@@ -4161,15 +4196,16 @@ class SmartCrawler:
                 except:
                     pass
             
-    def analyze_response_for_vulnerability(self, response, payload, vuln_type, bypass):
+    def analyze_response_for_vulnerability(self, response, payload, vuln_type, bypass,
+                                          baseline_response=None, response_time=0):
         """
-        Enhanced response analysis with behavioral verification and false positive reduction.
+        Enhanced response analysis with intelligent verification and false positive reduction.
 
-        Migliora la detection attraverso:
-        - Verifica contestuale del payload nella risposta
-        - Controlli specifici per tipo di vulnerabilità
-        - Esclusione di payload in commenti o codice escaped
-        - Analisi della lunghezza della risposta per evitare risposte generiche
+        Uses VulnerabilityVerifier for accurate detection with:
+        - Type-specific verification (XSS, SQLi, LFI, RCE, SSTI, XXE)
+        - Pattern learning from successful detections
+        - Evidence-based confidence scoring
+        - False positive prevention
         """
         status_code = response.status_code
         response_text = response.text if response.text else ""
@@ -4180,6 +4216,34 @@ class SmartCrawler:
         if len(response_text) < 50:
             return False
 
+        # ========== USE INTELLIGENT VERIFIER IF AVAILABLE ==========
+        if self.vuln_verifier:
+            result = self.vuln_verifier.verify(
+                vuln_type=vuln_type,
+                payload=payload,
+                response_text=response_text,
+                response_code=status_code,
+                baseline_response=baseline_response,
+                response_time=response_time,
+                target=self.target_url
+            )
+
+            if result.is_vulnerable and result.confidence >= 50:
+                # Log evidence for debugging
+                if self.verbose:
+                    print(f"      ✓ Verified by VulnerabilityVerifier (confidence: {result.confidence}%)")
+                    for ev in result.evidence[:3]:  # Show first 3 evidence items
+                        print(f"        → {ev}")
+                return True
+            elif result.confidence > 0 and result.confidence < 50:
+                # Low confidence - log but don't report
+                if self.verbose:
+                    print(f"      ⚠ Low confidence ({result.confidence}%) - not reporting")
+                return False
+            # If verifier says not vulnerable, still check with legacy detection
+            # in case verifier missed something (defense in depth)
+
+        # ========== LEGACY DETECTION (fallback) ==========
         # First check: is payload even in response?
         payload_in_response = payload_lower in response_text_lower or payload in response_text
 
@@ -4191,6 +4255,9 @@ class SmartCrawler:
                 generic_errors = ['404', '403', 'not found', 'forbidden', 'unauthorized']
                 if any(err in response_text_lower for err in generic_errors):
                     return False
+                # Don't auto-confirm blind vulns without verifier
+                if self.vuln_verifier:
+                    return False  # Verifier already checked
                 return True
             return False
 
@@ -4198,8 +4265,14 @@ class SmartCrawler:
         # (commenti HTML, JavaScript, codice escaped, etc.)
         if self._is_payload_in_safe_context(response_text, payload):
             return False
-        
-        # Enhanced vulnerability-specific detection
+
+        # If verifier is available and didn't confirm, don't use legacy detection
+        # This prevents false positives
+        if self.vuln_verifier:
+            return False
+
+        # ========== LEGACY VULNERABILITY-SPECIFIC DETECTION ==========
+        # Only used if verifier is not available
         if vuln_type == 'xss':
             # Controlli più stringenti per XSS per ridurre falsi positivi
 
