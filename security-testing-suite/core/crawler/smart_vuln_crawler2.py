@@ -3993,19 +3993,22 @@ class SmartCrawler:
             if self.verbose:
                 print(f"  🔍 Testing {vuln_type.upper()} (confidence: {confidence})")
 
-            # Get appropriate wordlists
+            # Get appropriate wordlists (external)
             wordlists = self.wordlist_mapper.get_wordlists_for_vulnerability(
                 vuln_type, self.results['technologies']
             )
 
-            if not wordlists:
+            # Check if we have any payloads (external OR internal fallback)
+            internal_payloads = self.wordlist_mapper.get_internal_payloads(vuln_type)
+
+            if not wordlists and not internal_payloads:
                 if self.verbose:
-                    print(f"    ⚠️ No wordlists found for {vuln_type}")
+                    print(f"    ⚠️ No payloads available for {vuln_type} (no external wordlists or internal fallback)")
                 # Marca come testato anche se non ci sono wordlist per evitare retry
                 self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
                 continue
 
-            # Test with payloads from wordlists
+            # Test with payloads from wordlists (uses internal fallback if external empty)
             self.test_with_wordlists(endpoint, param, vuln_type, wordlists)
 
             # Marca come testato dopo il test
