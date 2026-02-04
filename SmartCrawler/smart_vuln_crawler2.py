@@ -861,56 +861,69 @@ class AuthenticationManager:
             logger.info(f"Submitting login form for user: {username}")
             response = self.session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
 
-            # Step 5: Verify login success
+            # Step 5: Verify login success with REAL verification
             success = False
 
             # Check custom success indicators first
             success_indicators = config.get('success_indicators', [])
-            failure_indicators = config.get('failure_indicators', ['login failed', 'invalid', 'incorrect', 'wrong password'])
+            failure_indicators = config.get('failure_indicators', ['login failed', 'invalid', 'incorrect', 'wrong password', 'Login failed'])
 
-            # Check for failure indicators
+            # Check for failure indicators in response
             response_lower = response.text.lower()
             if any(fail.lower() in response_lower for fail in failure_indicators):
                 logger.error("Login failed: failure indicator found in response")
                 return False
 
-            # Check success indicators
+            # Check success indicators if provided
             if success_indicators:
                 success = any(indicator.lower() in response_lower for indicator in success_indicators)
+                if success:
+                    logger.info("Login success: success indicator found")
             else:
-                # Default success checks:
-                # 1. No longer on login page (redirected away)
-                # 2. Login form not present in response
-                # 3. Got a session cookie
+                # Default success checks - in order of reliability:
 
                 current_url = response.url.lower()
                 login_url_lower = login_url.lower()
 
-                # Check if redirected away from login page
+                # 1. Check if redirected away from login page to a non-login URL
                 if 'login' not in current_url and login_url_lower != current_url:
                     success = True
                     logger.info("Login success: redirected away from login page")
 
-                # Check if login form is no longer present
+                # 2. Check if login form is no longer present in response
                 elif username_field not in response.text and password_field not in response.text:
                     success = True
                     logger.info("Login success: login form no longer present")
 
-                # Check for session cookies
-                elif any(cookie.name.lower() in ['phpsessid', 'sessionid', 'session', 'sid']
-                        for cookie in self.session.cookies):
-                    # Session cookie exists, but we need to verify it's authenticated
-                    # Try to access a protected page if verify_url is provided
-                    verify_url = config.get('verify_url')
-                    if verify_url:
-                        verify_response = self.session.get(verify_url, timeout=10)
-                        if verify_response.status_code == 200 and 'login' not in verify_response.url.lower():
+                # 3. REAL VERIFICATION: Try accessing site root and check if we get redirected to login
+                else:
+                    # Extract base URL from login_url
+                    from urllib.parse import urlparse, urlunparse
+                    parsed = urlparse(login_url)
+                    base_url = urlunparse((parsed.scheme, parsed.netloc, '/', '', '', ''))
+
+                    # Also try verify_url if provided
+                    verify_url = config.get('verify_url', base_url)
+
+                    logger.info(f"Verifying authentication by accessing: {verify_url}")
+                    try:
+                        verify_response = self.session.get(verify_url, timeout=10, allow_redirects=True)
+
+                        # If we're NOT redirected to login page, we're authenticated
+                        if 'login' not in verify_response.url.lower():
                             success = True
-                            logger.info("Login success: verified via protected page")
-                    else:
-                        # Assume success if we have session cookie and no failure indicators
-                        success = True
-                        logger.info("Login success: session cookie present")
+                            logger.info(f"Login success: verified access to {verify_response.url}")
+                        else:
+                            logger.error(f"Login failed: redirected back to login page ({verify_response.url})")
+                            success = False
+                    except Exception as e:
+                        logger.warning(f"Could not verify login: {e}")
+                        # Fall back to checking if we have session cookie AND response looks different from login page
+                        if len(response.text) > 0 and response.text != login_page.text:
+                            success = True
+                            logger.info("Login success: response differs from login page")
+                        else:
+                            success = False
 
             if success:
                 logger.info(f"Form authentication successful for user: {username}")
