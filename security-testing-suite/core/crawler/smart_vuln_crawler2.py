@@ -1309,10 +1309,10 @@ class AuthenticationManager:
         Setup form-based authentication with login.
 
         Improvements:
-        - Automatic CSRF token extraction
+        - Automatic extraction of ALL form fields (hidden, submit, csrf)
         - Pre-login page fetch for session cookies
         - Better success detection
-        - Failure indicator checking
+        - No need for extra_fields in most cases
         """
         login_url = config.get('login_url')
         username_field = config.get('username_field', 'username')
@@ -1330,7 +1330,7 @@ class AuthenticationManager:
             return False
 
         try:
-            # Step 1: Fetch login page to get CSRF token and session cookies
+            # Step 1: Fetch login page to get session cookies and form fields
             self._log_auth_event('form_auth_step1', {'action': 'fetching login page'})
 
             pre_login_response = self.session.get(login_url, timeout=30, verify=False)
@@ -1342,35 +1342,63 @@ class AuthenticationManager:
                 logger.error(f"Failed to fetch login page: {pre_login_response.status_code}")
                 return False
 
-            # Step 2: Extract CSRF token
-            csrf_token = None
-            csrf_field = config.get('csrf_field')
+            # Step 2: Extract ALL form fields automatically
+            login_data = {}
 
-            if config.get('csrf_required', True):  # Default: assume CSRF is needed
-                csrf_token = self._extract_csrf_token(pre_login_response)
-                if not csrf_field:
+            try:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(pre_login_response.text, 'html.parser')
+
+                # Find the login form
+                form = soup.find('form')
+                if form:
+                    # Extract ALL input fields from the form
+                    for inp in form.find_all('input'):
+                        name = inp.get('name')
+                        if not name:
+                            continue
+
+                        input_type = inp.get('type', 'text').lower()
+                        value = inp.get('value', '')
+
+                        if input_type == 'hidden':
+                            # Include all hidden fields (CSRF tokens, etc.)
+                            login_data[name] = value
+                            logger.info(f"Found hidden field: {name}")
+                        elif input_type == 'submit':
+                            # Include submit button
+                            login_data[name] = value
+                            logger.info(f"Found submit button: {name}={value}")
+                        # Skip text/password - we'll add those with user values
+
+                    logger.info(f"Extracted {len(login_data)} fields from form")
+                else:
+                    logger.warning("No form found, using fallback CSRF extraction")
+                    # Fallback to CSRF-only extraction
+                    csrf_token = self._extract_csrf_token(pre_login_response)
                     csrf_field = self._detect_csrf_field_name(pre_login_response)
+                    if csrf_token and csrf_field:
+                        login_data[csrf_field] = csrf_token
 
-                if not csrf_token:
-                    logger.warning("No CSRF token found, proceeding without it")
+            except ImportError:
+                logger.warning("BeautifulSoup not available, using regex extraction")
+                # Fallback to CSRF extraction
+                csrf_token = self._extract_csrf_token(pre_login_response)
+                csrf_field = self._detect_csrf_field_name(pre_login_response)
+                if csrf_token and csrf_field:
+                    login_data[csrf_field] = csrf_token
 
-            self.csrf_token = csrf_token
+            # Step 3: Add username and password
+            login_data[username_field] = username
+            login_data[password_field] = password
 
-            # Step 3: Build login data
-            login_data = {
-                username_field: username,
-                password_field: password
-            }
-
-            # Add CSRF token if found
-            if csrf_token and csrf_field:
-                login_data[csrf_field] = csrf_token
-                self._log_auth_event('form_auth_csrf',
-                                    {'field': csrf_field, 'token_length': len(csrf_token)})
-
-            # Add any additional fields from config
+            # Add any additional fields from config (for special cases)
             extra_fields = config.get('extra_fields', {})
             login_data.update(extra_fields)
+
+            # Log what we're sending (mask password)
+            safe_data = {k: ('***' if 'pass' in k.lower() else v) for k, v in login_data.items()}
+            logger.info(f"Login POST data: {safe_data}")
 
             # Step 4: Perform login
             self._log_auth_event('form_auth_step2',
@@ -1382,9 +1410,6 @@ class AuthenticationManager:
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Referer': login_url,
             }
-            if csrf_token:
-                # Some frameworks expect CSRF in header too
-                login_headers['X-CSRF-Token'] = csrf_token
 
             response = self.session.post(
                 login_url,
@@ -1430,46 +1455,56 @@ class AuthenticationManager:
         """
         Check if login was successful using multiple methods.
         """
+        login_url = config.get('login_url', '')
+
         # Method 1: Check for explicit success indicators
         success_indicators = config.get('success_indicators', [])
         if success_indicators:
             for indicator in success_indicators:
                 if indicator in response.text:
+                    logger.info(f"Login success: found success indicator '{indicator}'")
                     return True
 
-        # Method 2: Check for failure indicators
+        # Method 2: Check if redirected away from login page (most reliable)
+        if response.url.lower() != login_url.lower() and 'login' not in response.url.lower():
+            logger.info(f"Login success: redirected to {response.url}")
+            return True
+
+        # Method 3: Check for failure indicators (only if NOT redirected)
+        # Use specific failure messages to avoid false positives
         failure_indicators = config.get('failure_indicators', [
-            'invalid', 'incorrect', 'wrong password', 'login failed',
-            'authentication failed', 'access denied', 'error',
-            'invalid credentials', 'bad credentials'
+            'login failed', 'Login failed', 'invalid username', 'invalid password',
+            'incorrect password', 'wrong password', 'authentication failed',
+            'access denied', 'bad credentials', 'invalid credentials',
+            'CSRF token is incorrect'
         ])
         response_lower = response.text.lower()
         for indicator in failure_indicators:
             if indicator.lower() in response_lower:
-                logger.debug(f"Failure indicator found: {indicator}")
+                logger.error(f"Login failed: found '{indicator}' in response")
                 return False
 
-        # Method 3: Check for session cookies
-        session_cookies = ['session', 'sessionid', 'auth', 'token', 'logged_in']
-        for cookie in self.session.cookies:
-            if any(sc in cookie.name.lower() for sc in session_cookies):
-                logger.debug(f"Session cookie found: {cookie.name}")
-                return True
+        # Method 4: Check if login form is no longer present
+        if 'type="password"' not in response.text:
+            logger.info("Login success: login form no longer present")
+            return True
 
-        # Method 4: Check redirect to non-login page
-        if response.history:  # There was a redirect
-            if login_url := config.get('login_url'):
-                if response.url != login_url and '/login' not in response.url.lower():
-                    return True
+        # Method 5: Real verification - try to access site root
+        try:
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(login_url)
+            base_url = urlunparse((parsed.scheme, parsed.netloc, '/', '', '', ''))
 
-        # Method 5: Check status code (default)
-        if response.status_code in [200, 302, 303]:
-            # Additional check: make sure we're not still on login page
-            if config.get('login_url') and response.url != config.get('login_url'):
+            verify_response = self.session.get(base_url, timeout=10, allow_redirects=True)
+
+            if 'login' not in verify_response.url.lower():
+                logger.info(f"Login success: verified access to {verify_response.url}")
                 return True
-            # If no redirect happened, check page content doesn't contain login form
-            if 'type="password"' not in response.text:
-                return True
+            else:
+                logger.error(f"Login failed: redirected back to login page")
+                return False
+        except Exception as e:
+            logger.warning(f"Could not verify login via base URL: {e}")
 
         return False
 
