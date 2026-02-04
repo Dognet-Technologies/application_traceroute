@@ -3440,40 +3440,59 @@ def main():
     auth_group.add_argument('--auth-config', help='JSON file with auth configuration')
     
     args = parser.parse_args()
-    
+
     # Build auth configuration
+    # Priority: command line args > JSON file > defaults
     auth_config = None
-    if args.auth_type:
-        auth_config = {'type': args.auth_type}
-        
-        if args.auth_config:
-            # Load from JSON file
+
+    # First: load from JSON file if specified
+    if args.auth_config:
+        try:
             with open(args.auth_config, 'r') as f:
                 auth_config = json.load(f)
-        else:
-            # Build from command line
-            if args.auth_username:
-                auth_config['username'] = args.auth_username
-            if args.auth_password:
-                auth_config['password'] = args.auth_password
-            if args.auth_token:
-                auth_config['token'] = args.auth_token
-            if args.auth_login_url:
-                auth_config['login_url'] = args.auth_login_url
-            if args.auth_cookies:
-                cookies = {}
-                for cookie in args.auth_cookies.split(';'):
-                    if '=' in cookie:
-                        name, value = cookie.split('=', 1)
-                        cookies[name.strip()] = value.strip()
-                auth_config['cookies'] = cookies
-            if args.auth_headers:
-                headers = {}
-                for header in args.auth_headers.split(';'):
-                    if ':' in header:
-                        name, value = header.split(':', 1)
-                        headers[name.strip()] = value.strip()
-                auth_config['headers'] = headers
+            print(f"  [+] Loaded auth config from {args.auth_config}")
+        except Exception as e:
+            print(f"  [-] Error loading auth config: {e}")
+            import sys
+            sys.exit(1)
+
+    # Second: merge/override with command line options
+    if args.auth_type or args.auth_username or args.auth_token or args.auth_cookies:
+        if auth_config is None:
+            auth_config = {}
+
+        # Command line args take precedence over JSON file
+        if args.auth_type:
+            auth_config['type'] = args.auth_type
+        if args.auth_username:
+            auth_config['username'] = args.auth_username
+        if args.auth_password:
+            auth_config['password'] = args.auth_password
+        if args.auth_token:
+            auth_config['token'] = args.auth_token
+        if args.auth_login_url:
+            auth_config['login_url'] = args.auth_login_url
+        if args.auth_cookies:
+            cookies = {}
+            for cookie in args.auth_cookies.split(';'):
+                if '=' in cookie:
+                    name, value = cookie.split('=', 1)
+                    cookies[name.strip()] = value.strip()
+            auth_config['cookies'] = cookies
+        if args.auth_headers:
+            headers = {}
+            for header in args.auth_headers.split(';'):
+                if ':' in header:
+                    name, value = header.split(':', 1)
+                    headers[name.strip()] = value.strip()
+            auth_config['headers'] = headers
+
+    # Validate auth_config has a type
+    if auth_config and 'type' not in auth_config:
+        print("  [-] Error: auth config must have a 'type' field")
+        print("      Valid types: basic, bearer, cookie, form, custom_header")
+        import sys
+        sys.exit(1)
     
     # Initialize bypass manager
     bypass_manager = None
