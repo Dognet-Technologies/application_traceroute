@@ -60,6 +60,14 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     logger.warning("psutil not available - performance monitoring will be limited")
 
+# Optional import for debug logging
+try:
+    from debug_logger import DebugLogger, DebugSession
+    DEBUG_LOGGER_AVAILABLE = True
+except ImportError:
+    DEBUG_LOGGER_AVAILABLE = False
+    logger.warning("debug_logger not available - debug mode will be limited")
+
 
 class RateLimiter:
     """
@@ -999,139 +1007,557 @@ class BehavioralContextEngine:
 
 
 class AuthenticationManager:
-    """Handle various authentication methods"""
-    
-    def __init__(self):
+    """
+    Handle various authentication methods with improved reliability.
+
+    Supports:
+    - Basic HTTP Authentication
+    - Bearer Token Authentication
+    - Cookie-based Authentication
+    - Form-based Authentication (with CSRF support)
+    - Custom Header Authentication
+    - OAuth2 (client credentials)
+
+    Includes:
+    - CSRF token extraction
+    - Session validation
+    - Debug logging integration
+    """
+
+    # Common CSRF token field names
+    CSRF_FIELD_NAMES = [
+        'csrf_token', 'csrftoken', 'csrf', '_csrf', 'csrfmiddlewaretoken',
+        '_token', 'authenticity_token', '__RequestVerificationToken',
+        'XSRF-TOKEN', 'X-CSRF-Token', 'antiForgery', 'CSRFToken'
+    ]
+
+    # Common CSRF header names
+    CSRF_HEADER_NAMES = [
+        'X-CSRF-Token', 'X-XSRF-Token', 'X-CSRFToken', 'CSRF-Token'
+    ]
+
+    def __init__(self, debug_logger=None):
+        """
+        Initialize AuthenticationManager.
+
+        Args:
+            debug_logger: Optional DebugLogger instance for detailed logging
+        """
         self.auth_types = {
             'basic': self.setup_basic_auth,
             'bearer': self.setup_bearer_auth,
             'cookie': self.setup_cookie_auth,
             'form': self.setup_form_auth,
-            'custom_header': self.setup_custom_header_auth
+            'custom_header': self.setup_custom_header_auth,
+            'oauth2': self.setup_oauth2_auth
         }
         self.session = None
         self.auth_config = None
-    
-    def setup_authentication(self, session, auth_config):
-        """Configure authentication for the session"""
+        self.debug_logger = debug_logger
+        self.is_authenticated = False
+        self.auth_type_used = None
+        self.csrf_token = None
+
+    def _log_auth_event(self, action: str, details: dict = None,
+                       success: bool = True, error: str = None):
+        """Log authentication event to debug logger"""
+        if self.debug_logger:
+            self.debug_logger.log_auth_event(
+                auth_type=self.auth_type_used or 'unknown',
+                action=action,
+                details=details or {},
+                success=success,
+                error=error
+            )
+        # Also log to standard logger
+        if success:
+            logger.info(f"Auth [{action}]: {details}")
+        else:
+            logger.error(f"Auth [{action}] FAILED: {error or details}")
+
+    def setup_authentication(self, session, auth_config) -> bool:
+        """
+        Configure authentication for the session.
+
+        Args:
+            session: requests.Session object
+            auth_config: Authentication configuration dict
+
+        Returns:
+            True if authentication was successful, False otherwise
+        """
         self.session = session
         self.auth_config = auth_config
-        
+
+        if not auth_config:
+            logger.warning("No authentication configuration provided")
+            return False
+
         auth_type = auth_config.get('type', '').lower()
-        
+        self.auth_type_used = auth_type
+
+        self._log_auth_event('setup_start', {'type': auth_type})
+
         if auth_type in self.auth_types:
-            return self.auth_types[auth_type](auth_config)
+            try:
+                result = self.auth_types[auth_type](auth_config)
+                self.is_authenticated = result
+
+                if result:
+                    self._log_auth_event('setup_complete', {'type': auth_type}, success=True)
+                else:
+                    self._log_auth_event('setup_failed', {'type': auth_type}, success=False)
+
+                return result
+            except Exception as e:
+                self._log_auth_event('setup_error', {'type': auth_type},
+                                    success=False, error=str(e))
+                logger.exception(f"Authentication setup error: {e}")
+                return False
         else:
+            self._log_auth_event('unknown_type', {'type': auth_type},
+                                success=False, error=f"Unknown auth type: {auth_type}")
             logger.error(f"Unknown authentication type: {auth_type}")
             return False
-    
-    def setup_basic_auth(self, config):
+
+    def setup_basic_auth(self, config) -> bool:
         """Setup HTTP Basic Authentication"""
         username = config.get('username')
         password = config.get('password')
-        
-        if username and password:
-            self.session.auth = (username, password)
-            logger.info(f"Basic auth configured for user: {username}")
-            return True
-        return False
-    
-    def setup_bearer_auth(self, config):
+
+        if not username or not password:
+            self._log_auth_event('basic_auth',
+                                {'error': 'missing credentials'}, success=False)
+            return False
+
+        self.session.auth = (username, password)
+        self._log_auth_event('basic_auth', {'username': username}, success=True)
+        logger.info(f"Basic auth configured for user: {username}")
+        return True
+
+    def setup_bearer_auth(self, config) -> bool:
         """Setup Bearer token authentication"""
         token = config.get('token')
-        
-        if token:
-            self.session.headers.update({
-                'Authorization': f'Bearer {token}'
-            })
-            logger.info("Bearer token authentication configured")
-            return True
-        return False
-    
-    def setup_cookie_auth(self, config):
+
+        if not token:
+            self._log_auth_event('bearer_auth',
+                                {'error': 'missing token'}, success=False)
+            return False
+
+        self.session.headers.update({
+            'Authorization': f'Bearer {token}'
+        })
+        self._log_auth_event('bearer_auth',
+                            {'token_length': len(token)}, success=True)
+        logger.info("Bearer token authentication configured")
+        return True
+
+    def setup_cookie_auth(self, config) -> bool:
         """Setup cookie-based authentication"""
         cookies = config.get('cookies', {})
-        
+
+        if not cookies:
+            self._log_auth_event('cookie_auth',
+                                {'error': 'no cookies provided'}, success=False)
+            return False
+
         for name, value in cookies.items():
             self.session.cookies.set(name, value)
-        
+
+        self._log_auth_event('cookie_auth',
+                            {'cookie_count': len(cookies),
+                             'cookie_names': list(cookies.keys())}, success=True)
         logger.info(f"Cookie authentication configured with {len(cookies)} cookies")
         return True
-    
-    def setup_custom_header_auth(self, config):
+
+    def setup_custom_header_auth(self, config) -> bool:
         """Setup custom header authentication"""
         headers = config.get('headers', {})
-        
+
+        if not headers:
+            self._log_auth_event('custom_header_auth',
+                                {'error': 'no headers provided'}, success=False)
+            return False
+
         self.session.headers.update(headers)
+        self._log_auth_event('custom_header_auth',
+                            {'header_count': len(headers),
+                             'header_names': list(headers.keys())}, success=True)
         logger.info(f"Custom header authentication configured with {len(headers)} headers")
         return True
-    
-    def setup_form_auth(self, config):
-        """Setup form-based authentication with login"""
+
+    def setup_oauth2_auth(self, config) -> bool:
+        """Setup OAuth2 client credentials authentication"""
+        token_url = config.get('token_url')
+        client_id = config.get('client_id')
+        client_secret = config.get('client_secret')
+        scope = config.get('scope', '')
+
+        if not all([token_url, client_id, client_secret]):
+            self._log_auth_event('oauth2_auth',
+                                {'error': 'missing oauth2 parameters'}, success=False)
+            return False
+
+        try:
+            # Request access token
+            token_data = {
+                'grant_type': 'client_credentials',
+                'client_id': client_id,
+                'client_secret': client_secret,
+            }
+            if scope:
+                token_data['scope'] = scope
+
+            response = self.session.post(token_url, data=token_data, timeout=30)
+
+            if response.status_code == 200:
+                token_response = response.json()
+                access_token = token_response.get('access_token')
+
+                if access_token:
+                    self.session.headers.update({
+                        'Authorization': f'Bearer {access_token}'
+                    })
+                    self._log_auth_event('oauth2_auth',
+                                        {'token_type': token_response.get('token_type'),
+                                         'expires_in': token_response.get('expires_in')},
+                                        success=True)
+                    logger.info("OAuth2 authentication successful")
+                    return True
+
+            self._log_auth_event('oauth2_auth',
+                                {'status_code': response.status_code}, success=False)
+            return False
+
+        except Exception as e:
+            self._log_auth_event('oauth2_auth', {}, success=False, error=str(e))
+            logger.error(f"OAuth2 authentication error: {e}")
+            return False
+
+    def _extract_csrf_token(self, response) -> Optional[str]:
+        """
+        Extract CSRF token from response.
+
+        Searches in:
+        - HTML form hidden fields
+        - Meta tags
+        - Response headers
+        - Cookies
+        """
+        csrf_token = None
+
+        # 1. Search in HTML form fields
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            for field_name in self.CSRF_FIELD_NAMES:
+                # Check input fields
+                input_field = soup.find('input', {'name': field_name})
+                if input_field and input_field.get('value'):
+                    csrf_token = input_field.get('value')
+                    self._log_auth_event('csrf_found',
+                                        {'source': 'input_field', 'name': field_name})
+                    break
+
+                # Check meta tags
+                meta_tag = soup.find('meta', {'name': field_name})
+                if meta_tag and meta_tag.get('content'):
+                    csrf_token = meta_tag.get('content')
+                    self._log_auth_event('csrf_found',
+                                        {'source': 'meta_tag', 'name': field_name})
+                    break
+        except Exception as e:
+            logger.debug(f"CSRF extraction from HTML failed: {e}")
+
+        # 2. Search in response headers
+        if not csrf_token:
+            for header_name in self.CSRF_HEADER_NAMES:
+                if header_name in response.headers:
+                    csrf_token = response.headers[header_name]
+                    self._log_auth_event('csrf_found',
+                                        {'source': 'header', 'name': header_name})
+                    break
+
+        # 3. Search in cookies
+        if not csrf_token:
+            for cookie_name in ['XSRF-TOKEN', 'csrf_token', 'csrftoken']:
+                if cookie_name in response.cookies:
+                    csrf_token = response.cookies[cookie_name]
+                    self._log_auth_event('csrf_found',
+                                        {'source': 'cookie', 'name': cookie_name})
+                    break
+
+        return csrf_token
+
+    def _detect_csrf_field_name(self, response) -> str:
+        """Detect the CSRF field name used by the form"""
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            for field_name in self.CSRF_FIELD_NAMES:
+                if soup.find('input', {'name': field_name}):
+                    return field_name
+        except:
+            pass
+
+        return 'csrf_token'  # Default
+
+    def setup_form_auth(self, config) -> bool:
+        """
+        Setup form-based authentication with login.
+
+        Improvements:
+        - Automatic CSRF token extraction
+        - Pre-login page fetch for session cookies
+        - Better success detection
+        - Failure indicator checking
+        """
         login_url = config.get('login_url')
         username_field = config.get('username_field', 'username')
         password_field = config.get('password_field', 'password')
         username = config.get('username')
         password = config.get('password')
-        
+
         if not all([login_url, username, password]):
+            self._log_auth_event('form_auth',
+                                {'error': 'missing required parameters',
+                                 'has_url': bool(login_url),
+                                 'has_user': bool(username),
+                                 'has_pass': bool(password)}, success=False)
             logger.error("Missing required form auth parameters")
             return False
-        
+
         try:
-            # Perform login
+            # Step 1: Fetch login page to get CSRF token and session cookies
+            self._log_auth_event('form_auth_step1', {'action': 'fetching login page'})
+
+            pre_login_response = self.session.get(login_url, timeout=30, verify=False)
+
+            if pre_login_response.status_code != 200:
+                self._log_auth_event('form_auth',
+                                    {'error': f'login page returned {pre_login_response.status_code}'},
+                                    success=False)
+                logger.error(f"Failed to fetch login page: {pre_login_response.status_code}")
+                return False
+
+            # Step 2: Extract CSRF token
+            csrf_token = None
+            csrf_field = config.get('csrf_field')
+
+            if config.get('csrf_required', True):  # Default: assume CSRF is needed
+                csrf_token = self._extract_csrf_token(pre_login_response)
+                if not csrf_field:
+                    csrf_field = self._detect_csrf_field_name(pre_login_response)
+
+                if not csrf_token:
+                    logger.warning("No CSRF token found, proceeding without it")
+
+            self.csrf_token = csrf_token
+
+            # Step 3: Build login data
             login_data = {
                 username_field: username,
                 password_field: password
             }
-            
-            # Add any additional fields
+
+            # Add CSRF token if found
+            if csrf_token and csrf_field:
+                login_data[csrf_field] = csrf_token
+                self._log_auth_event('form_auth_csrf',
+                                    {'field': csrf_field, 'token_length': len(csrf_token)})
+
+            # Add any additional fields from config
             extra_fields = config.get('extra_fields', {})
             login_data.update(extra_fields)
-            
-            response = self.session.post(login_url, data=login_data, timeout=30)
-            
-            # Check login success
-            success_indicators = config.get('success_indicators', [])
-            if success_indicators:
-                success = any(indicator in response.text for indicator in success_indicators)
-            else:
-                success = response.status_code in [200, 302]
-            
+
+            # Step 4: Perform login
+            self._log_auth_event('form_auth_step2',
+                                {'action': 'submitting login form',
+                                 'fields': list(login_data.keys())})
+
+            # Some sites need specific headers
+            login_headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': login_url,
+            }
+            if csrf_token:
+                # Some frameworks expect CSRF in header too
+                login_headers['X-CSRF-Token'] = csrf_token
+
+            response = self.session.post(
+                login_url,
+                data=login_data,
+                headers=login_headers,
+                timeout=30,
+                verify=False,
+                allow_redirects=True
+            )
+
+            # Step 5: Check login success
+            success = self._check_login_success(response, config)
+
             if success:
+                self._log_auth_event('form_auth_success',
+                                    {'username': username,
+                                     'final_url': response.url,
+                                     'cookies_received': list(self.session.cookies.keys())},
+                                    success=True)
                 logger.info(f"Form authentication successful for user: {username}")
-                
-                # Check if we need to handle 2FA
+
+                # Handle 2FA if required
                 if config.get('2fa_required'):
-                    self.handle_2fa(config, response)
-                
+                    return self.handle_2fa(config, response)
+
                 return True
             else:
+                self._log_auth_event('form_auth_failed',
+                                    {'username': username,
+                                     'status_code': response.status_code,
+                                     'final_url': response.url},
+                                    success=False)
                 logger.error("Form authentication failed")
                 return False
-                
+
         except Exception as e:
-            logger.error(f"Form authentication error: {e}")
+            self._log_auth_event('form_auth_error',
+                                {'error': str(e)}, success=False, error=str(e))
+            logger.exception(f"Form authentication error: {e}")
             return False
-    
-    def handle_2fa(self, config, login_response):
+
+    def _check_login_success(self, response, config) -> bool:
+        """
+        Check if login was successful using multiple methods.
+        """
+        # Method 1: Check for explicit success indicators
+        success_indicators = config.get('success_indicators', [])
+        if success_indicators:
+            for indicator in success_indicators:
+                if indicator in response.text:
+                    return True
+
+        # Method 2: Check for failure indicators
+        failure_indicators = config.get('failure_indicators', [
+            'invalid', 'incorrect', 'wrong password', 'login failed',
+            'authentication failed', 'access denied', 'error',
+            'invalid credentials', 'bad credentials'
+        ])
+        response_lower = response.text.lower()
+        for indicator in failure_indicators:
+            if indicator.lower() in response_lower:
+                logger.debug(f"Failure indicator found: {indicator}")
+                return False
+
+        # Method 3: Check for session cookies
+        session_cookies = ['session', 'sessionid', 'auth', 'token', 'logged_in']
+        for cookie in self.session.cookies:
+            if any(sc in cookie.name.lower() for sc in session_cookies):
+                logger.debug(f"Session cookie found: {cookie.name}")
+                return True
+
+        # Method 4: Check redirect to non-login page
+        if response.history:  # There was a redirect
+            if login_url := config.get('login_url'):
+                if response.url != login_url and '/login' not in response.url.lower():
+                    return True
+
+        # Method 5: Check status code (default)
+        if response.status_code in [200, 302, 303]:
+            # Additional check: make sure we're not still on login page
+            if config.get('login_url') and response.url != config.get('login_url'):
+                return True
+            # If no redirect happened, check page content doesn't contain login form
+            if 'type="password"' not in response.text:
+                return True
+
+        return False
+
+    def handle_2fa(self, config, login_response) -> bool:
         """Handle two-factor authentication"""
         twofa_url = config.get('2fa_url')
         twofa_field = config.get('2fa_field', 'code')
         twofa_code = config.get('2fa_code')
-        
-        if twofa_url and twofa_code:
-            try:
-                twofa_data = {twofa_field: twofa_code}
-                response = self.session.post(twofa_url, data=twofa_data, timeout=30)
-                
-                if response.status_code in [200, 302]:
-                    logger.info("2FA authentication successful")
-                else:
-                    logger.error("2FA authentication failed")
-                    
-            except Exception as e:
-                logger.error(f"2FA error: {e}")
+
+        if not twofa_url:
+            # Try to detect 2FA page from login response
+            if '2fa' in login_response.url.lower() or 'verify' in login_response.url.lower():
+                twofa_url = login_response.url
+
+        if not twofa_url or not twofa_code:
+            self._log_auth_event('2fa_skipped',
+                                {'error': 'missing 2fa_url or 2fa_code'}, success=False)
+            logger.warning("2FA required but missing configuration")
+            return False
+
+        try:
+            self._log_auth_event('2fa_attempt', {'url': twofa_url})
+
+            twofa_data = {twofa_field: twofa_code}
+
+            # Check for CSRF on 2FA page
+            if self.csrf_token:
+                twofa_data['csrf_token'] = self.csrf_token
+
+            response = self.session.post(twofa_url, data=twofa_data, timeout=30, verify=False)
+
+            if response.status_code in [200, 302]:
+                self._log_auth_event('2fa_success', {}, success=True)
+                logger.info("2FA authentication successful")
+                return True
+            else:
+                self._log_auth_event('2fa_failed',
+                                    {'status_code': response.status_code}, success=False)
+                logger.error("2FA authentication failed")
+                return False
+
+        except Exception as e:
+            self._log_auth_event('2fa_error', {}, success=False, error=str(e))
+            logger.error(f"2FA error: {e}")
+            return False
+
+    def verify_session(self, verify_url: str = None) -> bool:
+        """
+        Verify that the session is still authenticated.
+
+        Args:
+            verify_url: URL to check authentication status
+
+        Returns:
+            True if authenticated, False otherwise
+        """
+        if not verify_url:
+            return self.is_authenticated
+
+        try:
+            response = self.session.get(verify_url, timeout=15, verify=False)
+
+            # Check if we got redirected to login page
+            if 'login' in response.url.lower():
+                self.is_authenticated = False
+                return False
+
+            # Check for common "not authenticated" indicators
+            unauth_indicators = ['please log in', 'login required', 'session expired']
+            for indicator in unauth_indicators:
+                if indicator in response.text.lower():
+                    self.is_authenticated = False
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Session verification error: {e}")
+            return False
+
+    def get_auth_status(self) -> dict:
+        """Get current authentication status"""
+        return {
+            'is_authenticated': self.is_authenticated,
+            'auth_type': self.auth_type_used,
+            'has_csrf_token': self.csrf_token is not None,
+            'session_cookies': list(self.session.cookies.keys()) if self.session else []
+        }
 
 
 class TechnologyDetector:
@@ -2032,13 +2458,22 @@ class BypassManager:
 class SmartCrawler:
     """Advanced web crawler with JS analysis and smart endpoint discovery"""
     
-    def __init__(self, target_url, max_depth=3, max_pages=1000, verbose=False, auth_config=None):
+    def __init__(self, target_url, max_depth=3, max_pages=1000, verbose=False, auth_config=None, debug_mode=False):
         self.target_url = target_url.rstrip('/')
         self.parsed_url = urlparse(target_url)
         self.max_depth = max_depth
         self.max_pages = max_pages
         self.verbose = verbose
+        self.debug_mode = debug_mode
         self.visited_urls = set()
+
+        # Initialize debug logger if debug mode enabled
+        self.debug_logger = None
+        if debug_mode and DEBUG_LOGGER_AVAILABLE:
+            self.debug_logger = DebugLogger(enabled=True)
+            print("  🐛 Debug mode enabled - logging all I/O to debug file")
+        elif debug_mode and not DEBUG_LOGGER_AVAILABLE:
+            print("  ⚠ Debug mode requested but debug_logger module not available")
 
         # Sistema di deduplicazione avanzato
         # Traccia parametri testati per evitare test ridondanti su URL diversi
@@ -2069,7 +2504,7 @@ class SmartCrawler:
         self._compile_regex_patterns()
 
         # Setup session with retry strategy
-        self.session = requests.Session()
+        base_session = requests.Session()
 
         # Retry strategy
         retry_strategy = Retry(
@@ -2078,8 +2513,14 @@ class SmartCrawler:
             status_forcelist=[429, 500, 502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
+        base_session.mount("http://", adapter)
+        base_session.mount("https://", adapter)
+
+        # Wrap with DebugSession if debug mode is enabled
+        if self.debug_logger:
+            self.session = DebugSession(base_session, self.debug_logger)
+        else:
+            self.session = base_session
 
         # Rotating User-Agents
         self.user_agents = [
@@ -2109,8 +2550,8 @@ class SmartCrawler:
         # Initialize behavioral engine
         self.behavioral_engine = BehavioralContextEngine()
         
-        # Initialize authentication
-        self.auth_manager = AuthenticationManager()
+        # Initialize authentication with debug logger
+        self.auth_manager = AuthenticationManager(debug_logger=self.debug_logger)
         if auth_config:
             self.auth_manager.setup_authentication(self.session, auth_config)
         
@@ -4282,7 +4723,9 @@ def main():
     parser.add_argument('--skip-discovery', action='store_true', help='Skip wordlist discovery')
     parser.add_argument('--bypass-file', help='JSON file with bypasses')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
-    
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug mode: logs all I/O data, headers, and data flows to debug_*.json')
+
     # Authentication options
     auth_group = parser.add_argument_group('authentication')
     auth_group.add_argument('--auth-type', choices=['basic', 'bearer', 'cookie', 'form', 'custom_header'],
@@ -4296,53 +4739,71 @@ def main():
     auth_group.add_argument('--auth-config', help='JSON file with auth configuration')
     
     args = parser.parse_args()
-    
+
     # Build auth configuration
+    # Priority: command line args > JSON file > defaults
     auth_config = None
-    if args.auth_type:
-        auth_config = {'type': args.auth_type}
-        
-        if args.auth_config:
-            # Load from JSON file
+
+    # First: load from JSON file if specified
+    if args.auth_config:
+        try:
             with open(args.auth_config, 'r') as f:
                 auth_config = json.load(f)
-        else:
-            # Build from command line
-            if args.auth_username:
-                auth_config['username'] = args.auth_username
-            if args.auth_password:
-                auth_config['password'] = args.auth_password
-            if args.auth_token:
-                auth_config['token'] = args.auth_token
-            if args.auth_login_url:
-                auth_config['login_url'] = args.auth_login_url
-            if args.auth_cookies:
-                cookies = {}
-                for cookie in args.auth_cookies.split(';'):
-                    if '=' in cookie:
-                        name, value = cookie.split('=', 1)
-                        cookies[name.strip()] = value.strip()
-                auth_config['cookies'] = cookies
-            if args.auth_headers:
-                headers = {}
-                for header in args.auth_headers.split(';'):
-                    if ':' in header:
-                        name, value = header.split(':', 1)
-                        headers[name.strip()] = value.strip()
-                auth_config['headers'] = headers
+            print(f"  ✓ Loaded auth config from {args.auth_config}")
+        except Exception as e:
+            print(f"  ✗ Error loading auth config: {e}")
+            sys.exit(1)
+
+    # Second: merge/override with command line options
+    if args.auth_type or args.auth_username or args.auth_token or args.auth_cookies:
+        if auth_config is None:
+            auth_config = {}
+
+        # Command line args take precedence over JSON file
+        if args.auth_type:
+            auth_config['type'] = args.auth_type
+        if args.auth_username:
+            auth_config['username'] = args.auth_username
+        if args.auth_password:
+            auth_config['password'] = args.auth_password
+        if args.auth_token:
+            auth_config['token'] = args.auth_token
+        if args.auth_login_url:
+            auth_config['login_url'] = args.auth_login_url
+        if args.auth_cookies:
+            cookies = {}
+            for cookie in args.auth_cookies.split(';'):
+                if '=' in cookie:
+                    name, value = cookie.split('=', 1)
+                    cookies[name.strip()] = value.strip()
+            auth_config['cookies'] = cookies
+        if args.auth_headers:
+            headers = {}
+            for header in args.auth_headers.split(';'):
+                if ':' in header:
+                    name, value = header.split(':', 1)
+                    headers[name.strip()] = value.strip()
+            auth_config['headers'] = headers
+
+    # Validate auth_config has a type
+    if auth_config and 'type' not in auth_config:
+        print("  ✗ Error: auth config must have a 'type' field")
+        print("    Valid types: basic, bearer, cookie, form, custom_header, oauth2")
+        sys.exit(1)
     
     # Initialize bypass manager
     bypass_manager = None
     if args.bypass_file:
         bypass_manager = BypassManager(args.bypass_file)
     
-    # Create crawler instance with auth
+    # Create crawler instance with auth and debug mode
     crawler = SmartCrawler(
-        args.target, 
-        max_depth=args.depth, 
-        max_pages=args.max_pages, 
+        args.target,
+        max_depth=args.depth,
+        max_pages=args.max_pages,
         verbose=args.verbose,
-        auth_config=auth_config
+        auth_config=auth_config,
+        debug_mode=args.debug
     )
     
     # Set bypass manager
@@ -4454,6 +4915,14 @@ def main():
                 vulns = ', '.join([v['type'] for v in param['predicted_vulns']])
                 print(f"    └─ {param['name']}: {vulns}")
     
+    # Save debug log if debug mode was enabled
+    if args.debug and crawler.debug_logger:
+        debug_file = crawler.debug_logger.save()
+        if debug_file:
+            print(f"\n🐛 DEBUG LOG saved to: {debug_file}")
+            print("   Contains: all HTTP I/O, headers, auth events, data flows")
+            print("   Attach this file when reporting bugs")
+
     print("\n" + "="*60)
     print(f"Full results saved to: {args.output}")
     print("="*60)
