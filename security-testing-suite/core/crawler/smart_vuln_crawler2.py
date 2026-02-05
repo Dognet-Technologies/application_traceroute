@@ -3122,39 +3122,35 @@ class SmartCrawler:
             re.compile(r"You have an error in your SQL syntax", re.I),
         ]
 
-        # Regex per LFI detection
+        # Regex per LFI detection - SOLO pattern specifici per evitare FP
+        # Questi pattern DEVONO essere specifici per contenuto di file di sistema
         self.lfi_patterns = [
-            re.compile(r'root:[\w\*\!]:0:0:', re.I | re.M),
-            re.compile(r'daemon:\*:1:1:', re.I | re.M),
-            re.compile(r'\[boot\s*loader\]', re.I | re.M),
-            re.compile(r'multi\(0\)disk\(0\)', re.I | re.M),
-            re.compile(r'allow_url_fopen', re.I),
-            re.compile(r'auto_prepend_file', re.I),
-            re.compile(r'disable_functions', re.I),
-            re.compile(r'DocumentRoot', re.I),
-            re.compile(r'ServerRoot', re.I),
-            re.compile(r'LoadModule', re.I),
-            re.compile(r'Volume\s*Serial\s*Number', re.I | re.M),
-            re.compile(r'Directory\s*of\s*[A-Z]:', re.I | re.M),
-            re.compile(r'failed to open stream', re.I),
-            re.compile(r'Failed opening', re.I),
-            re.compile(r'Warning.*include', re.I),
-            re.compile(r'Warning.*file_get_contents', re.I),
+            # /etc/passwd - formato completo con shell
+            re.compile(r'root:[x\*]:0:0:[^:]*:[^:]*:/bin/\w+', re.M),
+            re.compile(r'daemon:[x\*]:1:1:', re.M),
+            re.compile(r'nobody:[x\*]:65534:65534:', re.M),
+            # Windows boot.ini - con contenuto tipico
+            re.compile(r'\[boot\s*loader\]\s*\r?\n\s*timeout\s*=', re.I | re.M),
+            re.compile(r'multi\(0\)disk\(0\)rdisk\(0\)', re.I | re.M),
+            # Apache config - SOLO se contiene direttive complete
+            re.compile(r'^<VirtualHost\s+[\*\d\.]+:\d+>', re.I | re.M),
+            # Windows dir output
+            re.compile(r'Volume\s+Serial\s+Number\s+is\s+[A-F0-9]{4}-[A-F0-9]{4}', re.I | re.M),
+            re.compile(r'Directory\s+of\s+[A-Z]:\\', re.I | re.M),
         ]
 
-        # Regex per RCE detection
+        # Regex per RCE detection - SOLO output specifico di comandi
         self.rce_patterns = [
-            re.compile(r'uid=\d+.*gid=\d+.*groups=', re.I | re.M),
-            re.compile(r'Linux\s+\w+\s+\d+\.\d+', re.I | re.M),
-            re.compile(r'Microsoft\s+Windows', re.I | re.M),
-            re.compile(r'Volume\s+in\s+drive', re.I | re.M),
-            re.compile(r'Directory\s+of', re.I | re.M),
-            re.compile(r'[\w\-]+@[\w\-]+:', re.I),
-            re.compile(r'/bin/\w+', re.I),
-            re.compile(r'/usr/bin/\w+', re.I),
-            re.compile(r'command not found', re.I),
-            re.compile(r'is not recognized as', re.I),
-            re.compile(r'PID\s+TTY\s+TIME\s+CMD', re.I | re.M),
+            # id command output - formato completo
+            re.compile(r'uid=\d+\(\w+\)\s+gid=\d+\(\w+\)', re.M),
+            # uname -a output
+            re.compile(r'Linux\s+\S+\s+\d+\.\d+\.\d+[^\s]*\s+#\d+', re.M),
+            # Windows ver output
+            re.compile(r'Microsoft\s+Windows\s+\[Version\s+\d+\.\d+\.\d+', re.I | re.M),
+            # ps output header
+            re.compile(r'^\s*PID\s+TTY\s+TIME\s+CMD\s*$', re.M),
+            # ping output
+            re.compile(r'\d+\s+bytes\s+from\s+[\d\.]+:.*ttl=\d+', re.I | re.M),
         ]
 
         # Regex per safe context check
@@ -4733,79 +4729,83 @@ class SmartCrawler:
                     if re.search(indicator, response_text, re.I):
                         return True
 
-            # 3. CONTENT-BASED: verifica differenza significativa nella risposta
-            # Se il payload è boolean-based (OR 1=1, AND 1=1) e la risposta è diversa
-            boolean_payloads = ["' OR '1'='1", "' OR 1=1", "OR 1=1", "' OR ''='", "1' OR '1'='1"]
-            is_boolean_payload = any(bp.lower() in payload.lower() for bp in boolean_payloads)
+            # 3. CONTENT-BASED: richiede confronto con baseline (non implementabile qui)
+            # NOTA: La vera detection content-based richiede:
+            #   - Salvare la risposta PRIMA dell'injection (baseline)
+            #   - Confrontare la risposta DOPO l'injection
+            #   - Se significativamente diversa → possibile SQLi
+            # Senza baseline, non possiamo fare detection content-based affidabile
+            # quindi NON la implementiamo qui per evitare falsi positivi
 
-            if is_boolean_payload:
-                # Cerca indicatori che suggeriscono più righe/dati del normale
-                # Questo è euristico ma utile per DVWA-style apps
-                multiple_results_indicators = [
-                    r'<tr[^>]*>.*?</tr>.*?<tr[^>]*>.*?</tr>',  # Multiple table rows
-                    r'"id"\s*:\s*\d+.*?"id"\s*:\s*\d+',  # Multiple JSON IDs
-                    r'user.*?user.*?user',  # Multiple user mentions
-                    r'admin.*?user|user.*?admin',  # Multiple users
-                ]
-                for indicator in multiple_results_indicators:
-                    if re.search(indicator, response_text, re.I | re.S):
-                        return True
-
-            # 4. TIME-BASED BLIND: verifica se la risposta ha impiegato molto tempo
-            # (questo richiede che il chiamante passi informazioni sul tempo)
-            # Per ora, affidati al confronto con baseline se disponibile
+            # 4. TIME-BASED BLIND: richiede misurazione tempo risposta
+            # Non implementabile senza modifiche al chiamante
 
             # 5. Payload SQL reflected (raro ma possibile in messaggi di debug)
-            sql_keywords_in_response = ['UNION', 'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE']
-            if any(kw in response_text.upper() for kw in sql_keywords_in_response):
-                # Verifica che il nostro payload sia quello riflesso
-                if any(kw in payload_upper for kw in sql_keywords_in_response):
-                    if payload[:10] in response_text or payload.upper()[:10] in response_text.upper():
+            # Solo se il payload UNION/SELECT appare nella risposta
+            if 'UNION' in payload_upper and 'SELECT' in payload_upper:
+                # Cerca se parti del payload UNION sono nella risposta (SQL reflection)
+                if 'UNION' in response_text.upper() and 'SELECT' in response_text.upper():
+                    # Verifica che sia il nostro payload, non parole casuali
+                    if payload[:15].upper() in response_text.upper():
                         return True
         
         elif vuln_type == 'lfi':
-            # Enhanced LFI detection
-            # Cerca contenuto di file di sistema nella risposta
-            for pattern in self.lfi_patterns:
-                if pattern.search(response_text):
-                    return True
+            # LFI detection - SOLO pattern specifici di file di sistema
+            # Evita false positive da documentazione o esempi di codice
 
-            # Pattern aggiuntivi per DVWA e app simili
-            lfi_additional = [
-                r'root:.*:0:0:',  # /etc/passwd format
-                r'\[extensions\]',  # php.ini sections
-                r'register_globals',  # php.ini directives
-                r'safe_mode\s*=',  # php.ini
-                r'<\?php',  # PHP source disclosure
-                r'include_path',  # PHP config
-                r'error_reporting',  # PHP config
-            ]
-            for pattern in lfi_additional:
-                if re.search(pattern, response_text, re.I):
-                    return True
+            # Pattern AFFIDABILI per /etc/passwd (Linux)
+            if re.search(r'root:[x\*]:0:0:.*:/root:', response_text):
+                return True
+            if re.search(r'daemon:[x\*]:1:1:', response_text):
+                return True
+            if re.search(r'nobody:[x\*]:\d+:\d+:', response_text):
+                return True
+
+            # Pattern AFFIDABILI per boot.ini/win.ini (Windows)
+            if re.search(r'\[boot\s*loader\]\s*\n\s*timeout', response_text, re.I):
+                return True
+            if re.search(r'\[fonts\]\s*\n', response_text, re.I):
+                return True
+
+            # Pattern per php.ini - MA solo se contiene MULTIPLE direttive tipiche
+            php_ini_indicators = 0
+            if re.search(r'^\s*register_globals\s*=', response_text, re.M | re.I):
+                php_ini_indicators += 1
+            if re.search(r'^\s*allow_url_fopen\s*=', response_text, re.M | re.I):
+                php_ini_indicators += 1
+            if re.search(r'^\s*disable_functions\s*=', response_text, re.M | re.I):
+                php_ini_indicators += 1
+            if re.search(r'^\s*max_execution_time\s*=', response_text, re.M | re.I):
+                php_ini_indicators += 1
+            # Richiedi almeno 2 indicatori per confermare php.ini
+            if php_ini_indicators >= 2:
+                return True
 
         elif vuln_type == 'rce':
-            # Enhanced RCE detection
-            # Cerca output di comandi di sistema
-            for pattern in self.rce_patterns:
-                if pattern.search(response_text):
-                    return True
+            # RCE detection - SOLO output specifico di comandi
+            # Evita false positive da documentazione
 
-            # Pattern aggiuntivi per output comandi
-            rce_additional = [
-                r'total\s+\d+\s+drwx',  # ls -la output
-                r'rwxr-xr-x',  # ls -la permissions
-                r'www-data',  # common web user
-                r'apache|nginx|httpd',  # web server processes
-                r'\d+\s+\d+\s+\d+\s+\d+',  # ping output (bytes)
-                r'64 bytes from',  # ping response
-                r'TTL=\d+',  # ping TTL (case insensitive handled separately)
-                r'icmp_seq=\d+',  # ping sequence
-                r'packets transmitted',  # ping summary
-            ]
-            for pattern in rce_additional:
-                if re.search(pattern, response_text, re.I):
-                    return True
+            # Output di `id` command (Linux)
+            if re.search(r'uid=\d+\([^)]+\)\s+gid=\d+\([^)]+\)', response_text):
+                return True
+
+            # Output di `whoami` - username senza path
+            # Difficile da rilevare senza sapere il contesto
+
+            # Output di `ping` - MOLTO specifico
+            if re.search(r'\d+\s+bytes\s+from\s+[\d\.]+.*ttl=\d+', response_text, re.I):
+                return True
+            if re.search(r'icmp_seq=\d+\s+ttl=\d+', response_text, re.I):
+                return True
+
+            # Output di `ls -la` - permessi file
+            if re.search(r'^[d-][rwx-]{9}\s+\d+\s+\w+\s+\w+\s+\d+', response_text, re.M):
+                return True
+
+            # Output di `cat /etc/passwd` via RCE (non LFI)
+            # Stessi pattern di LFI ma nel contesto RCE
+            if re.search(r'root:[x\*]:0:0:.*:/root:', response_text):
+                return True
         
         elif vuln_type == 'xxe':
             # XXE specific indicators
