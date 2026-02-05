@@ -95,6 +95,24 @@ except ImportError:
         VERIFIER_AVAILABLE = False
         logger.warning("vulnerability_verifier not available - using basic detection")
 
+# Optional import for taxonomy/classification
+try:
+    # Try extensions directory (taxonomy is in /extensions/taxonomy/)
+    from pathlib import Path
+    extensions_dir = str(Path(__file__).parent.parent.parent / 'extensions')
+    if extensions_dir not in sys.path:
+        sys.path.insert(0, extensions_dir)
+    from taxonomy import SelfLearningTaxonomy, TaxonomyDatabase
+    TAXONOMY_AVAILABLE = True
+except ImportError:
+    try:
+        # Alternative path
+        from extensions.taxonomy import SelfLearningTaxonomy, TaxonomyDatabase
+        TAXONOMY_AVAILABLE = True
+    except ImportError:
+        TAXONOMY_AVAILABLE = False
+        logger.warning("taxonomy module not available - using basic classification")
+
 
 class RateLimiter:
     """
@@ -1810,21 +1828,110 @@ class TechnologyDetector:
 
 
 class ParameterAnalyzer:
-    """Analyze parameters for vulnerability indicators"""
+    """
+    Analyze parameters for vulnerability indicators.
+
+    MIGLIORAMENTI v4.1:
+    - Regex-based parameter matching invece di exact match
+    - Fallback testing per parametri sconosciuti (XSS + SQLi di default)
+    - Maggiore copertura tramite pattern flessibili
+    """
 
     def __init__(self):
-        # Parametri che suggeriscono query SQL
-        self.sql_params = ['id', 'user_id', 'product_id', 'cat', 'category', 'item',
-                          'sort', 'order', 'limit', 'offset', 'search', 'q', 'query']
-        # Parametri che suggeriscono inclusione file - RIMOSSO 'name', 'page' troppo generici
-        self.file_params = ['file', 'path', 'document', 'folder', 'include',
-                           'template', 'view', 'module', 'load', 'dir', 'filepath']
-        # Parametri che suggeriscono esecuzione comandi
-        self.cmd_params = ['cmd', 'exec', 'command', 'execute', 'ping', 'system', 'do', 'func', 'ip']
-        # Parametri che suggeriscono XML
-        self.xxe_params = ['xml', 'data', 'input', 'payload', 'doc', 'document']
-        # Parametri che suggeriscono template - RIMOSSO 'name' troppo generico
-        self.ssti_params = ['template', 'render', 'engine', 'tpl']
+        # ===== REGEX PATTERNS invece di liste esatte =====
+        # Patterns per SQL Injection - cattura variazioni come user_id, product_id, etc.
+        self.sql_patterns = [
+            r'^id$',                    # exact 'id'
+            r'.*_id$',                  # ends with _id (user_id, product_id, etc.)
+            r'^.*id$',                  # ends with id (userid, categoryid)
+            r'^(cat|category|item)$',   # category params
+            r'^(sort|order|limit|offset)$',  # ordering params
+            r'^(search|q|query|keyword|s)$', # search params
+            r'.*_key$',                 # ends with _key
+            r'^(num|number|count)$',    # numeric params
+            r'^(page|pag)$',            # pagination (also LFI candidate)
+            r'^(year|month|day|date)$', # date params (often in queries)
+        ]
+
+        # Patterns per File Inclusion (LFI/RFI)
+        self.file_patterns = [
+            r'^(file|filename|filepath)$',  # file params
+            r'^(path|pathname|dir|directory|folder)$',  # path params
+            r'^(include|require|load|read)$',  # include params
+            r'^(template|tpl|view|layout)$',  # template params (also SSTI)
+            r'^(module|plugin|addon|ext)$',  # module loading
+            r'^(doc|document|attachment)$',  # document params
+            r'.*file$',                 # ends with 'file' (uploadfile, configfile)
+            r'.*path$',                 # ends with 'path' (filepath, imgpath)
+            r'^(src|source|img|image)$', # source params
+            r'^(page)$',                # 'page' - può essere LFI
+        ]
+
+        # Patterns per Command Injection (RCE)
+        self.cmd_patterns = [
+            r'^(cmd|command|exec|execute)$',  # command params
+            r'^(ping|host|ip|target|domain)$',  # network test params
+            r'^(system|shell|run|proc)$',  # system params
+            r'^(func|function|do|action)$',  # action params
+            r'^(daemon|service|process)$',  # service params
+            r'.*cmd$',                  # ends with 'cmd'
+            r'^(eval|code)$',           # eval params
+        ]
+
+        # Patterns per XXE
+        self.xxe_patterns = [
+            r'^(xml|xmldata|xmlinput)$',  # XML params
+            r'^(data|input|payload|body)$',  # generic input (potrebbero essere XML)
+            r'^(soap|wsdl)$',           # SOAP params
+            r'^(config|configuration)$', # config params (spesso XML)
+            r'.*xml$',                  # ends with 'xml'
+        ]
+
+        # Patterns per SSTI
+        self.ssti_patterns = [
+            r'^(template|tpl|tmpl)$',   # template params
+            r'^(render|view|layout)$',  # render params
+            r'^(engine|theme|skin)$',   # theming params
+            r'^(format|output)$',       # format params
+            r'.*template$',             # ends with 'template'
+        ]
+
+        # Patterns per Open Redirect
+        self.redirect_patterns = [
+            r'^(url|uri|link|href)$',   # URL params
+            r'^(redirect|redir|return|ret)$',  # redirect params
+            r'^(next|continue|goto|to|dest|destination)$',  # navigation
+            r'^(callback|success|error|back)$',  # callback URLs
+            r'.*url$',                  # ends with 'url'
+            r'.*_uri$',                 # ends with '_uri'
+        ]
+
+        # Patterns per LDAP Injection
+        self.ldap_patterns = [
+            r'^(username|user|uid|login)$',  # username params
+            r'^(cn|dn|ou|dc)$',         # LDAP specific
+            r'^(ldap|filter|search)$',  # LDAP search
+            r'.*_dn$',                  # ends with '_dn'
+        ]
+
+        # Compile all patterns for efficiency
+        self._compiled_patterns = {
+            'sqli': [re.compile(p, re.IGNORECASE) for p in self.sql_patterns],
+            'lfi': [re.compile(p, re.IGNORECASE) for p in self.file_patterns],
+            'rce': [re.compile(p, re.IGNORECASE) for p in self.cmd_patterns],
+            'xxe': [re.compile(p, re.IGNORECASE) for p in self.xxe_patterns],
+            'ssti': [re.compile(p, re.IGNORECASE) for p in self.ssti_patterns],
+            'open_redirect': [re.compile(p, re.IGNORECASE) for p in self.redirect_patterns],
+            'ldapi': [re.compile(p, re.IGNORECASE) for p in self.ldap_patterns],
+        }
+
+    def _matches_pattern(self, param_name: str, vuln_type: str) -> bool:
+        """Check if parameter name matches any pattern for given vulnerability type"""
+        patterns = self._compiled_patterns.get(vuln_type, [])
+        for pattern in patterns:
+            if pattern.match(param_name):
+                return True
+        return False
 
     def analyze_parameter(self, param_name, param_value, response_text, content_type=""):
         """
@@ -1832,11 +1939,13 @@ class ParameterAnalyzer:
 
         PRIORITÀ INTELLIGENTE:
         1. Se il valore è riflesso nella risposta → XSS ha priorità massima
-        2. Solo se NON c'è reflection, considera altri tipi basati sul nome
+        2. Pattern matching per identificare vulnerabilità specifiche
+        3. FALLBACK: parametri sconosciuti testati con XSS + SQLi base
         """
         vulnerabilities = []
         param_name_lower = param_name.lower()
         param_value_str = str(param_value) if param_value else ""
+        matched_any_pattern = False
 
         # ===== STEP 1: Check for reflection (PRIORITÀ XSS) =====
         has_reflection = False
@@ -1846,6 +1955,7 @@ class ParameterAnalyzer:
             reflection_context = self._get_reflection_context(param_value_str, response_text)
             if reflection_context:
                 has_reflection = True
+                matched_any_pattern = True
                 # XSS con alta confidenza se c'è reflection in contesto HTML/attributo
                 confidence = 90 if reflection_context in ['html', 'attribute'] else 70
                 vulnerabilities.append({
@@ -1856,47 +1966,44 @@ class ParameterAnalyzer:
                     'priority': 1  # Massima priorità
                 })
 
-        # ===== STEP 2: SQL Injection indicators =====
-        if param_name_lower in self.sql_params or re.search(r'(id|ID|Id)$', param_name):
+        # ===== STEP 2: SQL Injection - REGEX MATCHING =====
+        if self._matches_pattern(param_name, 'sqli'):
+            matched_any_pattern = True
             vulnerabilities.append({
                 'type': 'sqli',
                 'confidence': 70,
                 'context': 'database_parameter',
-                'evidence': f'Parameter name suggests database query: {param_name}',
+                'evidence': f'Parameter name matches SQL pattern: {param_name}',
                 'priority': 2
             })
 
-        # ===== STEP 3: File Inclusion - SOLO se il nome è specifico per file =====
-        if param_name_lower in self.file_params:
+        # ===== STEP 3: File Inclusion (LFI) - REGEX MATCHING =====
+        if self._matches_pattern(param_name, 'lfi'):
+            matched_any_pattern = True
+            # 'page' ha confidenza minore
+            confidence = 50 if param_name_lower == 'page' else 70
             vulnerabilities.append({
                 'type': 'lfi',
-                'confidence': 70,
+                'confidence': confidence,
                 'context': 'file_parameter',
-                'evidence': f'Parameter name suggests file operation: {param_name}',
-                'priority': 2
-            })
-        # 'page' può essere LFI ma con confidenza minore
-        if param_name_lower == 'page' and not has_reflection:
-            vulnerabilities.append({
-                'type': 'lfi',
-                'confidence': 50,
-                'context': 'file_parameter',
-                'evidence': f'Parameter "page" might accept file paths',
-                'priority': 3
+                'evidence': f'Parameter name matches file pattern: {param_name}',
+                'priority': 2 if confidence >= 70 else 3
             })
 
-        # ===== STEP 4: Command Injection indicators =====
-        if param_name_lower in self.cmd_params:
+        # ===== STEP 4: Command Injection (RCE) - REGEX MATCHING =====
+        if self._matches_pattern(param_name, 'rce'):
+            matched_any_pattern = True
             vulnerabilities.append({
                 'type': 'rce',
                 'confidence': 70,
                 'context': 'command_parameter',
-                'evidence': f'Parameter name suggests command execution: {param_name}',
+                'evidence': f'Parameter name matches command pattern: {param_name}',
                 'priority': 2
             })
 
-        # ===== STEP 5: XXE indicators =====
-        if param_name_lower in self.xxe_params or 'xml' in content_type.lower():
+        # ===== STEP 5: XXE - REGEX MATCHING + Content-Type =====
+        if self._matches_pattern(param_name, 'xxe') or 'xml' in content_type.lower():
+            matched_any_pattern = True
             vulnerabilities.append({
                 'type': 'xxe',
                 'confidence': 60,
@@ -1905,41 +2012,105 @@ class ParameterAnalyzer:
                 'priority': 3
             })
 
-        # ===== STEP 6: SSTI - SOLO se parametro specifico E NO reflection =====
-        if param_name_lower in self.ssti_params and not has_reflection:
+        # ===== STEP 6: SSTI - REGEX MATCHING (solo senza reflection) =====
+        if self._matches_pattern(param_name, 'ssti') and not has_reflection:
+            matched_any_pattern = True
             vulnerabilities.append({
                 'type': 'ssti',
                 'confidence': 50,
                 'context': 'template_parameter',
-                'evidence': f'Parameter name suggests template usage: {param_name}',
+                'evidence': f'Parameter name matches template pattern: {param_name}',
                 'priority': 3
             })
 
-        # ===== STEP 7: Open Redirect indicators =====
-        if param_name_lower in ['url', 'link', 'redirect', 'return', 'next', 'callback', 'goto']:
+        # ===== STEP 7: Open Redirect - REGEX MATCHING =====
+        if self._matches_pattern(param_name, 'open_redirect'):
+            matched_any_pattern = True
             vulnerabilities.append({
                 'type': 'open_redirect',
                 'confidence': 60,
                 'context': 'redirect_parameter',
-                'evidence': f'Parameter name suggests redirection: {param_name}',
+                'evidence': f'Parameter name matches redirect pattern: {param_name}',
                 'priority': 3
             })
 
-        # ===== STEP 8: LDAP Injection - SOLO per parametri auth specifici =====
-        if param_name_lower in ['username', 'user', 'uid', 'cn', 'dn', 'ldap']:
+        # ===== STEP 8: LDAP Injection - REGEX MATCHING =====
+        if self._matches_pattern(param_name, 'ldapi'):
+            matched_any_pattern = True
             vulnerabilities.append({
                 'type': 'ldapi',
                 'confidence': 40,
                 'context': 'authentication_parameter',
-                'evidence': f'Parameter used for authentication: {param_name}',
+                'evidence': f'Parameter name matches auth pattern: {param_name}',
+                'priority': 4
+            })
+
+        # ===== STEP 9: FALLBACK per parametri sconosciuti =====
+        # Se nessun pattern ha matchato, testa comunque XSS e SQLi con bassa confidenza
+        # Questo evita di perdere parametri che potrebbero essere vulnerabili
+        if not matched_any_pattern:
+            # XSS fallback - sempre testare, potrebbe esserci reflection non rilevata
+            vulnerabilities.append({
+                'type': 'xss',
+                'confidence': 40,
+                'context': 'unknown_parameter',
+                'evidence': f'Unknown parameter tested for XSS: {param_name}',
+                'priority': 3
+            })
+            # SQLi fallback - parametri sconosciuti potrebbero essere query params
+            vulnerabilities.append({
+                'type': 'sqli',
+                'confidence': 35,
+                'context': 'unknown_parameter',
+                'evidence': f'Unknown parameter tested for SQLi: {param_name}',
                 'priority': 4
             })
 
         # Ordina per priorità (1 = massima)
         vulnerabilities.sort(key=lambda x: (x.get('priority', 5), -x.get('confidence', 0)))
 
+        # Enrich con dati taxonomy (CWE, OWASP, severity)
+        vulnerabilities = self._enrich_with_taxonomy(vulnerabilities)
+
         return vulnerabilities
-    
+
+    def _enrich_with_taxonomy(self, vulnerabilities: List[Dict]) -> List[Dict]:
+        """
+        Enrich vulnerability data with taxonomy information.
+
+        Adds CWE IDs, OWASP categories, and severity scores from TaxonomyDatabase.
+        """
+        if not TAXONOMY_AVAILABLE:
+            return vulnerabilities
+
+        try:
+            for vuln in vulnerabilities:
+                vuln_type = vuln.get('type', '').lower()
+
+                # Get CWE mapping
+                for cwe_id, (mapped_type, name) in TaxonomyDatabase.CWE_MAPPING.items():
+                    if vuln_type == mapped_type or vuln_type in mapped_type:
+                        vuln['cwe_id'] = cwe_id
+                        vuln['cwe_name'] = name
+                        break
+
+                # Get OWASP category
+                for owasp_id, vuln_types in TaxonomyDatabase.OWASP_MAPPING.items():
+                    if vuln_type in vuln_types or any(vuln_type in vt for vt in vuln_types):
+                        vuln['owasp_category'] = owasp_id
+                        break
+
+                # Get severity score
+                if vuln_type in TaxonomyDatabase.SEVERITY_SCORES:
+                    vuln['cvss_base'] = TaxonomyDatabase.SEVERITY_SCORES[vuln_type]
+                elif 'cvss_base' not in vuln:
+                    vuln['cvss_base'] = 5.0  # Default medium
+
+        except Exception as e:
+            logger.debug(f"Taxonomy enrichment failed: {e}")
+
+        return vulnerabilities
+
     def _get_reflection_context(self, value, html):
         """Determine the context where a value is reflected"""
         # Create patterns to check different contexts
