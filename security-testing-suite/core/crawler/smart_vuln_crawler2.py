@@ -3905,9 +3905,14 @@ class SmartCrawler:
             }
             
             for input_data in inputs:
+                # ⚠️ CRITICAL: location dipende dal method del form
+                # GET forms → parametri in query string
+                # POST forms → parametri nel body
+                param_location = 'query' if method.upper() == 'GET' else 'body'
+
                 param_data = {
                     'name': input_data['name'],
-                    'location': 'body',
+                    'location': param_location,
                     'type': input_data['type'],
                     'required': input_data['required'],
                     'predicted_vulns': []
