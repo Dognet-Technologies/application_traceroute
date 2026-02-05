@@ -2691,11 +2691,16 @@ class SmartCrawler:
         self.debug_mode = debug_mode
         self.visited_urls = set()
 
-        # Initialize debug logger if debug mode enabled
+        # Initialize vulnerability logger FIRST (creates output directory)
+        self.vuln_logger = VulnerabilityLogger(target_url)
+        self.results_dir = self.vuln_logger.output_dir  # Store for other outputs
+        print(f"  📁 Results directory: {self.results_dir}")
+
+        # Initialize debug logger if debug mode enabled (uses same directory)
         self.debug_logger = None
         if debug_mode and DEBUG_LOGGER_AVAILABLE:
-            self.debug_logger = DebugLogger(enabled=True)
-            print("  🐛 Debug mode enabled - logging all I/O to debug file")
+            self.debug_logger = DebugLogger(output_dir=self.results_dir, enabled=True)
+            print(f"  🐛 Debug mode enabled - logging to: {self.debug_logger.output_file}")
         elif debug_mode and not DEBUG_LOGGER_AVAILABLE:
             print("  ⚠ Debug mode requested but debug_logger module not available")
 
@@ -2723,7 +2728,7 @@ class SmartCrawler:
         self.url_queue = queue.Queue(maxsize=5000)
         self.endpoints = []
         self.forms = []
-        self.vuln_logger = VulnerabilityLogger(target_url)
+        # vuln_logger already initialized at top of __init__
 
         # Inizializza rate limiter e performance monitor
         self.rate_limiter = RateLimiter(requests_per_second=5)
@@ -4995,10 +5000,13 @@ class SmartCrawler:
         return self.results
     
     def export_results(self, filename='attack_surface.json'):
-        """Export results to JSON file"""
-        with open(filename, 'w') as f:
+        """Export results to JSON file in results directory"""
+        # Save in results directory
+        output_path = os.path.join(self.results_dir, filename)
+        with open(output_path, 'w') as f:
             json.dump(self.results, f, indent=2, default=str)
-        logger.info(f"Results exported to {filename}")
+        logger.info(f"Results exported to {output_path}")
+        return output_path
 
 
 def main():
@@ -5138,9 +5146,9 @@ def main():
     
     # Run crawler
     results = crawler.run(discovery_limit=args.discovery_limit, skip_discovery=args.skip_discovery)
-    
-    # Export results
-    crawler.export_results(args.output)
+
+    # Export results (returns full path in results directory)
+    output_path = crawler.export_results(args.output)
     
     # Print summary
     print("\n" + "="*60)
@@ -5237,7 +5245,11 @@ def main():
             print("   Attach this file when reporting bugs")
 
     print("\n" + "="*60)
-    print(f"Full results saved to: {args.output}")
+    print(f"📂 All results saved to: {crawler.results_dir}")
+    print(f"   - {output_path}")
+    print(f"   - {crawler.vuln_logger.vuln_file}")
+    if args.debug and crawler.debug_logger:
+        print(f"   - {crawler.debug_logger.output_file}")
     print("="*60)
 
 
