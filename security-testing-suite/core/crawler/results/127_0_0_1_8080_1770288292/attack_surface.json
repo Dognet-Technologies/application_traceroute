@@ -1,0 +1,3513 @@
+{
+  "target": "http://127.0.0.1:8080",
+  "scan_time": "2026-02-05 11:44:52",
+  "technologies": {
+    "cms": null,
+    "language": null,
+    "framework": null,
+    "server": null,
+    "javascript_libs": [],
+    "headers": {
+      "Date": "Thu, 05 Feb 2026 10:44:52 GMT",
+      "Server": "Apache/2.4.25 (Debian)",
+      "Expires": "Tue, 23 Jun 2009 12:00:00 GMT",
+      "Cache-Control": "no-cache, must-revalidate",
+      "Pragma": "no-cache",
+      "Vary": "Accept-Encoding",
+      "Content-Encoding": "gzip",
+      "Content-Length": "2659",
+      "Keep-Alive": "timeout=5, max=96",
+      "Connection": "Keep-Alive",
+      "Content-Type": "text/html;charset=utf-8"
+    },
+    "cookies": []
+  },
+  "endpoints": [
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "MAX_FILE_SIZE",
+          "location": "body",
+          "type": "hidden",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute (hidden_field)",
+              "evidence": "Parameter value reflected in attribute context - Hidden parameter: MAX_FILE_SIZE",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "uploaded",
+          "location": "body",
+          "type": "file",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "file_upload",
+              "confidence": 85,
+              "context": "file_upload_form",
+              "evidence": "File upload input: uploaded",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/file-upload/alt-extensions-php.txt",
+                  "relative_path": "attack/file-upload/alt-extensions-php.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/file-upload/file-ul-filter-bypass-x-platform-php.txt",
+                  "relative_path": "attack/file-upload/file-ul-filter-bypass-x-platform-php.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Upload Insecure Files/Extension PHP/",
+                  "relative_path": "Upload Insecure Files/Extension PHP/"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Upload Insecure Files/Picture Metadata/",
+                  "relative_path": "Upload Insecure Files/Picture Metadata/"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Upload",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 53
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "step",
+          "location": "body",
+          "type": "hidden",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html (hidden_field)",
+              "evidence": "Parameter value reflected in html context - Hidden parameter: step",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "password_new",
+          "location": "body",
+          "type": "password",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "password_conf",
+          "location": "body",
+          "type": "password",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "Change",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 27
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "txtName",
+          "location": "body",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "mtxMessage",
+          "location": "body",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "btnSign",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "btnClear",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 27
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "token",
+          "location": "body",
+          "type": "hidden",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "phrase",
+          "location": "body",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "send",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 25
+    },
+    {
+      "url": "http://127.0.0.1:8080/security.php",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "security",
+          "location": "body",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "seclev_submit",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "user_token",
+          "location": "body",
+          "type": "hidden",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute (hidden_field)",
+              "evidence": "Parameter value reflected in attribute context - Hidden parameter: user_token",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 25
+    },
+    {
+      "url": "http://127.0.0.1:8080/setup.php",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "create_db",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "user_token",
+          "location": "body",
+          "type": "hidden",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute (hidden_field)",
+              "evidence": "Parameter value reflected in attribute context - Hidden parameter: user_token",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 23
+    },
+    {
+      "url": "http://127.0.0.1:8080/instructions.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "doc",
+          "location": "query",
+          "type": "string",
+          "value_sample": "readme",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            },
+            {
+              "type": "xxe",
+              "confidence": 60,
+              "context": "xml_parameter",
+              "evidence": "Parameter appears to accept XML data: doc",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xml/xml-attacks.txt",
+                  "relative_path": "attack/xml/xml-attacks.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Files/Classic XXE.xml",
+                  "relative_path": "XXE Injection/Files/Classic XXE.xml"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Intruders/XXE_Fuzzing.txt",
+                  "relative_path": "XXE Injection/Intruders/XXE_Fuzzing.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XXE-Fuzzing.txt",
+                  "relative_path": "Fuzzing/XXE-Fuzzing.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 23
+    },
+    {
+      "url": "http://127.0.0.1:8080/instructions.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "doc",
+          "location": "query",
+          "type": "string",
+          "value_sample": "PDF",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            },
+            {
+              "type": "xxe",
+              "confidence": 60,
+              "context": "xml_parameter",
+              "evidence": "Parameter appears to accept XML data: doc",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xml/xml-attacks.txt",
+                  "relative_path": "attack/xml/xml-attacks.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Files/Classic XXE.xml",
+                  "relative_path": "XXE Injection/Files/Classic XXE.xml"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Intruders/XXE_Fuzzing.txt",
+                  "relative_path": "XXE Injection/Intruders/XXE_Fuzzing.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XXE-Fuzzing.txt",
+                  "relative_path": "Fuzzing/XXE-Fuzzing.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 23
+    },
+    {
+      "url": "http://127.0.0.1:8080/instructions.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "doc",
+          "location": "query",
+          "type": "string",
+          "value_sample": "changelog",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            },
+            {
+              "type": "xxe",
+              "confidence": 60,
+              "context": "xml_parameter",
+              "evidence": "Parameter appears to accept XML data: doc",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xml/xml-attacks.txt",
+                  "relative_path": "attack/xml/xml-attacks.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Files/Classic XXE.xml",
+                  "relative_path": "XXE Injection/Files/Classic XXE.xml"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Intruders/XXE_Fuzzing.txt",
+                  "relative_path": "XXE Injection/Intruders/XXE_Fuzzing.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XXE-Fuzzing.txt",
+                  "relative_path": "Fuzzing/XXE-Fuzzing.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 23
+    },
+    {
+      "url": "http://127.0.0.1:8080/instructions.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "doc",
+          "location": "query",
+          "type": "string",
+          "value_sample": "copying",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            },
+            {
+              "type": "xxe",
+              "confidence": 60,
+              "context": "xml_parameter",
+              "evidence": "Parameter appears to accept XML data: doc",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xml/xml-attacks.txt",
+                  "relative_path": "attack/xml/xml-attacks.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Files/Classic XXE.xml",
+                  "relative_path": "XXE Injection/Files/Classic XXE.xml"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Intruders/XXE_Fuzzing.txt",
+                  "relative_path": "XXE Injection/Intruders/XXE_Fuzzing.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XXE-Fuzzing.txt",
+                  "relative_path": "Fuzzing/XXE-Fuzzing.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 23
+    },
+    {
+      "url": "http://127.0.0.1:8080/instructions.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "doc",
+          "location": "query",
+          "type": "string",
+          "value_sample": "PHPIDS-license",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            },
+            {
+              "type": "xxe",
+              "confidence": 60,
+              "context": "xml_parameter",
+              "evidence": "Parameter appears to accept XML data: doc",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xml/xml-attacks.txt",
+                  "relative_path": "attack/xml/xml-attacks.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Files/Classic XXE.xml",
+                  "relative_path": "XXE Injection/Files/Classic XXE.xml"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XXE Injection/Intruders/XXE_Fuzzing.txt",
+                  "relative_path": "XXE Injection/Intruders/XXE_Fuzzing.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XXE-Fuzzing.txt",
+                  "relative_path": "Fuzzing/XXE-Fuzzing.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 23
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/exec/",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "ip",
+          "location": "body",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "rce",
+              "confidence": 70,
+              "context": "command_parameter",
+              "evidence": "Parameter name suggests command execution: ip",
+              "priority": 2,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/os-cmd-execution/command-execution-unix.txt",
+                  "relative_path": "attack/os-cmd-execution/command-execution-unix.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/os-cmd-execution/Commands-Windows.txt",
+                  "relative_path": "attack/os-cmd-execution/Commands-Windows.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Command Injection/Intruder/command_exec.txt",
+                  "relative_path": "Command Injection/Intruder/command_exec.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Command Injection/README.md",
+                  "relative_path": "Command Injection/README.md"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/command-injection-commix.txt",
+                  "relative_path": "Fuzzing/command-injection-commix.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Submit",
+          "location": "body",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 20
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/sqli/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "query",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "sqli",
+              "confidence": 70,
+              "context": "database_parameter",
+              "evidence": "Parameter name suggests database query: id",
+              "priority": 2,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/Generic_SQLI.txt",
+                  "relative_path": "attack/sql-injection/detect/Generic_SQLI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MySQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MySQL.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MSSQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MSSQL.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Generic_Fuzz.txt",
+                  "relative_path": "SQL Injection/Intruder/Generic_Fuzz.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/SQLi_Polyglots.txt",
+                  "relative_path": "SQL Injection/Intruder/SQLi_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Auth_Bypass.txt",
+                  "relative_path": "SQL Injection/Intruder/Auth_Bypass.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/Generic-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/Generic-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/quick-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/quick-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Databases/MySQL.fuzzdb.txt",
+                  "relative_path": "Fuzzing/Databases/MySQL.fuzzdb.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Submit",
+          "location": "query",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 20
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "query",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "sqli",
+              "confidence": 70,
+              "context": "database_parameter",
+              "evidence": "Parameter name suggests database query: id",
+              "priority": 2,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/Generic_SQLI.txt",
+                  "relative_path": "attack/sql-injection/detect/Generic_SQLI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MySQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MySQL.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MSSQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MSSQL.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Generic_Fuzz.txt",
+                  "relative_path": "SQL Injection/Intruder/Generic_Fuzz.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/SQLi_Polyglots.txt",
+                  "relative_path": "SQL Injection/Intruder/SQLi_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Auth_Bypass.txt",
+                  "relative_path": "SQL Injection/Intruder/Auth_Bypass.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/Generic-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/Generic-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/quick-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/quick-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Databases/MySQL.fuzzdb.txt",
+                  "relative_path": "Fuzzing/Databases/MySQL.fuzzdb.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Submit",
+          "location": "query",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 20
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/brute/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "username",
+          "location": "query",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "ldapi",
+              "confidence": 40,
+              "context": "authentication_parameter",
+              "evidence": "Parameter used for authentication: username",
+              "priority": 4,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/ldap/ldap-injection.txt",
+                  "relative_path": "attack/ldap/ldap-injection.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/LDAP Injection/Intruder/LDAP_FUZZ.txt",
+                  "relative_path": "LDAP Injection/Intruder/LDAP_FUZZ.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LDAP.Fuzzing.txt",
+                  "relative_path": "Fuzzing/LDAP.Fuzzing.txt"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "password",
+          "location": "query",
+          "type": "password",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "Login",
+          "location": "query",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 19
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "page",
+          "location": "query",
+          "type": "string",
+          "value_sample": "include.php",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 18
+    },
+    {
+      "url": "http://127.0.0.1:8080/security.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "phpids",
+          "location": "query",
+          "type": "string",
+          "value_sample": "on",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": true,
+                  "confidence": 88,
+                  "type": "boolean_based_sql"
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "sqli",
+              "confidence": 88,
+              "evidence": "Database interaction detected: boolean_based_sql",
+              "behavioral_type": "boolean_based_sql",
+              "requires_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": true,
+                  "confidence": 88,
+                  "type": "boolean_based_sql"
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/Generic_SQLI.txt",
+                  "relative_path": "attack/sql-injection/detect/Generic_SQLI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MySQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MySQL.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MSSQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MSSQL.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Generic_Fuzz.txt",
+                  "relative_path": "SQL Injection/Intruder/Generic_Fuzz.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/SQLi_Polyglots.txt",
+                  "relative_path": "SQL Injection/Intruder/SQLi_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Auth_Bypass.txt",
+                  "relative_path": "SQL Injection/Intruder/Auth_Bypass.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/Generic-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/Generic-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/quick-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/quick-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Databases/MySQL.fuzzdb.txt",
+                  "relative_path": "Fuzzing/Databases/MySQL.fuzzdb.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 18
+    },
+    {
+      "url": "http://127.0.0.1:8080/security.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "test",
+          "location": "query",
+          "type": "string",
+          "value_sample": "\"><script>eval(window.name)</script>",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": true,
+                  "confidence": 88,
+                  "type": "boolean_based_sql"
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "sqli",
+              "confidence": 88,
+              "evidence": "Database interaction detected: boolean_based_sql",
+              "behavioral_type": "boolean_based_sql",
+              "requires_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": true,
+                  "confidence": 88,
+                  "type": "boolean_based_sql"
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/Generic_SQLI.txt",
+                  "relative_path": "attack/sql-injection/detect/Generic_SQLI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MySQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MySQL.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/sql-injection/detect/MSSQL.txt",
+                  "relative_path": "attack/sql-injection/detect/MSSQL.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Generic_Fuzz.txt",
+                  "relative_path": "SQL Injection/Intruder/Generic_Fuzz.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/SQLi_Polyglots.txt",
+                  "relative_path": "SQL Injection/Intruder/SQLi_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Auth_Bypass.txt",
+                  "relative_path": "SQL Injection/Intruder/Auth_Bypass.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/Generic-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/Generic-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/SQLi/quick-SQLi.txt",
+                  "relative_path": "Fuzzing/SQLi/quick-SQLi.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Databases/MySQL.fuzzdb.txt",
+                  "relative_path": "Fuzzing/Databases/MySQL.fuzzdb.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 18
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/csrf/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "password_new",
+          "location": "query",
+          "type": "password",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "password_conf",
+          "location": "query",
+          "type": "password",
+          "required": false,
+          "predicted_vulns": []
+        },
+        {
+          "name": "Change",
+          "location": "query",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "html",
+              "evidence": "Parameter value reflected in html context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 17
+    },
+    {
+      "url": "http://127.0.0.1:8080/ids_log.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "clear_log",
+          "location": "query",
+          "type": "submit",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "xss",
+              "confidence": 90,
+              "context": "attribute",
+              "evidence": "Parameter value reflected in attribute context",
+              "priority": 1,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-rsnake.txt",
+                  "relative_path": "attack/xss/xss-rsnake.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/xss-other.txt",
+                  "relative_path": "attack/xss/xss-other.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/xss/XSSPolyglot.txt",
+                  "relative_path": "attack/xss/XSSPolyglot.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/JHADDIX_XSS.txt",
+                  "relative_path": "XSS Injection/Intruders/JHADDIX_XSS.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/XSS_Polyglots.txt",
+                  "relative_path": "XSS Injection/Intruders/XSS_Polyglots.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt",
+                  "relative_path": "XSS Injection/Intruders/BRUTELOGIC-XSS-STRINGS.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-BruteLogic.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-BruteLogic.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/XSS/XSS-Jhaddix.txt",
+                  "relative_path": "Fuzzing/XSS/XSS-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Polyglots/XSS-Polyglots.txt",
+                  "relative_path": "Fuzzing/Polyglots/XSS-Polyglots.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 13
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "page",
+          "location": "query",
+          "type": "string",
+          "value_sample": "file1.php",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "lfi",
+              "confidence": 50,
+              "context": "file_parameter",
+              "evidence": "Parameter \"page\" might accept file paths",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/lfi/JHADDIX_LFI.txt",
+                  "relative_path": "attack/lfi/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/path-traversal/traversals-8-deep-exotic-encoding.txt",
+                  "relative_path": "attack/path-traversal/traversals-8-deep-exotic-encoding.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/JHADDIX_LFI.txt",
+                  "relative_path": "File Inclusion/Intruders/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/LFI-WindowsFileCheck.txt",
+                  "relative_path": "File Inclusion/Intruders/LFI-WindowsFileCheck.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Directory Traversal/Intruder/directory_traversal.txt",
+                  "relative_path": "Directory Traversal/Intruder/directory_traversal.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-Jhaddix.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-linux.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-linux.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-windows.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-windows.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 12
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "page",
+          "location": "query",
+          "type": "string",
+          "value_sample": "file2.php",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "lfi",
+              "confidence": 50,
+              "context": "file_parameter",
+              "evidence": "Parameter \"page\" might accept file paths",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/lfi/JHADDIX_LFI.txt",
+                  "relative_path": "attack/lfi/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/path-traversal/traversals-8-deep-exotic-encoding.txt",
+                  "relative_path": "attack/path-traversal/traversals-8-deep-exotic-encoding.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/JHADDIX_LFI.txt",
+                  "relative_path": "File Inclusion/Intruders/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/LFI-WindowsFileCheck.txt",
+                  "relative_path": "File Inclusion/Intruders/LFI-WindowsFileCheck.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Directory Traversal/Intruder/directory_traversal.txt",
+                  "relative_path": "Directory Traversal/Intruder/directory_traversal.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-Jhaddix.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-linux.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-linux.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-windows.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-windows.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 12
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "page",
+          "location": "query",
+          "type": "string",
+          "value_sample": "file3.php",
+          "predicted_vulns": [
+            {
+              "type": "rfi",
+              "confidence": 90,
+              "evidence": "File operation detected: remote_file_inclusion_possible",
+              "requires_filter_bypass": false,
+              "source": "behavioral",
+              "behavioral_results": {
+                "database_interaction": {
+                  "detected": false
+                },
+                "template_engine": {
+                  "detected": false
+                },
+                "reflection_context": {
+                  "detected": false
+                },
+                "file_operations": {
+                  "detected": true,
+                  "confidence": 90,
+                  "type": "remote_file_inclusion_possible"
+                },
+                "command_execution": {
+                  "detected": false
+                },
+                "xml_parsing": {
+                  "detected": false
+                },
+                "serialization": {
+                  "detected": false
+                }
+              },
+              "wordlists": []
+            },
+            {
+              "type": "lfi",
+              "confidence": 50,
+              "context": "file_parameter",
+              "evidence": "Parameter \"page\" might accept file paths",
+              "priority": 3,
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/lfi/JHADDIX_LFI.txt",
+                  "relative_path": "attack/lfi/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/path-traversal/traversals-8-deep-exotic-encoding.txt",
+                  "relative_path": "attack/path-traversal/traversals-8-deep-exotic-encoding.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/JHADDIX_LFI.txt",
+                  "relative_path": "File Inclusion/Intruders/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/LFI-WindowsFileCheck.txt",
+                  "relative_path": "File Inclusion/Intruders/LFI-WindowsFileCheck.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Directory Traversal/Intruder/directory_traversal.txt",
+                  "relative_path": "Directory Traversal/Intruder/directory_traversal.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-Jhaddix.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-linux.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-linux.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-windows.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-windows.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "query_parameters",
+      "priority": 12
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/csp/",
+      "method": "POST",
+      "parameters": [
+        {
+          "name": "include",
+          "location": "body",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": [
+            {
+              "type": "lfi",
+              "confidence": 70,
+              "context": "file_parameter",
+              "evidence": "Parameter name suggests file operation: include",
+              "priority": 2,
+              "wordlists": [
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/lfi/JHADDIX_LFI.txt",
+                  "relative_path": "attack/lfi/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "fuzzdb",
+                  "path": "/home/simone/GIT/3_List//fuzzdb/attack/path-traversal/traversals-8-deep-exotic-encoding.txt",
+                  "relative_path": "attack/path-traversal/traversals-8-deep-exotic-encoding.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/JHADDIX_LFI.txt",
+                  "relative_path": "File Inclusion/Intruders/JHADDIX_LFI.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/File Inclusion/Intruders/LFI-WindowsFileCheck.txt",
+                  "relative_path": "File Inclusion/Intruders/LFI-WindowsFileCheck.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/Directory Traversal/Intruder/directory_traversal.txt",
+                  "relative_path": "Directory Traversal/Intruder/directory_traversal.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-Jhaddix.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-Jhaddix.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-linux.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-linux.txt"
+                },
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/LFI/LFI-gracefulsecurity-windows.txt",
+                  "relative_path": "Fuzzing/LFI/LFI-gracefulsecurity-windows.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 10
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/brute/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "path_b64_0",
+          "location": "path",
+          "type": "base64_like",
+          "value_sample": "vulnerabilities",
+          "path_index": 0,
+          "predicted_vulns": [
+            {
+              "type": "idor",
+              "confidence": 60,
+              "context": "path_token_access",
+              "evidence": "Token-like parameter in path: vulnerabilities...",
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/ID-References.txt",
+                  "relative_path": "Fuzzing/ID-References.txt"
+                }
+              ]
+            },
+            {
+              "type": "auth_bypass",
+              "confidence": 35,
+              "context": "path_session_token",
+              "evidence": "Potential session token in path",
+              "source": "traditional",
+              "wordlists": [
+                {
+                  "source": "seclists",
+                  "path": "/home/simone/GIT/3_List//SecLists/Fuzzing/Auth-Bypass.txt",
+                  "relative_path": "Fuzzing/Auth-Bypass.txt"
+                },
+                {
+                  "source": "payloads",
+                  "path": "/home/simone/GIT/3_List//PayloadsAllTheThings/SQL Injection/Intruder/Auth_Bypass.txt",
+                  "relative_path": "SQL Injection/Intruder/Auth_Bypass.txt"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "form": false,
+      "source": "path_segments",
+      "priority": 9
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "default",
+          "location": "query",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": []
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 5
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "name",
+          "location": "query",
+          "type": "text",
+          "required": false,
+          "predicted_vulns": []
+        }
+      ],
+      "form": true,
+      "source": "html_form",
+      "priority": 5
+    },
+    {
+      "url": "http://127.0.0.1:8080/dvwa/css/main.css",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "path_file_2",
+          "location": "path",
+          "type": "filename",
+          "value_sample": "main.css",
+          "path_index": 2,
+          "predicted_vulns": []
+        }
+      ],
+      "form": false,
+      "source": "path_segments",
+      "priority": 2
+    },
+    {
+      "url": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "path_token_1",
+          "location": "path",
+          "type": "token",
+          "value_sample": "javascript",
+          "path_index": 1,
+          "predicted_vulns": []
+        }
+      ],
+      "form": false,
+      "source": "path_segments",
+      "priority": 2
+    }
+  ],
+  "forms": [],
+  "javascript_files": [
+    "https://www.google.com/recaptcha/api.js",
+    "http://127.0.0.1:8080/dvwa/js/add_event_listeners.js",
+    "http://127.0.0.1:8080/dvwa/js/dvwaPage.js"
+  ],
+  "api_endpoints": [],
+  "interesting_files": [
+    {
+      "url": "http://127.0.0.1:8080/.gitignore",
+      "path": "/.gitignore",
+      "status": 200,
+      "content_type": "",
+      "size": "57"
+    },
+    {
+      "url": "http://127.0.0.1:8080/.htpasswd",
+      "path": "/.htpasswd",
+      "status": 403,
+      "content_type": "text/html; charset=iso-8859-1",
+      "size": 0
+    },
+    {
+      "url": "http://127.0.0.1:8080/.hta",
+      "path": "/.hta",
+      "status": 403,
+      "content_type": "text/html; charset=iso-8859-1",
+      "size": 0
+    },
+    {
+      "url": "http://127.0.0.1:8080/.htaccess",
+      "path": "/.htaccess",
+      "status": 403,
+      "content_type": "text/html; charset=iso-8859-1",
+      "size": 0
+    }
+  ],
+  "comments": [],
+  "emails": [
+    "license@php.net"
+  ],
+  "potential_vulnerabilities": {},
+  "vulnerability_test_results": [
+    {
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "vulnerability_type": "xss",
+      "payload": "\"",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 5439,
+      "timestamp": "11:45:04",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "vulnerability_type": "xss",
+      "payload": "'",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 5439,
+      "timestamp": "11:45:06",
+      "confidence": 75
+    }
+  ],
+  "behavioral_analysis_results": [
+    {
+      "endpoint": "http://127.0.0.1:8080/dvwa/css/main.css",
+      "parameter": "path_file_2",
+      "type": "path_segment",
+      "results": {
+        "file_operations": {
+          "detected": false
+        },
+        "static_serving": {
+          "detected": true,
+          "type": "static_resource",
+          "confidence": 90
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/brute/",
+      "parameter": "path_b64_0",
+      "type": "path_segment",
+      "results": {
+        "file_operations": {
+          "detected": false
+        },
+        "static_serving": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "parameter": "path_token_1",
+      "type": "path_segment",
+      "results": {
+        "file_operations": {
+          "detected": false
+        },
+        "static_serving": {
+          "detected": true,
+          "type": "static_resource",
+          "confidence": 90
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "results": {
+        "database_interaction": {
+          "detected": false
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/security.php",
+      "parameter": "phpids",
+      "results": {
+        "database_interaction": {
+          "detected": true,
+          "confidence": 88,
+          "type": "boolean_based_sql"
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/security.php",
+      "parameter": "test",
+      "results": {
+        "database_interaction": {
+          "detected": true,
+          "confidence": 88,
+          "type": "boolean_based_sql"
+        },
+        "template_engine": {
+          "detected": false
+        },
+        "reflection_context": {
+          "detected": false
+        },
+        "file_operations": {
+          "detected": true,
+          "confidence": 90,
+          "type": "remote_file_inclusion_possible"
+        },
+        "command_execution": {
+          "detected": false
+        },
+        "xml_parsing": {
+          "detected": false
+        },
+        "serialization": {
+          "detected": false
+        }
+      }
+    }
+  ]
+}

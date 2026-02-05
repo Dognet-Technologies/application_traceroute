@@ -1,0 +1,73 @@
+{
+  "target": "http://127.0.0.1:8080",
+  "scan_start": "2026-02-05 11:44:52",
+  "vulnerabilities": [
+    {
+      "id": 1,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "payload": "\"",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "create_db"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5439
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-05 11:45:04",
+        "unix_timestamp": 1770288304
+      }
+    },
+    {
+      "id": 2,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "payload": "'",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "create_db"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5439
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-05 11:45:06",
+        "unix_timestamp": 1770288306
+      }
+    }
+  ],
+  "total_vulnerabilities": 2,
+  "total_by_type": {
+    "xss": 2
+  },
+  "last_updated": "2026-02-05 11:45:06"
+}
