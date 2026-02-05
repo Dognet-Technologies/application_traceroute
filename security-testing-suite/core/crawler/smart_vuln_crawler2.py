@@ -4612,31 +4612,44 @@ class SmartCrawler:
         payload_in_response = payload_lower in response_text_lower or payload in response_text
 
         if not payload_in_response:
-            # Special case for blind vulnerabilities
-            if vuln_type in ['sqli', 'xxe', 'ssti'] and status_code in [500, 503]:
+            # Special case for blind/content-based vulnerabilities
+            # SQLi, LFI, RCE non richiedono che il payload sia riflesso
+            # - SQLi: può essere UNION-based, boolean-based, o error-based
+            # - LFI: mostra contenuto file, non il path
+            # - RCE: mostra output comando, non il comando
+            if vuln_type in ['sqli', 'lfi', 'rce']:
+                # Continua con vulnerability-specific detection
+                pass  # Non ritornare False, lascia continuare
+            elif vuln_type in ['xxe', 'ssti'] and status_code in [500, 503]:
                 # Server error might indicate vulnerability
-                # Ma verifica che non sia un errore generico (falso positivo)
                 generic_errors = ['404', '403', 'not found', 'forbidden', 'unauthorized']
                 if any(err in response_text_lower for err in generic_errors):
                     return False
-                # Don't auto-confirm blind vulns without verifier
                 if self.vuln_verifier:
-                    return False  # Verifier already checked
+                    return False
                 return True
-            return False
+            elif vuln_type != 'xss':
+                # Per altri tipi, se payload non riflesso → probabilmente non vulnerabile
+                return False
+            else:
+                # XSS richiede reflection
+                return False
 
         # Se il payload è nella risposta, verifica che non sia in un contesto "safe"
         # (commenti HTML, JavaScript, codice escaped, etc.)
-        if self._is_payload_in_safe_context(response_text, payload):
-            return False
+        if payload_in_response and self._is_payload_in_safe_context(response_text, payload):
+            # Solo per XSS - per SQLi/LFI/RCE il payload potrebbe essere in un commento
+            # ma l'effetto è comunque rilevabile
+            if vuln_type == 'xss':
+                return False
 
         # If verifier is available and didn't confirm, don't use legacy detection
-        # This prevents false positives
-        if self.vuln_verifier:
+        # BUT: for SQLi/LFI/RCE, still run detection since verifier might not catch all cases
+        if self.vuln_verifier and vuln_type == 'xss':
             return False
 
         # ========== LEGACY VULNERABILITY-SPECIFIC DETECTION ==========
-        # Only used if verifier is not available
+        # Eseguito sempre per SQLi/LFI/RCE (non richiedono reflection)
         if vuln_type == 'xss':
             # Controlli più stringenti per XSS per ridurre falsi positivi
 
@@ -4681,52 +4694,117 @@ class SmartCrawler:
                                         return True
         
         elif vuln_type == 'sqli':
-            # Enhanced SQL error detection con riduzione falsi positivi
-            # ⚡ USA REGEX PRECOMPILATE
-            error_found = False
+            # ========== ENHANCED SQL INJECTION DETECTION ==========
+            # Ora rileva: Error-based, UNION-based, Content-based, Blind
+
+            # 1. ERROR-BASED: cerca messaggi di errore SQL
             for pattern in self.sqli_patterns:
                 match = pattern.search(response_text)
                 if match:
-                    error_found = True
-                    # Verifica che l'errore sia correlato al nostro payload
-                    # Estrai il contesto attorno all'errore
-                    context_start = max(0, match.start() - 200)
-                    context_end = min(len(response_text), match.end() + 200)
-                    error_context = response_text[context_start:context_end]
+                    # Errore SQL trovato - conferma vulnerabilità
+                    return True
 
-                    # Verifica che parti del payload siano vicine all'errore SQL
-                    # o che l'errore menzioni caratteri SQL injection tipici
-                    sql_chars = ["'", '"', '--', '/*', '*/', 'OR', 'AND', 'UNION', 'SELECT']
-                    payload_upper = payload.upper()
+            # 2. UNION-BASED: cerca output di funzioni SQL comuni
+            # Questi pattern indicano che dati SQL sono stati estratti
+            union_indicators = [
+                # MySQL
+                r'\d+\.\d+\.\d+[-\w]*',  # Version numbers (5.7.31-log, 8.0.23)
+                r'root@localhost',
+                r'mysql\.user',
+                r'information_schema',
+                r'@@version',
+                r'@@datadir',
+                # PostgreSQL
+                r'PostgreSQL\s+\d+\.\d+',
+                # MSSQL
+                r'Microsoft SQL Server',
+                # SQLite
+                r'SQLite\s+\d+\.\d+',
+                # Generic
+                r'INFORMATION_SCHEMA',
+                r'pg_catalog',
+                r'sys\.databases',
+            ]
 
-                    # Se il payload contiene caratteri SQL tipici e l'errore è vicino
-                    if any(char in payload_upper for char in ['OR', 'AND', 'UNION', 'SELECT', "'", '"']):
+            # Verifica se il payload contiene UNION/SELECT e la risposta ha output SQL
+            payload_upper = payload.upper()
+            if 'UNION' in payload_upper or 'SELECT' in payload_upper:
+                for indicator in union_indicators:
+                    if re.search(indicator, response_text, re.I):
                         return True
 
-                    # Se troviamo parti del payload nel contesto dell'errore
-                    if len(payload) > 5:
-                        payload_part = payload[:min(15, len(payload))]
-                        if payload_part in error_context or payload_part.lower() in error_context.lower():
-                            return True
+            # 3. CONTENT-BASED: verifica differenza significativa nella risposta
+            # Se il payload è boolean-based (OR 1=1, AND 1=1) e la risposta è diversa
+            boolean_payloads = ["' OR '1'='1", "' OR 1=1", "OR 1=1", "' OR ''='", "1' OR '1'='1"]
+            is_boolean_payload = any(bp.lower() in payload.lower() for bp in boolean_payloads)
 
-            # Se abbiamo trovato un errore SQL generico ma non correlato al payload
-            # consideriamolo comunque ma con bassa confidenza
-            # (verrà gestito nel chiamante tramite confidence score)
-            if error_found:
-                return True
+            if is_boolean_payload:
+                # Cerca indicatori che suggeriscono più righe/dati del normale
+                # Questo è euristico ma utile per DVWA-style apps
+                multiple_results_indicators = [
+                    r'<tr[^>]*>.*?</tr>.*?<tr[^>]*>.*?</tr>',  # Multiple table rows
+                    r'"id"\s*:\s*\d+.*?"id"\s*:\s*\d+',  # Multiple JSON IDs
+                    r'user.*?user.*?user',  # Multiple user mentions
+                    r'admin.*?user|user.*?admin',  # Multiple users
+                ]
+                for indicator in multiple_results_indicators:
+                    if re.search(indicator, response_text, re.I | re.S):
+                        return True
+
+            # 4. TIME-BASED BLIND: verifica se la risposta ha impiegato molto tempo
+            # (questo richiede che il chiamante passi informazioni sul tempo)
+            # Per ora, affidati al confronto con baseline se disponibile
+
+            # 5. Payload SQL reflected (raro ma possibile in messaggi di debug)
+            sql_keywords_in_response = ['UNION', 'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE']
+            if any(kw in response_text.upper() for kw in sql_keywords_in_response):
+                # Verifica che il nostro payload sia quello riflesso
+                if any(kw in payload_upper for kw in sql_keywords_in_response):
+                    if payload[:10] in response_text or payload.upper()[:10] in response_text.upper():
+                        return True
         
         elif vuln_type == 'lfi':
             # Enhanced LFI detection
-            # ⚡ USA REGEX PRECOMPILATE
+            # Cerca contenuto di file di sistema nella risposta
             for pattern in self.lfi_patterns:
-                if pattern.search(response.text):
+                if pattern.search(response_text):
+                    return True
+
+            # Pattern aggiuntivi per DVWA e app simili
+            lfi_additional = [
+                r'root:.*:0:0:',  # /etc/passwd format
+                r'\[extensions\]',  # php.ini sections
+                r'register_globals',  # php.ini directives
+                r'safe_mode\s*=',  # php.ini
+                r'<\?php',  # PHP source disclosure
+                r'include_path',  # PHP config
+                r'error_reporting',  # PHP config
+            ]
+            for pattern in lfi_additional:
+                if re.search(pattern, response_text, re.I):
                     return True
 
         elif vuln_type == 'rce':
             # Enhanced RCE detection
-            # ⚡ USA REGEX PRECOMPILATE
+            # Cerca output di comandi di sistema
             for pattern in self.rce_patterns:
-                if pattern.search(response.text):
+                if pattern.search(response_text):
+                    return True
+
+            # Pattern aggiuntivi per output comandi
+            rce_additional = [
+                r'total\s+\d+\s+drwx',  # ls -la output
+                r'rwxr-xr-x',  # ls -la permissions
+                r'www-data',  # common web user
+                r'apache|nginx|httpd',  # web server processes
+                r'\d+\s+\d+\s+\d+\s+\d+',  # ping output (bytes)
+                r'64 bytes from',  # ping response
+                r'TTL=\d+',  # ping TTL (case insensitive handled separately)
+                r'icmp_seq=\d+',  # ping sequence
+                r'packets transmitted',  # ping summary
+            ]
+            for pattern in rce_additional:
+                if re.search(pattern, response_text, re.I):
                     return True
         
         elif vuln_type == 'xxe':
@@ -4743,15 +4821,15 @@ class SmartCrawler:
             ]
             
             for indicator in xxe_indicators:
-                if re.search(indicator, response.text, re.I):
+                if re.search(indicator, response_text, re.I):
                     return True
-        
+
         elif vuln_type == 'ssti':
             # Template injection indicators
             # Check if mathematical operations were evaluated
-            if '49' in response.text and '7*7' in payload:  # 7*7=49
+            if '49' in response_text and '7*7' in payload:  # 7*7=49
                 return True
-            
+
             template_errors = [
                 r'TemplateSyntaxError',
                 r'jinja2\.exceptions',
@@ -4760,17 +4838,17 @@ class SmartCrawler:
                 r'freemarker\.template',
                 r'velocity\.exception'
             ]
-            
+
             for error in template_errors:
-                if re.search(error, response.text, re.I):
+                if re.search(error, response_text, re.I):
                     return True
-        
+
         # If using bypass and response is different from expected blocked response
         if bypass and status_code not in [403, 406, 418, 429]:
             # Additional validation for bypass success
-            if len(response.content) > 100:  # Not just an error page
+            if len(response_text) > 100:  # Not just an error page
                 return True
-        
+
         return False
 
     def _is_payload_in_safe_context(self, response_text, payload):
