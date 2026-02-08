@@ -4286,14 +4286,13 @@ class SmartCrawler:
                         print(f"       Evidence: {result.evidence[:80]}...")
                         print(f"       Confidence: {result.confidence*100:.0f}%")
 
-                    # Log the vulnerability
+                    # Log the vulnerability (match VulnerabilityLogger.log_vulnerability signature)
                     self.vuln_logger.log_vulnerability(
-                        endpoint=endpoint,
-                        vuln_type=vuln_type,
+                        endpoint=url,
+                        parameter=param_name,
                         payload=result.payload,
-                        evidence=result.evidence,
-                        confidence=result.confidence * 100,
-                        technique=result.technique.value
+                        vulnerability_type=vuln_type.upper(),
+                        confidence=result.confidence * 100
                     )
 
                     # Debug logging if enabled
