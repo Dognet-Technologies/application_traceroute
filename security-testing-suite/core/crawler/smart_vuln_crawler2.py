@@ -113,6 +113,22 @@ except ImportError:
         TAXONOMY_AVAILABLE = False
         logger.warning("taxonomy module not available - using basic classification")
 
+# Optional import for native vulnerability detection (pure Python, no external tools)
+try:
+    from core.tools import VulnDetector, SQLiDetector, XSSDetector, DetectionResult
+    NATIVE_DETECTOR_AVAILABLE = True
+except ImportError:
+    try:
+        # Try from tools directory
+        tools_dir = str(Path(__file__).parent.parent / 'tools')
+        if tools_dir not in sys.path:
+            sys.path.insert(0, tools_dir)
+        from native_detector import VulnDetector, SQLiDetector, XSSDetector, DetectionResult
+        NATIVE_DETECTOR_AVAILABLE = True
+    except ImportError:
+        NATIVE_DETECTOR_AVAILABLE = False
+        logger.warning("native_detector not available - using basic detection only")
+
 
 class RateLimiter:
     """
@@ -1150,6 +1166,8 @@ class AuthenticationManager:
 
                 if result:
                     self._log_auth_event('setup_complete', {'type': auth_type}, success=True)
+                    # Sync session cookies with native detector
+                    self._sync_native_detector_session()
                 else:
                     self._log_auth_event('setup_failed', {'type': auth_type}, success=False)
 
@@ -1638,6 +1656,21 @@ class AuthenticationManager:
             'has_csrf_token': self.csrf_token is not None,
             'session_cookies': list(self.session.cookies.keys()) if self.session else []
         }
+
+    def _sync_native_detector_session(self):
+        """Sync session cookies with native detector for authenticated testing"""
+        if not self.native_detector:
+            return
+
+        try:
+            if hasattr(self.session, 'cookies') and self.session.cookies:
+                cookies_dict = dict(self.session.cookies)
+                if cookies_dict:
+                    self.native_detector.session.cookies.update(cookies_dict)
+                    if self.verbose:
+                        print(f"  🔄 Synced {len(cookies_dict)} cookies with native detector")
+        except Exception as e:
+            logger.warning(f"Failed to sync native detector session: {e}")
 
 
 class TechnologyDetector:
@@ -2882,6 +2915,14 @@ class SmartCrawler:
             print("  🔬 Vulnerability verifier enabled with auto-learning")
         else:
             print("  ⚠ Vulnerability verifier not available - using basic detection")
+
+        # Initialize native detector (pure Python, no external tools)
+        self.native_detector = None
+        if NATIVE_DETECTOR_AVAILABLE:
+            self.native_detector = VulnDetector(timeout=10, verify_ssl=False)
+            print("  🧪 Native detector enabled (time-based/boolean-based SQLi, XSS)")
+        else:
+            print("  ⚠ Native detector not available - using wordlist-based detection only")
 
         # Sistema di deduplicazione avanzato
         # Traccia parametri testati per evitare test ridondanti su URL diversi
@@ -4170,6 +4211,14 @@ class SmartCrawler:
             if self.verbose:
                 print(f"  🔍 Testing {vuln_type.upper()} (confidence: {confidence})")
 
+            # Try native detector first (more accurate for SQLi and XSS)
+            if self.native_detector and vuln_type in ['sqli', 'xss']:
+                native_found = self._test_with_native_detector(endpoint, param, vuln_type)
+                if native_found:
+                    # Native detector found vulnerability - skip wordlist testing
+                    self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
+                    continue
+
             # Get appropriate wordlists (external)
             wordlists = self.wordlist_mapper.get_wordlists_for_vulnerability(
                 vuln_type, self.results['technologies']
@@ -4190,7 +4239,92 @@ class SmartCrawler:
 
             # Marca come testato dopo il test
             self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
-    
+
+    def _test_with_native_detector(self, endpoint, param, vuln_type):
+        """
+        Test vulnerability using native Python detection (time-based, boolean-based, etc.)
+
+        Uses advanced detection techniques without external CLI tools:
+        - Time-based blind SQLi (SLEEP payloads)
+        - Boolean-based SQLi (true/false comparison)
+        - Error-based SQLi (SQL error messages)
+        - XSS reflection with context analysis
+
+        Returns:
+            True if vulnerability confirmed, False otherwise
+        """
+        if not self.native_detector:
+            return False
+
+        url = endpoint['url']
+        param_name = param['name']
+        method = endpoint.get('method', 'GET')
+
+        if self.verbose:
+            print(f"    🧪 Native detector testing {vuln_type.upper()} on '{param_name}'")
+
+        try:
+            # Sync session cookies with native detector
+            if hasattr(self.session, 'cookies') and self.session.cookies:
+                cookies_dict = dict(self.session.cookies)
+                if cookies_dict:
+                    self.native_detector.session.cookies.update(cookies_dict)
+
+            # Run detection
+            results = self.native_detector.scan(
+                url=url,
+                parameter=param_name,
+                method=method,
+                vuln_types=[vuln_type]
+            )
+
+            for result in results:
+                if result.vulnerable:
+                    if self.verbose:
+                        print(f"    ✅ Native detector CONFIRMED: {vuln_type.upper()} ({result.technique.value})")
+                        print(f"       Payload: {result.payload[:80]}...")
+                        print(f"       Evidence: {result.evidence[:80]}...")
+                        print(f"       Confidence: {result.confidence*100:.0f}%")
+
+                    # Log the vulnerability
+                    self.vuln_logger.log_vulnerability(
+                        endpoint=endpoint,
+                        vuln_type=vuln_type,
+                        payload=result.payload,
+                        evidence=result.evidence,
+                        confidence=result.confidence * 100,
+                        technique=result.technique.value
+                    )
+
+                    # Debug logging if enabled
+                    if self.debug_logger:
+                        self.debug_logger.log_step(
+                            'native_detection',
+                            {
+                                'url': url,
+                                'parameter': param_name,
+                                'vuln_type': vuln_type,
+                                'technique': result.technique.value,
+                                'payload': result.payload,
+                                'evidence': result.evidence,
+                                'confidence': result.confidence
+                            },
+                            success=True
+                        )
+
+                    return True
+
+            if self.verbose:
+                print(f"    ℹ️  Native detector: no {vuln_type.upper()} found, trying wordlists...")
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Native detection error: {e}")
+            if self.debug_logger:
+                self.debug_logger.log_step('native_detection_error', {'error': str(e)}, success=False)
+            return False
+
     def test_with_wordlists(self, endpoint, param, vuln_type, wordlists):
         """
         Test vulnerability using wordlists and bypasses con lazy loading.
