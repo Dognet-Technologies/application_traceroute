@@ -1,6 +1,6 @@
 {
   "target": "http://127.0.0.1:8080",
-  "scan_start": "2026-02-05 11:44:52",
+  "scan_start": "2026-02-08 15:18:34",
   "vulnerabilities": [
     {
       "id": 1,
@@ -22,15 +22,15 @@
       },
       "response": {
         "status_code": 200,
-        "content_length": 5439
+        "content_length": 5438
       },
       "bypass": {
         "used": false,
         "type": null
       },
       "timestamps": {
-        "detected_at": "2026-02-05 11:45:04",
-        "unix_timestamp": 1770288304
+        "detected_at": "2026-02-08 15:18:44",
+        "unix_timestamp": 1770560324
       }
     },
     {
@@ -53,15 +53,15 @@
       },
       "response": {
         "status_code": 200,
-        "content_length": 5439
+        "content_length": 5438
       },
       "bypass": {
         "used": false,
         "type": null
       },
       "timestamps": {
-        "detected_at": "2026-02-05 11:45:06",
-        "unix_timestamp": 1770288306
+        "detected_at": "2026-02-08 15:18:46",
+        "unix_timestamp": 1770560326
       }
     }
   ],
@@ -69,5 +69,5 @@
   "total_by_type": {
     "xss": 2
   },
-  "last_updated": "2026-02-05 11:45:06"
+  "last_updated": "2026-02-08 15:18:46"
 }
