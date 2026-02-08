@@ -14,14 +14,19 @@ Each wrapper provides:
 - Session/cookie forwarding from crawler
 """
 
-from .base_wrapper import ToolWrapper, ToolResult, ToolNotFoundError
+from .base_wrapper import ToolWrapper, ToolResult, ToolNotFoundError, VulnSeverity
 from .sqlmap_wrapper import SqlmapWrapper
 from .xsstrike_wrapper import XSStrikeWrapper
+from .commix_wrapper import CommixWrapper
+from .orchestrator import VulnOrchestrator
 
 __all__ = [
     'ToolWrapper',
     'ToolResult',
     'ToolNotFoundError',
+    'VulnSeverity',
     'SqlmapWrapper',
     'XSStrikeWrapper',
+    'CommixWrapper',
+    'VulnOrchestrator',
 ]
