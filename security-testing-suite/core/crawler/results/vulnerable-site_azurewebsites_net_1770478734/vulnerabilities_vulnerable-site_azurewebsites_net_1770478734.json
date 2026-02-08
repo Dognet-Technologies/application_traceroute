@@ -1,8 +1,0 @@
-{
-  "target": "https://vulnerable-site.azurewebsites.net/",
-  "scan_start": "2026-02-07 16:38:54",
-  "vulnerabilities": [],
-  "total_vulnerabilities": 0,
-  "total_by_type": {},
-  "last_updated": "2026-02-07 16:38:54"
-}
