@@ -1166,8 +1166,6 @@ class AuthenticationManager:
 
                 if result:
                     self._log_auth_event('setup_complete', {'type': auth_type}, success=True)
-                    # Sync session cookies with native detector
-                    self._sync_native_detector_session()
                 else:
                     self._log_auth_event('setup_failed', {'type': auth_type}, success=False)
 
@@ -1656,21 +1654,6 @@ class AuthenticationManager:
             'has_csrf_token': self.csrf_token is not None,
             'session_cookies': list(self.session.cookies.keys()) if self.session else []
         }
-
-    def _sync_native_detector_session(self):
-        """Sync session cookies with native detector for authenticated testing"""
-        if not self.native_detector:
-            return
-
-        try:
-            if hasattr(self.session, 'cookies') and self.session.cookies:
-                cookies_dict = dict(self.session.cookies)
-                if cookies_dict:
-                    self.native_detector.session.cookies.update(cookies_dict)
-                    if self.verbose:
-                        print(f"  🔄 Synced {len(cookies_dict)} cookies with native detector")
-        except Exception as e:
-            logger.warning(f"Failed to sync native detector session: {e}")
 
 
 class TechnologyDetector:
@@ -3002,8 +2985,11 @@ class SmartCrawler:
         # Initialize authentication with debug logger
         self.auth_manager = AuthenticationManager(debug_logger=self.debug_logger)
         if auth_config:
-            self.auth_manager.setup_authentication(self.session, auth_config)
-        
+            auth_result = self.auth_manager.setup_authentication(self.session, auth_config)
+            # Sync session cookies with native detector after authentication
+            if auth_result and self.native_detector:
+                self._sync_native_detector_cookies()
+
         # Bypass manager - will be set if bypass file provided
         self.bypass_manager = None
         
@@ -4323,6 +4309,21 @@ class SmartCrawler:
             if self.debug_logger:
                 self.debug_logger.log_step('native_detection_error', {'error': str(e)}, success=False)
             return False
+
+    def _sync_native_detector_cookies(self):
+        """Sync session cookies with native detector for authenticated testing"""
+        if not self.native_detector:
+            return
+
+        try:
+            if hasattr(self.session, 'cookies') and self.session.cookies:
+                cookies_dict = dict(self.session.cookies)
+                if cookies_dict:
+                    self.native_detector.session.cookies.update(cookies_dict)
+                    if self.verbose:
+                        print(f"  🔄 Synced {len(cookies_dict)} cookies with native detector")
+        except Exception as e:
+            logger.warning(f"Failed to sync native detector session: {e}")
 
     def test_with_wordlists(self, endpoint, param, vuln_type, wordlists):
         """
