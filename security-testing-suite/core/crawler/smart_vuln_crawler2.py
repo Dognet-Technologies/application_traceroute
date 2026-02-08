@@ -2062,8 +2062,8 @@ class ParameterAnalyzer:
             })
 
         # ===== STEP 9: FALLBACK per parametri sconosciuti =====
-        # Se nessun pattern ha matchato, testa comunque XSS e SQLi con bassa confidenza
-        # Questo evita di perdere parametri che potrebbero essere vulnerabili
+        # Se nessun pattern ha matchato, testa comunque XSS con bassa confidenza
+        # SQLi fallback SOLO se il nome parametro suggerisce uso database
         if not matched_any_pattern:
             # XSS fallback - sempre testare, potrebbe esserci reflection non rilevata
             vulnerabilities.append({
@@ -2073,14 +2073,28 @@ class ParameterAnalyzer:
                 'evidence': f'Unknown parameter tested for XSS: {param_name}',
                 'priority': 3
             })
-            # SQLi fallback - parametri sconosciuti potrebbero essere query params
-            vulnerabilities.append({
-                'type': 'sqli',
-                'confidence': 35,
-                'context': 'unknown_parameter',
-                'evidence': f'Unknown parameter tested for SQLi: {param_name}',
-                'priority': 4
-            })
+
+            # SQLi fallback - SOLO per parametri che sembrano database-related
+            # Evita falsi positivi su parametri testuali come 'name', 'message', etc.
+            sqli_hint_patterns = [
+                r'.*id$', r'.*_id$', r'.*num.*', r'.*count.*', r'.*index.*',
+                r'.*key.*', r'.*code.*', r'.*no$', r'.*number.*', r'.*pk.*',
+                r'.*ref.*', r'.*row.*', r'.*seq.*', r'.*val.*', r'.*value.*'
+            ]
+            is_db_likely = any(re.match(p, param_name_lower) for p in sqli_hint_patterns)
+
+            # Anche numeri nel valore suggeriscono uso database
+            if param_value_str and param_value_str.isdigit():
+                is_db_likely = True
+
+            if is_db_likely:
+                vulnerabilities.append({
+                    'type': 'sqli',
+                    'confidence': 30,  # Ridotta da 35
+                    'context': 'unknown_parameter_db_hint',
+                    'evidence': f'Unknown parameter with DB hints tested for SQLi: {param_name}',
+                    'priority': 4
+                })
 
         # Ordina per priorità (1 = massima)
         vulnerabilities.sort(key=lambda x: (x.get('priority', 5), -x.get('confidence', 0)))
@@ -4557,13 +4571,24 @@ class SmartCrawler:
             param_name = param['name']
 
             # Determine how to inject payload
+            post_data = None
             if endpoint.get('method', 'GET').upper() == 'GET':
                 # GET request - add to URL parameters
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
             else:
-                # POST request - would need form data
+                # POST request - build form data with payload
                 test_url = base_url
+                # Start with existing form fields if any
+                post_data = {}
+                for p in endpoint.get('parameters', []):
+                    p_name = p.get('name', '')
+                    if p_name == param_name:
+                        # This is the parameter we're testing - inject payload
+                        post_data[p_name] = payload
+                    else:
+                        # Keep original value or use default
+                        post_data[p_name] = p.get('value', '')
 
             # Apply bypass if provided
             if bypass:
@@ -4572,6 +4597,9 @@ class SmartCrawler:
                 )
                 if not request_params:
                     return False
+                # Ensure POST data is included for bypasses too
+                if post_data and 'data' not in request_params:
+                    request_params['data'] = post_data
             else:
                 request_params = {
                     'url': test_url,
@@ -4580,6 +4608,9 @@ class SmartCrawler:
                     'verify': False,
                     'allow_redirects': True
                 }
+                # Add POST data if this is a POST request
+                if post_data:
+                    request_params['data'] = post_data
 
             # ⚡ Rate limiting
             self.rate_limiter.wait()
