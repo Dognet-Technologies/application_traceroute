@@ -133,6 +133,18 @@ class PerformanceMetric:
         return asdict(self)
 
 
+@dataclass
+class StepLog:
+    """Generic step logging event"""
+    timestamp: str
+    step_name: str
+    details: Dict[str, Any]
+    success: bool
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
 # =============================================================================
 # DEBUG LOGGER
 # =============================================================================
@@ -168,6 +180,7 @@ class DebugLogger:
         self.errors: List[ErrorLog] = []
         self.data_flows: List[DataFlowEvent] = []
         self.performance: List[PerformanceMetric] = []
+        self.steps: List[StepLog] = []
 
         # State tracking
         self.session_state: Dict[str, Any] = {
@@ -407,6 +420,25 @@ class DebugLogger:
             self.data_flows.append(event)
 
     # -------------------------------------------------------------------------
+    # STEP LOGGING
+    # -------------------------------------------------------------------------
+
+    def log_step(self, step_name: str, details: Dict = None, success: bool = True):
+        """Log a generic step event"""
+        if not self.enabled:
+            return
+
+        step = StepLog(
+            timestamp=datetime.now().isoformat(),
+            step_name=step_name,
+            details=details or {},
+            success=success
+        )
+
+        with self._lock:
+            self.steps.append(step)
+
+    # -------------------------------------------------------------------------
     # PERFORMANCE LOGGING
     # -------------------------------------------------------------------------
 
@@ -487,6 +519,7 @@ class DebugLogger:
                 'auth_events': len(self.auth_events),
                 'data_flows': len(self.data_flows),
                 'performance_metrics': len(self.performance),
+                'steps': len(self.steps),
             },
             'requests': [r.to_dict() for r in self.requests[-self.MAX_LOG_ENTRIES:]],
             'responses': [r.to_dict() for r in self.responses[-self.MAX_LOG_ENTRIES:]],
@@ -494,6 +527,7 @@ class DebugLogger:
             'errors': [e.to_dict() for e in self.errors],
             'data_flows': [f.to_dict() for f in self.data_flows[-self.MAX_LOG_ENTRIES:]],
             'performance': [p.to_dict() for p in self.performance],
+            'steps': [s.to_dict() for s in self.steps[-self.MAX_LOG_ENTRIES:]],
             'end_time': datetime.now().isoformat(),
         }
 
