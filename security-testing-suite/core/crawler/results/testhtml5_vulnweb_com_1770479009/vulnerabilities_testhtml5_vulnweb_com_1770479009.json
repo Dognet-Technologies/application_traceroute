@@ -1,0 +1,41 @@
+{
+  "target": "http://testhtml5.vulnweb.com/#/popular",
+  "scan_start": "2026-02-07 16:43:29",
+  "vulnerabilities": [
+    {
+      "id": 1,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://testhtml5.vulnweb.com/#/popular",
+      "parameter": "hash_param_0",
+      "payload": "\"",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5"
+        },
+        "body_parameter": "hash_param_0"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 6940
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 16:43:32",
+        "unix_timestamp": 1770479012
+      }
+    }
+  ],
+  "total_vulnerabilities": 1,
+  "total_by_type": {
+    "xss": 1
+  },
+  "last_updated": "2026-02-07 16:43:32"
+}

