@@ -654,7 +654,7 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': ['/api', '/dashboard']
                 },
                 'envoy_proxy': {
-                    'headers': ['x-envoy-upstream-service-time', 'server'],
+                    'headers': ['x-envoy-upstream-service-time', 'x-envoy-decorator-operation'],
                     'body_patterns': ['envoy'],
                     'behavioral_paths': []
                 }
@@ -743,7 +743,7 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': []
                 },
                 'netlify_functions': {
-                    'headers': ['x-nf-request-id', 'server'],
+                    'headers': ['x-nf-request-id', 'x-netlify'],
                     'body_patterns': ['netlify', 'netlify functions'],
                     'behavioral_paths': []
                 },
@@ -865,7 +865,7 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': ['/admin']
                 },
                 'flask': {
-                    'headers': ['server'],
+                    'headers': ['server:.*werkzeug', 'server:.*python'],
                     'body_patterns': ['werkzeug', 'flask'],
                     'behavioral_paths': []
                 },
@@ -875,7 +875,7 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': []
                 },
                 'fastapi': {
-                    'headers': ['server'],
+                    'headers': ['server:.*uvicorn', 'server:.*starlette'],
                     'body_patterns': ['fastapi', 'swagger', 'openapi'],
                     'behavioral_paths': ['/docs', '/openapi.json']
                 },
