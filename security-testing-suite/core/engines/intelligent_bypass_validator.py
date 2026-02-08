@@ -26,7 +26,7 @@ import math
 
 # Import advanced modules if available
 try:
-    from advanced_bypass_engine import (
+    from .advanced_bypass_engine import (
         ResponseDifferentialAnalyzer,
         BayesianBypassInference,
         BypassEvidence,
