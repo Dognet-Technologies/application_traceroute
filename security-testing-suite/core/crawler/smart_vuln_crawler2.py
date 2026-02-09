@@ -4597,6 +4597,11 @@ class SmartCrawler:
                 # (test_vulnerability_immediately is called BEFORE param is added to endpoint)
                 post_data = {param_name: payload}
 
+                # DEBUG: Log POST data construction
+                print(f"[DEBUG POST] Building POST data for {base_url}")
+                print(f"[DEBUG POST] param_name={param_name}, payload={payload[:50]}...")
+                print(f"[DEBUG POST] post_data={post_data}")
+
                 # Add other form fields from endpoint if available
                 for p in endpoint.get('parameters', []):
                     p_name = p.get('name', '')
@@ -4640,6 +4645,9 @@ class SmartCrawler:
                         allow_redirects=request_params['allow_redirects']
                     )
                 else:
+                    # DEBUG: Log what we're sending
+                    print(f"[DEBUG POST REQUEST] url={request_params['url']}")
+                    print(f"[DEBUG POST REQUEST] data={request_params.get('data')}")
                     response = self.session.post(
                         request_params['url'],
                         headers=request_params.get('headers'),
