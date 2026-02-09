@@ -4445,6 +4445,7 @@ class SmartCrawler:
                 self.rate_limiter.wait()
 
                 # Test without bypass first
+                print(f"[DEBUG CALLING] test_single_payload endpoint={endpoint.get('url')} method={endpoint.get('method')} param={param.get('name')}")
                 success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
                 if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
@@ -4586,10 +4587,14 @@ class SmartCrawler:
 
             # Determine how to inject payload
             post_data = None
-            if endpoint.get('method', 'GET').upper() == 'GET':
+            method = endpoint.get('method', 'GET')
+            print(f"[DEBUG METHOD] endpoint method={method}, upper={method.upper()}")
+
+            if method.upper() == 'GET':
                 # GET request - add to URL parameters
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
+                print(f"[DEBUG GET] Using GET with URL params: {test_url[:100]}...")
             else:
                 # POST request - build form data with payload
                 test_url = base_url
