@@ -4270,11 +4270,22 @@ class SmartCrawler:
                 if cookies_dict:
                     self.native_detector.session.cookies.update(cookies_dict)
 
+            # Build POST data if needed
+            post_data = None
+            if method.upper() == 'POST':
+                post_data = {}
+                for p in endpoint.get('parameters', []):
+                    p_name = p.get('name', '')
+                    # Don't include the test parameter - native_detector will inject it
+                    if p_name != param_name:
+                        post_data[p_name] = p.get('value', '')
+
             # Run detection
             results = self.native_detector.scan(
                 url=url,
                 parameter=param_name,
                 method=method,
+                data=post_data,
                 vuln_types=[vuln_type]
             )
 
