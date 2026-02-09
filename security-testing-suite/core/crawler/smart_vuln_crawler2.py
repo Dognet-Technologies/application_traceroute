@@ -4271,14 +4271,17 @@ class SmartCrawler:
                     self.native_detector.session.cookies.update(cookies_dict)
 
             # Build POST data if needed
+            # CRITICAL: endpoint['parameters'] may be empty during immediate testing
+            # because param is added AFTER test_vulnerability_immediately is called
             post_data = None
             if method.upper() == 'POST':
+                # Start with empty dict - native_detector will inject the test parameter
                 post_data = {}
+                # Add other form fields from endpoint if available
                 for p in endpoint.get('parameters', []):
                     p_name = p.get('name', '')
-                    # Don't include the test parameter - native_detector will inject it
-                    if p_name != param_name:
-                        post_data[p_name] = p.get('value', '')
+                    if p_name and p_name != param_name:
+                        post_data[p_name] = p.get('value', '') or ''
 
             # Run detection
             results = self.native_detector.scan(
@@ -4590,16 +4593,16 @@ class SmartCrawler:
             else:
                 # POST request - build form data with payload
                 test_url = base_url
-                # Start with existing form fields if any
-                post_data = {}
+                # CRITICAL: Use param directly since endpoint['parameters'] may not include it yet
+                # (test_vulnerability_immediately is called BEFORE param is added to endpoint)
+                post_data = {param_name: payload}
+
+                # Add other form fields from endpoint if available
                 for p in endpoint.get('parameters', []):
                     p_name = p.get('name', '')
-                    if p_name == param_name:
-                        # This is the parameter we're testing - inject payload
-                        post_data[p_name] = payload
-                    else:
-                        # Keep original value or use default
-                        post_data[p_name] = p.get('value', '')
+                    if p_name and p_name != param_name:
+                        # Include other fields with their default values
+                        post_data[p_name] = p.get('value', '') or ''
 
             # Apply bypass if provided
             if bypass:
