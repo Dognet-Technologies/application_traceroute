@@ -1,6 +1,6 @@
 {
   "target": "http://127.0.0.1:8080",
-  "scan_time": "2026-02-09 01:10:29",
+  "scan_time": "2026-02-09 13:02:05",
   "technologies": {
     "cms": null,
     "language": null,
@@ -8,7 +8,7 @@
     "server": null,
     "javascript_libs": [],
     "headers": {
-      "Date": "Mon, 09 Feb 2026 00:10:29 GMT",
+      "Date": "Mon, 09 Feb 2026 12:02:05 GMT",
       "Server": "Apache/2.4.25 (Debian)",
       "Expires": "Tue, 23 Jun 2009 12:00:00 GMT",
       "Cache-Control": "no-cache, must-revalidate",
@@ -5131,23 +5131,23 @@
   ],
   "forms": [],
   "javascript_files": [
-    "http://127.0.0.1:8080/vulnerabilities/javascript/source/medium.js",
-    "http://127.0.0.1:8080/dvwa/js/add_event_listeners.js",
+    "http://127.0.0.1:8080/dvwa/js/dvwaPage.js",
     "https://www.google.com/recaptcha/api.js",
-    "http://127.0.0.1:8080/dvwa/js/dvwaPage.js"
+    "http://127.0.0.1:8080/dvwa/js/add_event_listeners.js",
+    "http://127.0.0.1:8080/vulnerabilities/javascript/source/medium.js"
   ],
   "api_endpoints": [],
   "interesting_files": [
     {
-      "url": "http://127.0.0.1:8080/.htaccess",
-      "path": "/.htaccess",
-      "status": 403,
-      "content_type": "text/html; charset=iso-8859-1",
-      "size": 0
+      "url": "http://127.0.0.1:8080/.gitignore",
+      "path": "/.gitignore",
+      "status": 200,
+      "content_type": "",
+      "size": "57"
     },
     {
-      "url": "http://127.0.0.1:8080/.htpasswd",
-      "path": "/.htpasswd",
+      "url": "http://127.0.0.1:8080/.htaccess",
+      "path": "/.htaccess",
       "status": 403,
       "content_type": "text/html; charset=iso-8859-1",
       "size": 0
@@ -5160,11 +5160,11 @@
       "size": 0
     },
     {
-      "url": "http://127.0.0.1:8080/.gitignore",
-      "path": "/.gitignore",
-      "status": 200,
-      "content_type": "",
-      "size": "57"
+      "url": "http://127.0.0.1:8080/.htpasswd",
+      "path": "/.htpasswd",
+      "status": 403,
+      "content_type": "text/html; charset=iso-8859-1",
+      "size": 0
     }
   ],
   "comments": [],
@@ -5181,7 +5181,7 @@
       "bypass_used": null,
       "response_status": 200,
       "response_length": 5441,
-      "timestamp": "01:10:38",
+      "timestamp": "13:02:16",
       "confidence": 75
     },
     {
@@ -5192,7 +5192,7 @@
       "bypass_used": null,
       "response_status": 200,
       "response_length": 5441,
-      "timestamp": "01:10:40",
+      "timestamp": "13:02:18",
       "confidence": 75
     }
   ],
