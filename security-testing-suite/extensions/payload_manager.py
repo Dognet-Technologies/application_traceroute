@@ -743,6 +743,10 @@ class PayloadManager:
             self.active_scanner = ActiveScanner(stack_info=self.stack_info)
             logger.info("Active Scanner enabled with Burp-level detection")
 
+        # Session HTTP per detection attiva (timing/boolean)
+        # Impostare con set_session() prima di test_payload()
+        self._session = None
+
         # Statistics
         self._total_tests = 0
         self._vulnerabilities_found = 0
@@ -842,6 +846,14 @@ class PayloadManager:
             estimated_requests=total_payloads
         )
 
+    def set_session(self, session: Any) -> None:
+        """
+        Imposta la session HTTP per abilitare detection attiva.
+        Necessario per timing-based e boolean-based SQLi detection.
+        Chiamare subito dopo l'istanza del PayloadManager.
+        """
+        self._session = session
+
     def test_payload(
         self,
         vuln_type: str,
@@ -896,7 +908,8 @@ class PayloadManager:
                 payload=payload,
                 response=mock_response,
                 vuln_type=vuln_type,
-                baseline_response=mock_baseline
+                baseline_response=mock_baseline,
+                session=self._session
             )
 
             result = PayloadResult(

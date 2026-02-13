@@ -269,12 +269,14 @@ class ResponseDifferentialAnalyzer:
 
         # Content changes
         if details['content_changed']:
-            # Significant length change
-            if details['length_diff_percent'] > 0.5:
+            size_pct_diff = details['length_diff_percent']
+            size_diff = details['length_diff']
+            # Soglie abbassate per applicazioni di test (DVWA, phpvuln)
+            if size_pct_diff > 0.10 or size_diff > 200:
                 score += 0.2
-            elif details['length_diff_percent'] > 0.2:
+            elif size_pct_diff > 0.05 or size_diff > 50:
                 score += 0.1
-            elif details['length_diff_percent'] > 0.05:
+            elif size_pct_diff > 0.02:
                 score += 0.05
 
         # New error keywords are very interesting
