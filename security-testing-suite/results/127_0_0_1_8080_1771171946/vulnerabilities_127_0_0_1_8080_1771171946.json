@@ -1,0 +1,99 @@
+{
+  "target": "http://127.0.0.1:8080",
+  "scan_start": "2026-02-15 17:12:26",
+  "vulnerabilities": [
+    {
+      "id": 1,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "payload": "\"",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "create_db"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-15 17:12:36",
+        "unix_timestamp": 1771171956
+      }
+    },
+    {
+      "id": 2,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/setup.php",
+      "parameter": "create_db",
+      "payload": "'",
+      "confidence": 75,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "create_db"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 5523
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-15 17:12:37",
+        "unix_timestamp": 1771171957
+      }
+    },
+    {
+      "id": 3,
+      "vulnerability_type": "XSS",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/xss_r/",
+      "parameter": "name",
+      "payload": "<img src=x onerror=alert(1)>",
+      "confidence": 90.0,
+      "request": {
+        "method": "GET",
+        "headers": {},
+        "body_parameter": "name"
+      },
+      "response": {
+        "status_code": null,
+        "content_length": null
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-15 17:19:05",
+        "unix_timestamp": 1771172345
+      }
+    }
+  ],
+  "total_vulnerabilities": 3,
+  "total_by_type": {
+    "xss": 2,
+    "XSS": 1
+  },
+  "last_updated": "2026-02-15 17:19:05"
+}
