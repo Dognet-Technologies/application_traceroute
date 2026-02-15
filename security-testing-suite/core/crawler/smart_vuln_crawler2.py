@@ -37,6 +37,7 @@ import random
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import concurrent.futures
+import difflib
 import os
 import itertools
 from functools import lru_cache
@@ -115,7 +116,7 @@ except ImportError:
 
 # Optional import for native vulnerability detection (pure Python, no external tools)
 try:
-    from core.tools import VulnDetector, SQLiDetector, XSSDetector, DetectionResult
+    from core.tools import VulnDetector, SQLiDetector, XSSDetector, DetectionResult, PayloadDB
     NATIVE_DETECTOR_AVAILABLE = True
 except ImportError:
     try:
@@ -123,10 +124,11 @@ except ImportError:
         tools_dir = str(Path(__file__).parent.parent / 'tools')
         if tools_dir not in sys.path:
             sys.path.insert(0, tools_dir)
-        from native_detector import VulnDetector, SQLiDetector, XSSDetector, DetectionResult
+        from native_detector import VulnDetector, SQLiDetector, XSSDetector, DetectionResult, PayloadDB
         NATIVE_DETECTOR_AVAILABLE = True
     except ImportError:
         NATIVE_DETECTOR_AVAILABLE = False
+        PayloadDB = None
         logger.warning("native_detector not available - using basic detection only")
 
 
@@ -4176,7 +4178,14 @@ class SmartCrawler:
                 self.endpoints.append(endpoint)
     
     def test_vulnerability_immediately(self, endpoint, param, vulnerabilities):
-        """Test vulnerabilities immediately when found"""
+        """
+        Test vulnerabilities immediately when found.
+
+        Unified detection flow:
+        1. Collect ALL payloads (native PayloadDB + external wordlists + internal fallback)
+        2. For each payload: send request -> unified analysis
+        3. For SQLi: also run timing-based and boolean-based multi-request techniques
+        """
         if not vulnerabilities:
             return
 
@@ -4184,24 +4193,20 @@ class SmartCrawler:
         endpoint_url = endpoint['url']
 
         if self.verbose:
-            print(f"\n🎯 IMMEDIATE TESTING: {endpoint_url} parameter '{param_name}'")
+            print(f"\n  Testing: {endpoint_url} parameter '{param_name}'")
 
-        # Filtra le vulnerabilità già testate per questo parametro
+        # Filter already-tested vulnerabilities for this parameter
         vulns_to_test = []
         for vuln in vulnerabilities:
             vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
-            confidence = vuln.get('confidence', 'unknown')
 
-            # Verifica se questo parametro+vulnerabilità deve essere testato
             if self.should_test_parameter(param_name, vuln_type, endpoint_url):
                 vulns_to_test.append(vuln)
             else:
                 if self.verbose:
-                    print(f"  ⏭️  Skipping {vuln_type.upper()} for '{param_name}' - already tested on similar endpoints")
+                    print(f"  Skipping {vuln_type.upper()} for '{param_name}' - already tested")
 
         if not vulns_to_test:
-            if self.verbose:
-                print(f"  ℹ️  All vulnerabilities for '{param_name}' already tested - skipping")
             return
 
         for vuln in vulns_to_test:
@@ -4209,134 +4214,315 @@ class SmartCrawler:
             confidence = vuln.get('confidence', 'unknown')
 
             if self.verbose:
-                print(f"  🔍 Testing {vuln_type.upper()} (confidence: {confidence})")
+                print(f"  Testing {vuln_type.upper()} (confidence: {confidence})")
 
-            # Try native detector first (more accurate for SQLi and XSS)
-            if self.native_detector and vuln_type in ['sqli', 'xss']:
-                native_found = self._test_with_native_detector(endpoint, param, vuln_type)
-                if native_found:
-                    # Native detector found vulnerability - skip wordlist testing
-                    self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
-                    continue
+            # ===== UNIFIED FLOW: Collect ALL payloads from all sources =====
+            all_payloads = self._collect_all_payloads(vuln_type)
 
-            # Get appropriate wordlists (external)
-            wordlists = self.wordlist_mapper.get_wordlists_for_vulnerability(
-                vuln_type, self.results['technologies']
-            )
-
-            # Check if we have any payloads (external OR internal fallback)
-            internal_payloads = self.wordlist_mapper.get_internal_payloads(vuln_type)
-
-            if not wordlists and not internal_payloads:
+            if not all_payloads:
                 if self.verbose:
-                    print(f"    ⚠️ No payloads available for {vuln_type} (no external wordlists or internal fallback)")
-                # Marca come testato anche se non ci sono wordlist per evitare retry
+                    print(f"    No payloads available for {vuln_type}")
                 self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
                 continue
 
-            # Test with payloads from wordlists (uses internal fallback if external empty)
-            self.test_with_wordlists(endpoint, param, vuln_type, wordlists)
+            if self.verbose:
+                print(f"    Collected {len(all_payloads)} payloads")
 
-            # Marca come testato dopo il test
+            # ===== SINGLE-REQUEST TECHNIQUES: Send each payload, unified analysis =====
+            found = False
+            tested_count = 0
+            max_payloads = 20
+
+            for payload in all_payloads[:max_payloads]:
+                self.rate_limiter.wait()
+
+                # Test without bypass first
+                success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
+                tested_count += 1
+                self.performance_monitor.increment_payloads()
+
+                if success:
+                    found = True
+                    break
+
+                # If not successful, try with validated bypasses
+                if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
+                    for bypass in self.bypass_manager.validated_bypasses:
+                        self.rate_limiter.wait()
+                        success = self.test_single_payload(endpoint, param, payload, vuln_type, bypass)
+                        if success:
+                            found = True
+                            break
+                    if found:
+                        break
+
+            # ===== MULTI-REQUEST TECHNIQUES (SQLi only): timing + boolean =====
+            if not found and vuln_type == 'sqli':
+                found = self._test_timing_sqli(endpoint, param)
+                if not found:
+                    found = self._test_boolean_sqli(endpoint, param)
+
+            if self.verbose:
+                print(f"    Tested {tested_count} payloads for {vuln_type}")
+
             self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
 
-    def _test_with_native_detector(self, endpoint, param, vuln_type):
+    def _collect_all_payloads(self, vuln_type):
         """
-        Test vulnerability using native Python detection (time-based, boolean-based, etc.)
+        Collect and deduplicate payloads from ALL sources:
+        1. Native PayloadDB (smart, technique-specific payloads)
+        2. External wordlists (SecLists, fuzzdb, etc.)
+        3. Internal fallback payloads
 
-        Uses advanced detection techniques without external CLI tools:
-        - Time-based blind SQLi (SLEEP payloads)
-        - Boolean-based SQLi (true/false comparison)
-        - Error-based SQLi (SQL error messages)
-        - XSS reflection with context analysis
+        Returns deduplicated list prioritizing native payloads first.
+        """
+        all_payloads = []
+        max_per_source = 10
+
+        # === Source 1: Native PayloadDB (highest priority - smart payloads) ===
+        if PayloadDB is not None:
+            native_payloads = []
+            if vuln_type == 'sqli':
+                native_payloads.extend(PayloadDB.SQLI_ERROR_BASED[:max_per_source])
+                native_payloads.extend(PayloadDB.SQLI_UNION_BASED[:5])
+            elif vuln_type == 'xss':
+                native_payloads.extend(PayloadDB.XSS_BASIC[:max_per_source])
+                native_payloads.extend(PayloadDB.XSS_FILTER_BYPASS[:5])
+            elif vuln_type == 'rce':
+                native_payloads.extend(getattr(PayloadDB, 'RCE_PAYLOADS', [])[:max_per_source])
+            elif vuln_type == 'lfi':
+                native_payloads.extend(getattr(PayloadDB, 'LFI_PAYLOADS', [])[:max_per_source])
+
+            all_payloads.extend(native_payloads)
+
+        # === Source 2: External wordlists ===
+        wordlists = self.wordlist_mapper.get_wordlists_for_vulnerability(
+            vuln_type, self.results['technologies']
+        )
+        for wordlist in wordlists[:3]:
+            if not os.path.exists(wordlist['path']):
+                continue
+            try:
+                with open(wordlist['path'], 'r', encoding='utf-8', errors='ignore') as f:
+                    count = 0
+                    for line in itertools.islice(f, max_per_source * 10):
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        if self._is_valid_payload(line):
+                            all_payloads.append(line)
+                            count += 1
+                            if count >= max_per_source:
+                                break
+            except Exception as e:
+                logger.error(f"Error reading wordlist {wordlist['path']}: {e}")
+
+        # === Source 3: Internal fallback (if nothing else available) ===
+        if not all_payloads:
+            internal_payloads = self.wordlist_mapper.get_internal_payloads(vuln_type)
+            if internal_payloads:
+                all_payloads.extend(internal_payloads[:max_per_source * 2])
+
+        # Deduplicate preserving order (native payloads first)
+        seen = set()
+        unique_payloads = []
+        for p in all_payloads:
+            if p not in seen:
+                seen.add(p)
+                unique_payloads.append(p)
+
+        return unique_payloads
+
+    def _test_timing_sqli(self, endpoint, param):
+        """
+        Test for time-based blind SQL injection.
+
+        Sends SLEEP/WAITFOR payloads and measures response time.
+        Verifies by sending a non-delayed version to confirm the delay was caused by the payload.
 
         Returns:
-            True if vulnerability confirmed, False otherwise
+            True if time-based SQLi confirmed, False otherwise
         """
-        if not self.native_detector:
+        if PayloadDB is None:
             return False
 
         url = endpoint['url']
         param_name = param['name']
         method = endpoint.get('method', 'GET')
+        time_threshold = 4.0  # Expect ~5s delay
 
         if self.verbose:
-            print(f"    🧪 Native detector testing {vuln_type.upper()} on '{param_name}'")
+            print(f"    Testing time-based blind SQLi...")
+
+        for payload in PayloadDB.SQLI_TIME_BASED[:5]:
+            try:
+                self.rate_limiter.wait()
+
+                # Send delayed payload
+                start_time = time.time()
+                response = self._send_raw_payload(endpoint, param, payload)
+                elapsed = time.time() - start_time
+
+                if response is None:
+                    continue
+
+                if elapsed >= time_threshold:
+                    # Verify: send non-delayed version
+                    verify_payload = payload.replace('5', '0').replace("'0:0:5'", "'0:0:0'")
+                    self.rate_limiter.wait()
+                    start_verify = time.time()
+                    self._send_raw_payload(endpoint, param, verify_payload)
+                    verify_elapsed = time.time() - start_verify
+
+                    if elapsed - verify_elapsed >= time_threshold * 0.8:
+                        confidence = 90
+                        if self.verbose:
+                            print(f"    CONFIRMED time-based SQLi (delay: {elapsed:.1f}s)")
+
+                        self.vuln_logger.log_vulnerability(
+                            endpoint=url,
+                            parameter=param_name,
+                            payload=payload,
+                            vulnerability_type='SQLI',
+                            confidence=confidence
+                        )
+
+                        self.results['vulnerability_test_results'].append({
+                            'endpoint': url,
+                            'parameter': param_name,
+                            'vulnerability_type': 'sqli',
+                            'payload': payload,
+                            'technique': 'time_based',
+                            'bypass_used': None,
+                            'response_status': response.status_code,
+                            'response_length': len(response.content),
+                            'timestamp': time.strftime('%H:%M:%S'),
+                            'confidence': confidence
+                        })
+                        self.performance_monitor.increment_vulnerabilities()
+                        return True
+
+            except Exception as e:
+                logger.debug(f"Time-based test error: {e}")
+
+        return False
+
+    def _test_boolean_sqli(self, endpoint, param):
+        """
+        Test for boolean-based blind SQL injection.
+
+        Sends TRUE/FALSE condition pairs and compares responses.
+        If TRUE response matches baseline but FALSE differs significantly -> SQLi.
+
+        Returns:
+            True if boolean-based SQLi confirmed, False otherwise
+        """
+        if PayloadDB is None:
+            return False
+
+        url = endpoint['url']
+        param_name = param['name']
+
+        if self.verbose:
+            print(f"    Testing boolean-based blind SQLi...")
 
         try:
-            # Sync session cookies with native detector
-            if hasattr(self.session, 'cookies') and self.session.cookies:
-                cookies_dict = dict(self.session.cookies)
-                if cookies_dict:
-                    self.native_detector.session.cookies.update(cookies_dict)
+            # Get baseline response (normal request)
+            self.rate_limiter.wait()
+            baseline = self._send_raw_payload(endpoint, param, 'normalvalue123')
+            if baseline is None:
+                return False
+            baseline_text = baseline.text[:5000] if baseline.text else ""
 
-            # Build POST data if needed
-            # CRITICAL: endpoint['parameters'] may be empty during immediate testing
-            # because param is added AFTER test_vulnerability_immediately is called
-            post_data = None
-            if method.upper() == 'POST':
-                # Start with empty dict - native_detector will inject the test parameter
-                post_data = {}
-                # Add other form fields from endpoint if available
+        except Exception:
+            return False
+
+        similarity_threshold = 0.85
+
+        for true_payload, false_payload in PayloadDB.SQLI_BOOLEAN_BASED[:5]:
+            try:
+                self.rate_limiter.wait()
+                true_resp = self._send_raw_payload(endpoint, param, true_payload)
+                self.rate_limiter.wait()
+                false_resp = self._send_raw_payload(endpoint, param, false_payload)
+
+                if true_resp is None or false_resp is None:
+                    continue
+
+                true_text = true_resp.text[:5000] if true_resp.text else ""
+                false_text = false_resp.text[:5000] if false_resp.text else ""
+
+                # Calculate similarity ratios
+                true_sim = difflib.SequenceMatcher(None, baseline_text, true_text).ratio()
+                false_sim = difflib.SequenceMatcher(None, baseline_text, false_text).ratio()
+                true_false_sim = difflib.SequenceMatcher(None, true_text, false_text).ratio()
+
+                # TRUE response should be similar to baseline, FALSE should differ
+                if (true_sim > similarity_threshold and
+                    false_sim < similarity_threshold and
+                    true_false_sim < similarity_threshold):
+
+                    confidence = 85
+                    if self.verbose:
+                        print(f"    CONFIRMED boolean-based SQLi (similarity: {true_false_sim:.2f})")
+
+                    combined_payload = f"TRUE: {true_payload} / FALSE: {false_payload}"
+                    self.vuln_logger.log_vulnerability(
+                        endpoint=url,
+                        parameter=param_name,
+                        payload=combined_payload,
+                        vulnerability_type='SQLI',
+                        confidence=confidence
+                    )
+
+                    self.results['vulnerability_test_results'].append({
+                        'endpoint': url,
+                        'parameter': param_name,
+                        'vulnerability_type': 'sqli',
+                        'payload': combined_payload,
+                        'technique': 'boolean_based',
+                        'bypass_used': None,
+                        'response_status': true_resp.status_code,
+                        'response_length': len(true_resp.content),
+                        'timestamp': time.strftime('%H:%M:%S'),
+                        'confidence': confidence
+                    })
+                    self.performance_monitor.increment_vulnerabilities()
+                    return True
+
+            except Exception as e:
+                logger.debug(f"Boolean-based test error: {e}")
+
+        return False
+
+    def _send_raw_payload(self, endpoint, param, payload):
+        """
+        Send a single payload and return the raw response.
+        Used by timing/boolean techniques that need direct response access.
+
+        Returns:
+            requests.Response or None on error
+        """
+        try:
+            base_url = endpoint['url']
+            param_name = param['name']
+            method = endpoint.get('method', 'GET')
+
+            if method.upper() == 'GET':
+                separator = '&' if '?' in base_url else '?'
+                test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
+                return self.session.get(test_url, timeout=10, verify=False, allow_redirects=True)
+            else:
+                post_data = {param_name: payload}
                 for p in endpoint.get('parameters', []):
                     p_name = p.get('name', '')
                     if p_name and p_name != param_name:
                         post_data[p_name] = p.get('value', '') or ''
-
-            # Run detection
-            results = self.native_detector.scan(
-                url=url,
-                parameter=param_name,
-                method=method,
-                data=post_data,
-                vuln_types=[vuln_type]
-            )
-
-            for result in results:
-                if result.vulnerable:
-                    if self.verbose:
-                        print(f"    ✅ Native detector CONFIRMED: {vuln_type.upper()} ({result.technique.value})")
-                        print(f"       Payload: {result.payload[:80]}...")
-                        print(f"       Evidence: {result.evidence[:80]}...")
-                        print(f"       Confidence: {result.confidence*100:.0f}%")
-
-                    # Log the vulnerability (match VulnerabilityLogger.log_vulnerability signature)
-                    self.vuln_logger.log_vulnerability(
-                        endpoint=url,
-                        parameter=param_name,
-                        payload=result.payload,
-                        vulnerability_type=vuln_type.upper(),
-                        confidence=result.confidence * 100
-                    )
-
-                    # Debug logging if enabled
-                    if self.debug_logger:
-                        self.debug_logger.log_step(
-                            'native_detection',
-                            {
-                                'url': url,
-                                'parameter': param_name,
-                                'vuln_type': vuln_type,
-                                'technique': result.technique.value,
-                                'payload': result.payload,
-                                'evidence': result.evidence,
-                                'confidence': result.confidence
-                            },
-                            success=True
-                        )
-
-                    return True
-
-            if self.verbose:
-                print(f"    ℹ️  Native detector: no {vuln_type.upper()} found, trying wordlists...")
-
-            return False
+                return self.session.post(base_url, data=post_data, timeout=10, verify=False, allow_redirects=True)
 
         except Exception as e:
-            logger.error(f"Native detection error: {e}")
-            if self.debug_logger:
-                self.debug_logger.log_step('native_detection_error', {'error': str(e)}, success=False)
-            return False
+            logger.debug(f"Raw payload send error: {e}")
+            return None
 
     def _sync_native_detector_cookies(self):
         """Sync session cookies with native detector for authenticated testing"""
@@ -4445,7 +4631,6 @@ class SmartCrawler:
                 self.rate_limiter.wait()
 
                 # Test without bypass first
-                print(f"[DEBUG CALLING] test_single_payload endpoint={endpoint.get('url')} method={endpoint.get('method')} param={param.get('name')}")
                 success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
                 if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
@@ -4588,24 +4773,15 @@ class SmartCrawler:
             # Determine how to inject payload
             post_data = None
             method = endpoint.get('method', 'GET')
-            print(f"[DEBUG METHOD] endpoint method={method}, upper={method.upper()}")
 
             if method.upper() == 'GET':
                 # GET request - add to URL parameters
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
-                print(f"[DEBUG GET] Using GET with URL params: {test_url[:100]}...")
             else:
                 # POST request - build form data with payload
                 test_url = base_url
-                # CRITICAL: Use param directly since endpoint['parameters'] may not include it yet
-                # (test_vulnerability_immediately is called BEFORE param is added to endpoint)
                 post_data = {param_name: payload}
-
-                # DEBUG: Log POST data construction
-                print(f"[DEBUG POST] Building POST data for {base_url}")
-                print(f"[DEBUG POST] param_name={param_name}, payload={payload[:50]}...")
-                print(f"[DEBUG POST] post_data={post_data}")
 
                 # Add other form fields from endpoint if available
                 for p in endpoint.get('parameters', []):
@@ -4650,9 +4826,6 @@ class SmartCrawler:
                         allow_redirects=request_params['allow_redirects']
                     )
                 else:
-                    # DEBUG: Log what we're sending
-                    print(f"[DEBUG POST REQUEST] url={request_params['url']}")
-                    print(f"[DEBUG POST REQUEST] data={request_params.get('data')}")
                     response = self.session.post(
                         request_params['url'],
                         headers=request_params.get('headers'),
