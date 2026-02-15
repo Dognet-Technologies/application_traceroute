@@ -4937,11 +4937,14 @@ class SmartCrawler:
         response_text_lower = response_text.lower()
         payload_lower = payload.lower()
 
-        # Controllo dimensione minima risposta (evita risposte vuote o troppo piccole)
-        if len(response_text) < 50:
+        # Controllo risposte vuote (solo veramente vuote, non pagine piccole)
+        if len(response_text) < 10:
             return False
 
-        # ========== USE INTELLIGENT VERIFIER IF AVAILABLE ==========
+        # ========== USE INTELLIGENT VERIFIER AS BOOST ==========
+        # Il verifier conferma con alta confidenza, ma NON blocca la legacy detection.
+        # Se il verifier dice "sì" → confermato. Se dice "no" → si prova comunque legacy.
+        verifier_confirmed = False
         if self.vuln_verifier:
             result = self.vuln_verifier.verify(
                 vuln_type=vuln_type,
@@ -4954,19 +4957,13 @@ class SmartCrawler:
             )
 
             if result.is_vulnerable and result.confidence >= 50:
-                # Log evidence for debugging
                 if self.verbose:
                     print(f"      ✓ Verified by VulnerabilityVerifier (confidence: {result.confidence}%)")
-                    for ev in result.evidence[:3]:  # Show first 3 evidence items
+                    for ev in result.evidence[:3]:
                         print(f"        → {ev}")
                 return True
-            elif result.confidence > 0 and result.confidence < 50:
-                # Low confidence - log but don't report
-                if self.verbose:
-                    print(f"      ⚠ Low confidence ({result.confidence}%) - not reporting")
-                return False
-            # If verifier says not vulnerable, still check with legacy detection
-            # in case verifier missed something (defense in depth)
+            # Low confidence o non confermato: NON bloccare, prosegui con legacy detection
+            verifier_confirmed = False
 
         # ========== LEGACY DETECTION (fallback) ==========
         # First check: is payload even in response?
@@ -4986,8 +4983,6 @@ class SmartCrawler:
                 generic_errors = ['404', '403', 'not found', 'forbidden', 'unauthorized']
                 if any(err in response_text_lower for err in generic_errors):
                     return False
-                if self.vuln_verifier:
-                    return False
                 return True
             elif vuln_type != 'xss':
                 # Per altri tipi, se payload non riflesso → probabilmente non vulnerabile
@@ -5004,13 +4999,9 @@ class SmartCrawler:
             if vuln_type == 'xss':
                 return False
 
-        # If verifier is available and didn't confirm, don't use legacy detection
-        # BUT: for SQLi/LFI/RCE, still run detection since verifier might not catch all cases
-        if self.vuln_verifier and vuln_type == 'xss':
-            return False
-
         # ========== LEGACY VULNERABILITY-SPECIFIC DETECTION ==========
-        # Eseguito sempre per SQLi/LFI/RCE (non richiedono reflection)
+        # Eseguito SEMPRE come fallback, anche se il verifier non ha confermato.
+        # Il verifier è un boost, non un gate.
         if vuln_type == 'xss':
             # Controlli più stringenti per XSS per ridurre falsi positivi
 
@@ -5234,30 +5225,23 @@ class SmartCrawler:
         Returns:
             True se il payload è in un contesto safe (falso positivo), False altrimenti
         """
-        # Verifica se il payload è in un commento HTML
-        # Pattern: <!-- ... payload ... -->
-        html_comment_pattern = r'<!--[\s\S]*?' + re.escape(payload) + r'[\s\S]*?-->'
-        if re.search(html_comment_pattern, response_text, re.I):
-            return True
+        # Verifica se il payload è SOLO dentro un commento HTML (non anche fuori)
+        # Prima cerca il payload fuori dai commenti: se esiste anche fuori, non è safe
+        text_without_comments = re.sub(r'<!--[\s\S]*?-->', '', response_text)
+        text_without_comments = re.sub(r'/\*[\s\S]*?\*/', '', text_without_comments)
+        text_without_comments = re.sub(r'//[^\n]*', '', text_without_comments)
 
-        # Verifica se il payload è in un commento JavaScript
-        # Pattern: // ... payload ... (fino a fine riga)
-        js_line_comment_pattern = r'//.*?' + re.escape(payload)
-        if re.search(js_line_comment_pattern, response_text, re.I):
-            return True
+        if payload in text_without_comments:
+            # Il payload è presente anche FUORI dai commenti → non è safe
+            return False
 
-        # Pattern: /* ... payload ... */
-        js_block_comment_pattern = r'/\*[\s\S]*?' + re.escape(payload) + r'[\s\S]*?\*/'
-        if re.search(js_block_comment_pattern, response_text, re.I | re.S):
-            return True
-
-        # Verifica se il payload è escaped in HTML
-        # Es: <script> diventa &lt;script&gt;
+        # Verifica se il payload è SOLO escaped in HTML (la versione raw NON è presente)
+        # Es: <script> diventa &lt;script&gt; e la versione raw non appare
         escaped_payload = payload.replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
         if escaped_payload in response_text and escaped_payload != payload:
-            # Se troviamo solo la versione escaped, è safe
             if payload not in response_text:
                 return True
+            # Se il payload è presente sia raw che escaped, NON è safe (il raw è exploitable)
 
         # Verifica se il payload è in un attributo data- o simile (spesso usato per storage)
         data_attr_pattern = r'data-[a-zA-Z0-9\-]*\s*=\s*["\']' + re.escape(payload) + r'["\']'
