@@ -3039,6 +3039,11 @@ class SmartCrawler:
         # Hash set per payload validation (evita test duplicati)
         self.tested_payloads_hash = set()
 
+        # Circuit breaker: skip URLs after repeated failures
+        self._url_error_counts = {}  # url -> consecutive error count
+        self._url_circuit_broken = set()  # URLs to skip entirely
+        self._CIRCUIT_BREAKER_THRESHOLD = 3  # Skip URL after N consecutive errors
+
         # ⚡ REGEX PRECOMPILATE per evitare ricompilazione ripetuta
         self._compile_regex_patterns()
 
@@ -3409,9 +3414,15 @@ class SmartCrawler:
         if parsed.netloc != self.parsed_url.netloc:
             return False
         
-        # Skip certain file types
-        skip_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.zip', '.exe']
-        if any(url.lower().endswith(ext) for ext in skip_extensions):
+        # Skip static file types (non-injectable resources)
+        skip_extensions = [
+            '.jpg', '.jpeg', '.png', '.gif', '.pdf', '.zip', '.exe',
+            '.js', '.css', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot',
+            '.mp3', '.mp4', '.avi', '.mov', '.webm', '.webp',
+            '.map', '.min.js', '.min.css'
+        ]
+        url_lower = url.lower().split('?')[0]  # Ignore query params for extension check
+        if any(url_lower.endswith(ext) for ext in skip_extensions):
             return False
         
         # Skip logout URLs
@@ -3498,7 +3509,14 @@ class SmartCrawler:
                             continue
             
             response.raise_for_status()
-            
+
+            # Skip non-HTML responses (JS, CSS, images served without extension)
+            content_type = response.headers.get('Content-Type', '').lower()
+            if content_type and not any(ct in content_type for ct in ['text/html', 'application/xhtml']):
+                if self.verbose:
+                    print(f"  ⏭️ Skipping non-HTML response: {content_type}")
+                return
+
             # Detect technologies
             if not self.results['technologies']:
                 self.results['technologies'] = self.tech_detector.detect(response, url)
@@ -4782,17 +4800,31 @@ class SmartCrawler:
             param_name = param['name']
             method = endpoint.get('method', 'GET')
 
+            # Circuit breaker check
+            if base_url in self._url_circuit_broken:
+                return None
+
             if method.upper() == 'GET':
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
-                return self.session.get(test_url, timeout=10, verify=False, allow_redirects=True)
+                resp = self.session.get(test_url, timeout=10, verify=False, allow_redirects=True)
             else:
                 post_data = {param_name: payload}
                 for p in endpoint.get('parameters', []):
                     p_name = p.get('name', '')
                     if p_name and p_name != param_name:
                         post_data[p_name] = p.get('value', '') or ''
-                return self.session.post(base_url, data=post_data, timeout=10, verify=False, allow_redirects=True)
+                resp = self.session.post(base_url, data=post_data, timeout=10, verify=False, allow_redirects=True)
+
+            # Detect session loss (redirected to login page)
+            if resp and resp.url:
+                login_indicators = ['login', 'security.php', 'signin', 'auth', 'session']
+                if any(ind in resp.url.lower() for ind in login_indicators):
+                    if resp.url.lower() != base_url.lower():
+                        logger.warning(f"Session lost in raw payload: redirected to {resp.url}")
+                        return None
+
+            return resp
 
         except Exception as e:
             logger.debug(f"Raw payload send error: {e}")
@@ -5047,6 +5079,10 @@ class SmartCrawler:
             base_url = endpoint['url']
             param_name = param['name']
 
+            # Circuit breaker: skip URLs with too many consecutive failures
+            if base_url in self._url_circuit_broken:
+                return False
+
             # Determine how to inject payload
             post_data = None
             method = endpoint.get('method', 'GET')
@@ -5115,15 +5151,42 @@ class SmartCrawler:
                 # Incrementa contatore HTTP requests
                 self.performance_monitor.increment_requests()
 
+                # Reset error count on success (circuit breaker)
+                if base_url in self._url_error_counts:
+                    self._url_error_counts[base_url] = 0
+
+                # Detect session loss: if we were redirected to login/security page,
+                # the response is NOT a valid vulnerability test result
+                final_url = response.url if response.url else ''
+                if final_url != request_params['url']:
+                    login_indicators = ['login', 'security.php', 'signin', 'auth', 'session']
+                    if any(ind in final_url.lower() for ind in login_indicators):
+                        logger.warning(f"Session lost: redirected to {final_url} - skipping analysis")
+                        if self.verbose:
+                            print(f"      ⚠️ Session lost: redirected to {final_url}")
+                        return False
+
             except requests.Timeout:
                 # Timeout can indicate time-based vulnerability (sleep/ping)
                 elapsed = time.time() - request_start
                 if vuln_type == 'rce' and elapsed >= 4.0:
                     logger.info(f"Timeout may indicate time-based RCE: {elapsed:.2f}s")
+                else:
+                    # Track consecutive timeouts for circuit breaker
+                    self._url_error_counts[base_url] = self._url_error_counts.get(base_url, 0) + 1
+                    if self._url_error_counts[base_url] >= self._CIRCUIT_BREAKER_THRESHOLD:
+                        self._url_circuit_broken.add(base_url)
+                        logger.warning(f"Circuit breaker: skipping {base_url} after {self._CIRCUIT_BREAKER_THRESHOLD} consecutive timeouts")
+                        if self.verbose:
+                            print(f"      ⚡ Circuit breaker activated for {base_url}")
                 logger.warning(f"Timeout testing payload on {base_url}")
                 self.performance_monitor.increment_errors()
                 return False
             except requests.ConnectionError as e:
+                self._url_error_counts[base_url] = self._url_error_counts.get(base_url, 0) + 1
+                if self._url_error_counts[base_url] >= self._CIRCUIT_BREAKER_THRESHOLD:
+                    self._url_circuit_broken.add(base_url)
+                    logger.warning(f"Circuit breaker: skipping {base_url} after repeated connection errors")
                 logger.warning(f"Connection error testing payload on {base_url}: {e}")
                 self.performance_monitor.increment_errors()
                 return False
