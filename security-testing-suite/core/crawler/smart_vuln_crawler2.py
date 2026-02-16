@@ -5435,55 +5435,46 @@ class SmartCrawler:
                     return True
 
         elif vuln_type == 'rce':
-            # RCE detection with baseline comparison.
-            # Some indicators (ping output, paths) can appear in NORMAL responses
-            # (e.g. DVWA command injection page already shows ping results).
-            # We split into HIGH-confidence indicators (always confirm) and
-            # MEDIUM-confidence indicators (require baseline diff).
-            rce_high_confidence = [
-                # These almost never appear in normal web pages
+            # RCE detection - output di comandi e indicatori
+            rce_indicators = [
+                # Command outputs
                 r'uid=\d+.*gid=\d+.*groups=',
-                r'root:[\w\*\!]:0:0:',
-                r'daemon:.*:1:1:',
-                r'PID\s+TTY\s+TIME\s+CMD',
-                r'UID\s+PID\s+PPID',
-                r'^[d-][rwx-]{9}\s+\d+\s+\w+\s+\w+\s+\d+',
+                r'Linux\s+\w+\s+\d+\.\d+',
+                r'Microsoft\s+Windows',
+                r'Volume\s+in\s+drive',
+                r'Directory\s+of',
+
+                # Shell prompts
+                r'[\w\-]+@[\w\-]+:',
+                r'[\w\-]+\$',
+                r'[\w\-]+#',
+                r'C:\\.*>',
+
+                # Common command paths and errors
+                r'/bin/\w+',
+                r'/usr/bin/\w+',
                 r'command not found',
                 r'is not recognized as',
+
+                # Process listings
+                r'PID\s+TTY\s+TIME\s+CMD',
+                r'UID\s+PID\s+PPID',
+
+                # Ping output
+                r'\d+\s+bytes\s+from\s+[\d\.]+.*ttl=\d+',
+                r'icmp_seq=\d+\s+ttl=\d+',
+
+                # ls -la output
+                r'^[d-][rwx-]{9}\s+\d+\s+\w+\s+\w+\s+\d+',
+
+                # /etc/passwd via RCE
+                r'root:[\w\*\!]:0:0:',
+                r'daemon:.*:1:1:',
             ]
 
-            for indicator in rce_high_confidence:
+            for indicator in rce_indicators:
                 if re.search(indicator, response_text, re.I | re.M):
-                    # Even high-confidence: ensure it's NOT in baseline
-                    if baseline_response and re.search(indicator, baseline_response, re.I | re.M):
-                        continue  # Already present in normal response
                     return True
-
-            # Medium-confidence: only count if NEW compared to baseline
-            rce_medium_confidence = [
-                ('linux_version', r'Linux\s+\w+\s+\d+\.\d+'),
-                ('windows', r'Microsoft\s+Windows'),
-                ('volume', r'Volume\s+in\s+drive'),
-                ('directory', r'Directory\s+of'),
-                ('shell_prompt', r'[\w\-]+@[\w\-]+:'),
-                ('bin_path', r'/bin/\w+'),
-                ('usr_bin', r'/usr/bin/\w+'),
-                ('ping_output', r'\d+\s+bytes\s+from\s+[\d\.]+.*ttl=\d+'),
-                ('icmp_seq', r'icmp_seq=\d+\s+ttl=\d+'),
-                ('packets_transmitted', r'packets transmitted.*received'),
-            ]
-
-            if baseline_response:
-                new_findings = SemanticResponseDiffer.has_new_content(
-                    baseline_response, response_text, rce_medium_confidence
-                )
-                if new_findings:
-                    return True
-            else:
-                # No baseline available — fall back to basic pattern matching
-                for name, indicator in rce_medium_confidence:
-                    if re.search(indicator, response_text, re.I | re.M):
-                        return True
         
         elif vuln_type == 'xxe':
             # XXE specific indicators
@@ -5505,10 +5496,8 @@ class SmartCrawler:
         elif vuln_type == 'ssti':
             # Template injection indicators
             # Check if mathematical operations were evaluated
-            if '49' in response_text and '7*7' in payload:
-                # Ensure '49' is NOT already in the baseline (reduces false positives)
-                if not baseline_response or '49' not in baseline_response:
-                    return True
+            if '49' in response_text and '7*7' in payload:  # 7*7=49
+                return True
 
             template_errors = [
                 r'TemplateSyntaxError',
@@ -5523,18 +5512,11 @@ class SmartCrawler:
                 if re.search(error, response_text, re.I):
                     return True
 
-        # Bypass success validation: a bypass changes how the request reaches the server,
-        # but the RESPONSE still needs to show actual vulnerability indicators.
-        # Simply getting a 200 response with content does NOT mean the target is vulnerable.
-        # The vulnerability-specific checks above already handle detection.
-        # Only boost confidence if the response is semantically DIFFERENT from baseline.
-        if bypass and baseline_response and status_code not in [403, 406, 418, 429]:
-            sim = SemanticResponseDiffer.similarity(baseline_response, response_text)
-            if sim < 0.6 and len(response_text) > 100:
-                # Response is substantially different with bypass — worth noting but
-                # not automatically a vulnerability. Log for manual review.
-                logger.info(f"Bypass '{bypass.get('type', 'unknown')}' caused significant "
-                           f"response change (similarity: {sim:.2f})")
+        # If using bypass and response is different from expected blocked response
+        if bypass and status_code not in [403, 406, 418, 429]:
+            # Additional validation for bypass success
+            if len(response_text) > 100:  # Not just an error page
+                return True
 
         return False
 
