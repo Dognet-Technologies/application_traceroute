@@ -4812,6 +4812,12 @@ class SmartCrawler:
             if method.upper() == 'GET':
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
+                # Add other form parameters (e.g. Submit=Submit)
+                for p in endpoint.get('parameters', []):
+                    p_name = p.get('name', '')
+                    if p_name and p_name != param_name:
+                        p_value = p.get('value', '') or ''
+                        test_url += f"&{urllib.parse.quote(p_name)}={urllib.parse.quote(p_value)}"
                 resp = self.session.get(test_url, timeout=10, verify=False, allow_redirects=True)
             else:
                 post_data = {param_name: payload}
@@ -5050,18 +5056,10 @@ class SmartCrawler:
         except:
             return False
 
-        # Controllo duplicati via hash
-        payload_hash = hashlib.md5(payload.encode('utf-8', errors='ignore')).digest()
-        if payload_hash in self.tested_payloads_hash:
-            return False
-
-        # Aggiungi hash al set
-        self.tested_payloads_hash.add(payload_hash)
-
-        # Limita dimensione hash set per evitare OOM
-        if len(self.tested_payloads_hash) > 50000:
-            # Rimuovi metà dei vecchi hash (approccio semplice)
-            self.tested_payloads_hash = set(list(self.tested_payloads_hash)[25000:])
+        # NOTE: Payload dedup is now handled per-endpoint in test_vulnerability_immediately()
+        # to avoid blocking the same payload from being tested on different URLs.
+        # Global dedup was causing missed detections (e.g. same SQLi payload skipped
+        # on /sqli_blind/ after being tested on /sqli/).
 
         return True
     
@@ -5093,9 +5091,16 @@ class SmartCrawler:
             method = endpoint.get('method', 'GET')
 
             if method.upper() == 'GET':
-                # GET request - add to URL parameters
+                # GET request - add payload to URL parameters
+                # Also include other form fields (e.g. Submit=Submit) which many apps require
                 separator = '&' if '?' in base_url else '?'
                 test_url = f"{base_url}{separator}{param_name}={urllib.parse.quote(payload)}"
+                # Add other form parameters to GET URL (critical for forms like DVWA)
+                for p in endpoint.get('parameters', []):
+                    p_name = p.get('name', '')
+                    if p_name and p_name != param_name:
+                        p_value = p.get('value', '') or ''
+                        test_url += f"&{urllib.parse.quote(p_name)}={urllib.parse.quote(p_value)}"
             else:
                 # POST request - build form data with payload
                 test_url = base_url
