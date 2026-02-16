@@ -4082,17 +4082,17 @@ class SmartCrawler:
         forms = soup.find_all('form')
         if not forms:
             return
-        
+
         if self.verbose:
             print(f"\n📝 ANALYZING FORMS: {len(forms)} found")
-        
+
         for form_idx, form in enumerate(forms):
             action = urljoin(url, form.get('action', url))
             method = form.get('method', 'GET').upper()
-            
+
             if self.verbose:
                 print(f"  📋 Form {form_idx + 1}: {method} {action}")
-            
+
             # Extract all form inputs
             inputs = []
             for input_tag in form.find_all(['input', 'textarea', 'select']):
@@ -4104,13 +4104,13 @@ class SmartCrawler:
                     'placeholder': input_tag.get('placeholder', ''),
                     'id': input_tag.get('id', '')
                 }
-                
+
                 if input_data['name']:
                     inputs.append(input_data)
-            
+
             if not inputs:
                 continue
-            
+
             # Create endpoint for form
             endpoint = {
                 'url': action,
@@ -4119,28 +4119,36 @@ class SmartCrawler:
                 'form': True,
                 'source': 'html_form'
             }
-            
+
+            # ===== PHASE 1: Build ALL parameters FIRST (with values) =====
+            # Critical: we must have the complete form data before testing,
+            # otherwise POST requests will be missing fields (e.g. Submit button)
+            params_with_vulns = []  # [(param_data, vulns)]
+
             for input_data in inputs:
-                # ⚠️ CRITICAL: location dipende dal method del form
-                # GET forms → parametri in query string
-                # POST forms → parametri nel body
                 param_location = 'query' if method.upper() == 'GET' else 'body'
 
                 param_data = {
                     'name': input_data['name'],
                     'location': param_location,
                     'type': input_data['type'],
+                    'value': input_data['value'],  # Preserve form default value
                     'required': input_data['required'],
                     'predicted_vulns': []
                 }
-                
+
+                # Skip submit/button types for vulnerability analysis but keep in parameters
+                if input_data['type'] in ('submit', 'button', 'image', 'reset'):
+                    endpoint['parameters'].append(param_data)
+                    continue
+
                 # Analyze form input for vulnerabilities
                 vulns = self.param_analyzer.analyze_parameter(
-                    input_data['name'], 
-                    input_data['value'], 
+                    input_data['name'],
+                    input_data['value'],
                     response_text
                 )
-                
+
                 # Add form-specific vulnerabilities
                 if input_data['type'] == 'file':
                     vulns.append({
@@ -4150,47 +4158,69 @@ class SmartCrawler:
                         'evidence': f'File upload input: {input_data["name"]}'
                     })
 
-                # I parametri hidden NON sono vulnerabilità in sé stessi
-                # Sono parametri che dovrebbero essere testati per vulnerabilità standard
-                # (XSS, SQLi, etc.) come qualsiasi altro parametro
-                # La logica di test è già gestita da param_analyzer.analyze_parameter()
                 if input_data['type'] == 'hidden':
-                    # Aumenta leggermente la priorità di test per parametri hidden
-                    # perché spesso contengono dati sensibili (ID, prezzi, etc.)
                     for vuln in vulns:
                         if vuln.get('confidence', 0) < 70:
                             vuln['confidence'] = min(vuln['confidence'] + 15, 90)
                         vuln['context'] = vuln.get('context', '') + ' (hidden_field)'
                         vuln['evidence'] = vuln.get('evidence', '') + f' - Hidden parameter: {input_data["name"]}'
-                
+
                 if vulns:
                     if self.verbose:
                         print(f"    📍 Input '{input_data['name']}' ({input_data['type']}) vulnerabilities:")
                         for vuln in vulns:
                             print(f"      * {vuln['type'].upper()} ({vuln['confidence']}): {vuln['evidence']}")
-                    
+
                     for vuln in vulns:
                         vuln['wordlists'] = self.wordlist_mapper.get_wordlists_for_vulnerability(
                             vuln['type'], self.results['technologies']
                         )
                         param_data['predicted_vulns'].append(vuln)
-                    
-                    # Test form input vulnerabilities immediately
-                    self.test_vulnerability_immediately(endpoint, param_data, vulns)
-                
+
+                    params_with_vulns.append((param_data, vulns))
+
                 endpoint['parameters'].append(param_data)
-            
+
+            # ===== PHASE 2: Test vulnerabilities AFTER all fields are collected =====
+            # Now endpoint['parameters'] has ALL form fields with their default values
+            for param_data, vulns in params_with_vulns:
+                self.test_vulnerability_immediately(endpoint, param_data, vulns)
+
             if endpoint['parameters']:
                 self.endpoints.append(endpoint)
     
+    def _capture_baseline(self, endpoint, param):
+        """
+        Capture a baseline response for differential analysis.
+        Sends a benign value and records response text + timing.
+
+        Returns:
+            (baseline_text, baseline_time) or (None, 0) on failure
+        """
+        try:
+            benign_value = param.get('value', '') or 'test123'
+            self.rate_limiter.wait()
+            start = time.time()
+            response = self._send_raw_payload(endpoint, param, benign_value)
+            elapsed = time.time() - start
+
+            if response is not None:
+                text = response.text or ''
+                response.close()
+                return text, elapsed
+        except Exception:
+            pass
+        return None, 0
+
     def test_vulnerability_immediately(self, endpoint, param, vulnerabilities):
         """
         Test vulnerabilities immediately when found.
 
         Unified detection flow:
-        1. Collect ALL payloads (native PayloadDB + external wordlists + internal fallback)
-        2. For each payload: send request -> unified analysis
-        3. For SQLi: also run timing-based and boolean-based multi-request techniques
+        1. Capture baseline response for differential analysis
+        2. Collect ALL payloads (native PayloadDB + external wordlists + internal fallback)
+        3. For each payload: send request -> unified analysis with baseline
+        4. For SQLi/RCE: also run timing-based multi-request techniques
         """
         if not vulnerabilities:
             return
@@ -4214,6 +4244,11 @@ class SmartCrawler:
 
         if not vulns_to_test:
             return
+
+        # Capture baseline ONCE for all vuln types on this parameter
+        baseline_text, baseline_time = self._capture_baseline(endpoint, param)
+        if self.verbose and baseline_text is not None:
+            print(f"    Baseline captured: {len(baseline_text)} bytes, {baseline_time:.2f}s")
 
         for vuln in vulns_to_test:
             vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
@@ -4243,7 +4278,10 @@ class SmartCrawler:
                 self.rate_limiter.wait()
 
                 # Test without bypass first
-                success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
+                success = self.test_single_payload(
+                    endpoint, param, payload, vuln_type, None,
+                    baseline_response=baseline_text
+                )
                 tested_count += 1
                 self.performance_monitor.increment_payloads()
 
@@ -4255,18 +4293,24 @@ class SmartCrawler:
                 if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
                     for bypass in self.bypass_manager.validated_bypasses:
                         self.rate_limiter.wait()
-                        success = self.test_single_payload(endpoint, param, payload, vuln_type, bypass)
+                        success = self.test_single_payload(
+                            endpoint, param, payload, vuln_type, bypass,
+                            baseline_response=baseline_text
+                        )
                         if success:
                             found = True
                             break
                     if found:
                         break
 
-            # ===== MULTI-REQUEST TECHNIQUES (SQLi only): timing + boolean =====
+            # ===== MULTI-REQUEST TECHNIQUES: timing-based =====
             if not found and vuln_type == 'sqli':
                 found = self._test_timing_sqli(endpoint, param)
                 if not found:
                     found = self._test_boolean_sqli(endpoint, param)
+
+            if not found and vuln_type == 'rce':
+                found = self._test_timing_rce(endpoint, param)
 
             if self.verbose:
                 print(f"    Tested {tested_count} payloads for {vuln_type}")
@@ -4498,6 +4542,86 @@ class SmartCrawler:
 
             except Exception as e:
                 logger.debug(f"Boolean-based test error: {e}")
+
+        return False
+
+    def _test_timing_rce(self, endpoint, param):
+        """
+        Test for time-based blind Command Injection / RCE.
+
+        Sends sleep/ping delay payloads and measures response time.
+        Verifies with non-delayed version to confirm causality.
+
+        Returns:
+            True if time-based RCE confirmed, False otherwise
+        """
+        url = endpoint['url']
+        param_name = param['name']
+        time_threshold = 4.0
+
+        if self.verbose:
+            print(f"    Testing time-based blind RCE...")
+
+        timing_payloads = [
+            ('; sleep 5', '; sleep 0'),
+            ('| sleep 5', '| sleep 0'),
+            ('& sleep 5', '& sleep 0'),
+            ('`sleep 5`', '`sleep 0`'),
+            ('$(sleep 5)', '$(sleep 0)'),
+            ('; ping -c 5 127.0.0.1', '; echo ok'),
+            ('| ping -c 5 127.0.0.1', '| echo ok'),
+        ]
+
+        for delay_payload, verify_payload in timing_payloads:
+            try:
+                self.rate_limiter.wait()
+
+                # Send delayed payload
+                start_time = time.time()
+                response = self._send_raw_payload(endpoint, param, delay_payload)
+                elapsed = time.time() - start_time
+
+                if response is None:
+                    continue
+
+                if elapsed >= time_threshold:
+                    # Verify: send non-delayed version
+                    self.rate_limiter.wait()
+                    start_verify = time.time()
+                    verify_resp = self._send_raw_payload(endpoint, param, verify_payload)
+                    verify_elapsed = time.time() - start_verify
+
+                    if verify_resp and elapsed - verify_elapsed >= time_threshold * 0.7:
+                        confidence = 90
+
+                        if self.verbose:
+                            print(f"    CONFIRMED time-based RCE: {elapsed:.2f}s vs {verify_elapsed:.2f}s")
+
+                        self.vuln_logger.log_vulnerability(
+                            endpoint=url,
+                            parameter=param_name,
+                            payload=delay_payload,
+                            vulnerability_type='RCE',
+                            confidence=confidence
+                        )
+
+                        self.results['vulnerability_test_results'].append({
+                            'endpoint': url,
+                            'parameter': param_name,
+                            'vulnerability_type': 'rce',
+                            'payload': delay_payload,
+                            'technique': 'time_based',
+                            'bypass_used': None,
+                            'response_status': response.status_code,
+                            'response_length': len(response.content),
+                            'timestamp': time.strftime('%H:%M:%S'),
+                            'confidence': confidence
+                        })
+                        self.performance_monitor.increment_vulnerabilities()
+                        return True
+
+            except Exception as e:
+                logger.debug(f"Time-based RCE test error: {e}")
 
         return False
 
@@ -4760,7 +4884,8 @@ class SmartCrawler:
 
         return True
     
-    def test_single_payload(self, endpoint, param, payload, vuln_type, bypass=None):
+    def test_single_payload(self, endpoint, param, payload, vuln_type, bypass=None,
+                           baseline_response=None):
         """
         Test a single payload against an endpoint.
 
@@ -4769,6 +4894,8 @@ class SmartCrawler:
         - Performance monitoring
         - Error handling migliorato con eccezioni specifiche
         - Response cleanup automatico
+        - Baseline comparison per differential analysis
+        - Response time measurement per time-based detection
         """
         response = None
         try:
@@ -4789,11 +4916,10 @@ class SmartCrawler:
                 test_url = base_url
                 post_data = {param_name: payload}
 
-                # Add other form fields from endpoint if available
+                # Add other form fields from endpoint with their default values
                 for p in endpoint.get('parameters', []):
                     p_name = p.get('name', '')
                     if p_name and p_name != param_name:
-                        # Include other fields with their default values
                         post_data[p_name] = p.get('value', '') or ''
 
             # Apply bypass if provided
@@ -4810,7 +4936,7 @@ class SmartCrawler:
                 request_params = {
                     'url': test_url,
                     'method': endpoint.get('method', 'GET'),
-                    'timeout': 5,
+                    'timeout': 10,
                     'verify': False,
                     'allow_redirects': True
                 }
@@ -4821,7 +4947,8 @@ class SmartCrawler:
             # ⚡ Rate limiting
             self.rate_limiter.wait()
 
-            # Make request con error handling specifico
+            # Make request with timing measurement
+            request_start = time.time()
             try:
                 if request_params['method'].upper() == 'GET':
                     response = self.session.get(
@@ -4845,6 +4972,10 @@ class SmartCrawler:
                 self.performance_monitor.increment_requests()
 
             except requests.Timeout:
+                # Timeout can indicate time-based vulnerability (sleep/ping)
+                elapsed = time.time() - request_start
+                if vuln_type == 'rce' and elapsed >= 4.0:
+                    logger.info(f"Timeout may indicate time-based RCE: {elapsed:.2f}s")
                 logger.warning(f"Timeout testing payload on {base_url}")
                 self.performance_monitor.increment_errors()
                 return False
@@ -4856,10 +4987,14 @@ class SmartCrawler:
                 logger.error(f"Request error testing payload on {base_url}: {e}")
                 self.performance_monitor.increment_errors()
                 return False
-            
-            # Analyze response for vulnerability indicators
+
+            response_time = time.time() - request_start
+
+            # Analyze response for vulnerability indicators (with baseline and timing)
             vulnerability_detected = self.analyze_response_for_vulnerability(
-                response, payload, vuln_type, bypass
+                response, payload, vuln_type, bypass,
+                baseline_response=baseline_response,
+                response_time=response_time
             )
             
             if vulnerability_detected:
@@ -4992,11 +5127,15 @@ class SmartCrawler:
                 if any(err in response_text_lower for err in generic_errors):
                     return False
                 return True
-            elif vuln_type != 'xss':
-                # Per altri tipi, se payload non riflesso → probabilmente non vulnerabile
-                return False
+            elif vuln_type == 'xss':
+                # XSS: payload not reflected literally, but check if dangerous
+                # patterns from our payload exist unescaped in the response.
+                # The payload may have been slightly transformed (whitespace, case)
+                # but the dangerous construct could still be present.
+                # Fall through to dangerous_patterns check below instead of returning False.
+                pass
             else:
-                # XSS richiede reflection
+                # Per altri tipi, se payload non riflesso → probabilmente non vulnerabile
                 return False
 
         # Se il payload è nella risposta, verifica che non sia in un contesto "safe"
@@ -5028,9 +5167,17 @@ class SmartCrawler:
             for pattern, escaped_pattern in dangerous_patterns:
                 if re.search(pattern, payload, re.I):
                     # Check if pattern exists unescaped in response
-                    matches = re.finditer(pattern, response_text, re.I)
+                    resp_matches = list(re.finditer(pattern, response_text, re.I))
 
-                    for match in matches:
+                    # If payload wasn't literally reflected, we must ensure the
+                    # pattern match is NEW (not from the original page).
+                    # Use baseline to filter out pre-existing matches.
+                    if not payload_in_response and baseline_response:
+                        baseline_match_count = len(re.findall(pattern, baseline_response, re.I))
+                        if len(resp_matches) <= baseline_match_count:
+                            continue  # No new matches → not our injection
+
+                    for match in resp_matches:
                         # Verifica che il match sia effettivamente dal nostro payload
                         # e non da altri script legittimi nella pagina
                         context_start = max(0, match.start() - 100)
