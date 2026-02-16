@@ -4368,120 +4368,131 @@ class SmartCrawler:
             vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
             confidence = vuln.get('confidence', 'unknown')
 
-            if self.verbose:
-                print(f"  Testing {vuln_type.upper()} (confidence: {confidence})")
-
-            # ===== UNIFIED FLOW: Collect ALL payloads from all sources =====
-            all_payloads = self._collect_all_payloads(vuln_type)
-
-            if not all_payloads:
+            # Wrap each vuln type in try/except so a failure in one doesn't skip the rest
+            try:
                 if self.verbose:
-                    print(f"    No payloads available for {vuln_type}")
-                self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
-                continue
+                    print(f"  Testing {vuln_type.upper()} (confidence: {confidence})")
 
-            if self.verbose:
-                print(f"    Collected {len(all_payloads)} payloads")
+                # ===== UNIFIED FLOW: Collect ALL payloads from all sources =====
+                all_payloads = self._collect_all_payloads(vuln_type)
 
-            # ===== PHASE 1: Static payloads =====
-            found = False
-            tested_count = 0
-            max_payloads = 20
-            failed_payloads = []  # Track failed payloads for mutation
+                if not all_payloads:
+                    if self.verbose:
+                        print(f"    No payloads available for {vuln_type}")
+                    # Do NOT mark as tested when no payloads were available -
+                    # this allows retesting on different URLs where payloads might exist
+                    continue
 
-            for payload in all_payloads[:max_payloads]:
-                self.rate_limiter.wait()
+                if self.verbose:
+                    print(f"    Collected {len(all_payloads)} payloads")
 
-                # Test without bypass first
-                success = self.test_single_payload(
-                    endpoint, param, payload, vuln_type, None,
-                    baseline_response=baseline_text
-                )
-                tested_count += 1
-                self.performance_monitor.increment_payloads()
+                # ===== PHASE 1: Static payloads =====
+                found = False
+                tested_count = 0
+                max_payloads = 20
+                failed_payloads = []  # Track failed payloads for mutation
 
-                if success:
-                    found = True
-                    break
+                for payload in all_payloads[:max_payloads]:
+                    self.rate_limiter.wait()
 
-                failed_payloads.append(payload)
+                    # Test without bypass first
+                    success = self.test_single_payload(
+                        endpoint, param, payload, vuln_type, None,
+                        baseline_response=baseline_text
+                    )
+                    tested_count += 1
+                    self.performance_monitor.increment_payloads()
 
-                # If not successful, try with validated bypasses
-                if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                    for bypass in self.bypass_manager.validated_bypasses:
-                        self.rate_limiter.wait()
-                        success = self.test_single_payload(
-                            endpoint, param, payload, vuln_type, bypass,
-                            baseline_response=baseline_text
-                        )
-                        if success:
-                            found = True
-                            break
-                    if found:
+                    if success:
+                        found = True
                         break
 
-            # ===== PHASE 2: Mutated payloads (if static failed) =====
-            if not found and self.mutation_engine and failed_payloads:
-                # Mutate top 3 most promising payloads
-                mutation_candidates = failed_payloads[:3]
-                max_mutations_per_payload = 5
-                mutated_tested = 0
+                    failed_payloads.append(payload)
 
-                if self.verbose:
-                    print(f"    Mutating {len(mutation_candidates)} payloads...")
+                    # If not successful, try with validated bypasses
+                    if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
+                        for bypass in self.bypass_manager.validated_bypasses:
+                            self.rate_limiter.wait()
+                            success = self.test_single_payload(
+                                endpoint, param, payload, vuln_type, bypass,
+                                baseline_response=baseline_text
+                            )
+                            if success:
+                                found = True
+                                break
+                        if found:
+                            break
 
-                for base_payload in mutation_candidates:
-                    try:
-                        mutations = self.mutation_engine.mutate(
-                            base_payload,
-                            vuln_type=vuln_type,
-                            max_mutations=max_mutations_per_payload
-                        )
-                    except Exception as e:
-                        logger.debug(f"Mutation error: {e}")
-                        continue
+                # ===== PHASE 2: Mutated payloads (if static failed) =====
+                if not found and self.mutation_engine and failed_payloads:
+                    # Mutate top 3 most promising payloads
+                    mutation_candidates = failed_payloads[:3]
+                    max_mutations_per_payload = 5
+                    mutated_tested = 0
 
-                    for mutation in mutations:
-                        mutated_payload = mutation.mutated if hasattr(mutation, 'mutated') else str(mutation)
+                    if self.verbose:
+                        print(f"    Mutating {len(mutation_candidates)} payloads...")
 
-                        # Skip if identical to original or already tested
-                        if mutated_payload == base_payload or mutated_payload in failed_payloads:
+                    for base_payload in mutation_candidates:
+                        try:
+                            mutations = self.mutation_engine.mutate(
+                                base_payload,
+                                vuln_type=vuln_type,
+                                max_mutations=max_mutations_per_payload
+                            )
+                        except Exception as e:
+                            logger.debug(f"Mutation error: {e}")
                             continue
 
-                        self.rate_limiter.wait()
-                        success = self.test_single_payload(
-                            endpoint, param, mutated_payload, vuln_type, None,
-                            baseline_response=baseline_text
-                        )
-                        tested_count += 1
-                        mutated_tested += 1
-                        self.performance_monitor.increment_payloads()
+                        for mutation in mutations:
+                            mutated_payload = mutation.mutated if hasattr(mutation, 'mutated') else str(mutation)
 
-                        if success:
-                            found = True
-                            if self.verbose:
-                                print(f"    Mutation hit! Base: {base_payload[:30]}... → {mutated_payload[:30]}...")
+                            # Skip if identical to original or already tested
+                            if mutated_payload == base_payload or mutated_payload in failed_payloads:
+                                continue
+
+                            self.rate_limiter.wait()
+                            success = self.test_single_payload(
+                                endpoint, param, mutated_payload, vuln_type, None,
+                                baseline_response=baseline_text
+                            )
+                            tested_count += 1
+                            mutated_tested += 1
+                            self.performance_monitor.increment_payloads()
+
+                            if success:
+                                found = True
+                                if self.verbose:
+                                    print(f"    Mutation hit! Base: {base_payload[:30]}... → {mutated_payload[:30]}...")
+                                break
+
+                        if found:
                             break
 
-                    if found:
-                        break
+                    if self.verbose and mutated_tested > 0:
+                        print(f"    Tested {mutated_tested} mutations")
 
-                if self.verbose and mutated_tested > 0:
-                    print(f"    Tested {mutated_tested} mutations")
+                # ===== PHASE 3: Multi-request techniques (timing/boolean) =====
+                if not found and vuln_type == 'sqli':
+                    found = self._test_timing_sqli(endpoint, param)
+                    if not found:
+                        found = self._test_boolean_sqli(endpoint, param)
 
-            # ===== PHASE 3: Multi-request techniques (timing/boolean) =====
-            if not found and vuln_type == 'sqli':
-                found = self._test_timing_sqli(endpoint, param)
-                if not found:
-                    found = self._test_boolean_sqli(endpoint, param)
+                if not found and vuln_type == 'rce':
+                    found = self._test_timing_rce(endpoint, param)
 
-            if not found and vuln_type == 'rce':
-                found = self._test_timing_rce(endpoint, param)
+                if self.verbose:
+                    print(f"    Tested {tested_count} payloads for {vuln_type}")
 
-            if self.verbose:
-                print(f"    Tested {tested_count} payloads for {vuln_type}")
+                self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
 
-            self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
+            except Exception as e:
+                logger.error(f"Error testing {vuln_type} for {param_name}: {e}", exc_info=True)
+                if self.verbose:
+                    print(f"    ❌ Error testing {vuln_type}: {e}")
+                # Mark as tested to avoid infinite retry, but continue to next vuln type
+                self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
+                continue
 
     def _collect_all_payloads(self, vuln_type):
         """
