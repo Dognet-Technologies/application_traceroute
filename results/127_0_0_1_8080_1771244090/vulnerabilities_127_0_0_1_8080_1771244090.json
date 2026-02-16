@@ -1,0 +1,42 @@
+{
+  "target": "http://127.0.0.1:8080",
+  "scan_start": "2026-02-16 13:14:50",
+  "vulnerabilities": [
+    {
+      "id": 1,
+      "vulnerability_type": "LFI",
+      "endpoint": "http://127.0.0.1:8080/vulnerabilities/fi/",
+      "parameter": "page",
+      "payload": "/etc/passwd",
+      "confidence": 75,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cookie": "[REDACTED - Contains session data]"
+        },
+        "body_parameter": "page"
+      },
+      "response": {
+        "status_code": 200,
+        "content_length": 4218
+      },
+      "bypass": {
+        "used": false,
+        "type": null
+      },
+      "timestamps": {
+        "detected_at": "2026-02-16 13:17:03",
+        "unix_timestamp": 1771244223
+      }
+    }
+  ],
+  "total_vulnerabilities": 1,
+  "total_by_type": {
+    "lfi": 1
+  },
+  "last_updated": "2026-02-16 13:17:03"
+}
