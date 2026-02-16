@@ -79,6 +79,22 @@ except ImportError:
         DEBUG_LOGGER_AVAILABLE = False
         logger.warning("debug_logger not available - debug mode will be limited")
 
+# Optional import for payload mutation engine
+try:
+    from extensions.internal_wordlist import PayloadMutationEngine
+    MUTATION_ENGINE_AVAILABLE = True
+except ImportError:
+    try:
+        from pathlib import Path
+        ext_dir = str(Path(__file__).parent.parent.parent / 'extensions')
+        if ext_dir not in sys.path:
+            sys.path.insert(0, ext_dir)
+        from internal_wordlist import PayloadMutationEngine
+        MUTATION_ENGINE_AVAILABLE = True
+    except ImportError:
+        MUTATION_ENGINE_AVAILABLE = False
+        logger.warning("PayloadMutationEngine not available - using static payloads only")
+
 # Optional import for vulnerability verification
 try:
     from vulnerability_verifier import VulnerabilityVerifier
@@ -130,6 +146,75 @@ except ImportError:
         NATIVE_DETECTOR_AVAILABLE = False
         PayloadDB = None
         logger.warning("native_detector not available - using basic detection only")
+
+
+class SemanticResponseDiffer:
+    """
+    Semantic response comparison that ignores dynamic content.
+
+    Standard difflib.SequenceMatcher treats timestamps, CSRF tokens, session IDs,
+    and random nonces as real differences, inflating diff ratios and hiding actual
+    vulnerability-induced changes. This class normalizes responses before comparison.
+    """
+
+    # Patterns to normalize (replace with placeholders before diffing)
+    DYNAMIC_PATTERNS = [
+        # CSRF tokens / nonces
+        (re.compile(r'(name=["\']?(?:csrf|token|nonce|_token|user_token|csrfmiddlewaretoken)["\']?\s+value=["\']?)([^"\'>\s]+)', re.I),
+         r'\1[DYNAMIC_TOKEN]'),
+        # Session IDs in HTML
+        (re.compile(r'(PHPSESSID|JSESSIONID|ASP\.NET_SessionId|session_id|sid)=([a-zA-Z0-9]{16,})', re.I),
+         r'\1=[DYNAMIC_SESSION]'),
+        # Timestamps (various formats)
+        (re.compile(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}'), '[DYNAMIC_TIME]'),
+        (re.compile(r'\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}'), '[DYNAMIC_TIME]'),
+        # Unix timestamps
+        (re.compile(r'(?<=[=:"\s])\d{10,13}(?=[&"\s,;])'), '[DYNAMIC_TIMESTAMP]'),
+        # Random hex/base64 strings in values (likely tokens)
+        (re.compile(r'(value=["\'])([a-f0-9]{32,}|[A-Za-z0-9+/]{32,}={0,2})(["\'])', re.I),
+         r'\1[DYNAMIC_VALUE]\3'),
+        # Cache busters, version hashes
+        (re.compile(r'(\?v=|&v=|_=)\d+'), r'\1[DYNAMIC_VERSION]'),
+    ]
+
+    @classmethod
+    def normalize(cls, text):
+        """Strip dynamic content from response text for comparison."""
+        for pattern, replacement in cls.DYNAMIC_PATTERNS:
+            text = pattern.sub(replacement, text)
+        return text
+
+    @classmethod
+    def similarity(cls, response_a, response_b):
+        """
+        Semantic similarity between two responses.
+        Returns float 0.0-1.0 (1.0 = identical after normalization).
+        """
+        if response_a is None or response_b is None:
+            return 0.0
+        norm_a = cls.normalize(response_a)
+        norm_b = cls.normalize(response_b)
+        return difflib.SequenceMatcher(None, norm_a, norm_b).ratio()
+
+    @classmethod
+    def has_new_content(cls, baseline, response, patterns):
+        """
+        Check if response contains NEW matches for any regex pattern
+        not present in baseline.
+
+        Returns list of (pattern_name, new_match) tuples.
+        """
+        new_findings = []
+        for name, pattern in patterns:
+            resp_matches = set(m.group() for m in re.finditer(pattern, response, re.I | re.M))
+            if baseline:
+                base_matches = set(m.group() for m in re.finditer(pattern, baseline, re.I | re.M))
+                new_matches = resp_matches - base_matches
+            else:
+                new_matches = resp_matches
+            for match in new_matches:
+                new_findings.append((name, match))
+        return new_findings
 
 
 class RateLimiter:
@@ -2915,6 +3000,12 @@ class SmartCrawler:
         else:
             print("  ⚠ Vulnerability verifier not available - using basic detection")
 
+        # Initialize payload mutation engine
+        self.mutation_engine = None
+        if MUTATION_ENGINE_AVAILABLE:
+            self.mutation_engine = PayloadMutationEngine()
+            print("  🧬 Payload mutation engine enabled")
+
         # Initialize native detector (pure Python, no external tools)
         self.native_detector = None
         if NATIVE_DETECTOR_AVAILABLE:
@@ -4269,10 +4360,11 @@ class SmartCrawler:
             if self.verbose:
                 print(f"    Collected {len(all_payloads)} payloads")
 
-            # ===== SINGLE-REQUEST TECHNIQUES: Send each payload, unified analysis =====
+            # ===== PHASE 1: Static payloads =====
             found = False
             tested_count = 0
             max_payloads = 20
+            failed_payloads = []  # Track failed payloads for mutation
 
             for payload in all_payloads[:max_payloads]:
                 self.rate_limiter.wait()
@@ -4289,6 +4381,8 @@ class SmartCrawler:
                     found = True
                     break
 
+                failed_payloads.append(payload)
+
                 # If not successful, try with validated bypasses
                 if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
                     for bypass in self.bypass_manager.validated_bypasses:
@@ -4303,7 +4397,56 @@ class SmartCrawler:
                     if found:
                         break
 
-            # ===== MULTI-REQUEST TECHNIQUES: timing-based =====
+            # ===== PHASE 2: Mutated payloads (if static failed) =====
+            if not found and self.mutation_engine and failed_payloads:
+                # Mutate top 3 most promising payloads
+                mutation_candidates = failed_payloads[:3]
+                max_mutations_per_payload = 5
+                mutated_tested = 0
+
+                if self.verbose:
+                    print(f"    Mutating {len(mutation_candidates)} payloads...")
+
+                for base_payload in mutation_candidates:
+                    try:
+                        mutations = self.mutation_engine.mutate(
+                            base_payload,
+                            vuln_type=vuln_type,
+                            max_mutations=max_mutations_per_payload
+                        )
+                    except Exception as e:
+                        logger.debug(f"Mutation error: {e}")
+                        continue
+
+                    for mutation in mutations:
+                        mutated_payload = mutation.mutated if hasattr(mutation, 'mutated') else str(mutation)
+
+                        # Skip if identical to original or already tested
+                        if mutated_payload == base_payload or mutated_payload in failed_payloads:
+                            continue
+
+                        self.rate_limiter.wait()
+                        success = self.test_single_payload(
+                            endpoint, param, mutated_payload, vuln_type, None,
+                            baseline_response=baseline_text
+                        )
+                        tested_count += 1
+                        mutated_tested += 1
+                        self.performance_monitor.increment_payloads()
+
+                        if success:
+                            found = True
+                            if self.verbose:
+                                print(f"    Mutation hit! Base: {base_payload[:30]}... → {mutated_payload[:30]}...")
+                            break
+
+                    if found:
+                        break
+
+                if self.verbose and mutated_tested > 0:
+                    print(f"    Tested {mutated_tested} mutations")
+
+            # ===== PHASE 3: Multi-request techniques (timing/boolean) =====
             if not found and vuln_type == 'sqli':
                 found = self._test_timing_sqli(endpoint, param)
                 if not found:
@@ -4502,10 +4645,11 @@ class SmartCrawler:
                 true_text = true_resp.text[:5000] if true_resp.text else ""
                 false_text = false_resp.text[:5000] if false_resp.text else ""
 
-                # Calculate similarity ratios
-                true_sim = difflib.SequenceMatcher(None, baseline_text, true_text).ratio()
-                false_sim = difflib.SequenceMatcher(None, baseline_text, false_text).ratio()
-                true_false_sim = difflib.SequenceMatcher(None, true_text, false_text).ratio()
+                # Calculate similarity ratios using semantic differ
+                # (ignores CSRF tokens, session IDs, timestamps that change between requests)
+                true_sim = SemanticResponseDiffer.similarity(baseline_text, true_text)
+                false_sim = SemanticResponseDiffer.similarity(baseline_text, false_text)
+                true_false_sim = SemanticResponseDiffer.similarity(true_text, false_text)
 
                 # TRUE response should be similar to baseline, FALSE should differ
                 if (true_sim > similarity_threshold and
@@ -5291,45 +5435,55 @@ class SmartCrawler:
                     return True
 
         elif vuln_type == 'rce':
-            # RCE detection - output di comandi e indicatori
-            rce_indicators = [
-                # Command outputs
+            # RCE detection with baseline comparison.
+            # Some indicators (ping output, paths) can appear in NORMAL responses
+            # (e.g. DVWA command injection page already shows ping results).
+            # We split into HIGH-confidence indicators (always confirm) and
+            # MEDIUM-confidence indicators (require baseline diff).
+            rce_high_confidence = [
+                # These almost never appear in normal web pages
                 r'uid=\d+.*gid=\d+.*groups=',
-                r'Linux\s+\w+\s+\d+\.\d+',
-                r'Microsoft\s+Windows',
-                r'Volume\s+in\s+drive',
-                r'Directory\s+of',
-
-                # Shell prompts
-                r'[\w\-]+@[\w\-]+:',
-                r'[\w\-]+\$',
-                r'[\w\-]+#',
-                r'C:\\.*>',
-
-                # Common command paths and errors
-                r'/bin/\w+',
-                r'/usr/bin/\w+',
-                r'command not found',
-                r'is not recognized as',
-
-                # Process listings
+                r'root:[\w\*\!]:0:0:',
+                r'daemon:.*:1:1:',
                 r'PID\s+TTY\s+TIME\s+CMD',
                 r'UID\s+PID\s+PPID',
-
-                # Ping output
-                r'\d+\s+bytes\s+from\s+[\d\.]+.*ttl=\d+',
-                r'icmp_seq=\d+\s+ttl=\d+',
-
-                # ls -la output
                 r'^[d-][rwx-]{9}\s+\d+\s+\w+\s+\w+\s+\d+',
-
-                # /etc/passwd via RCE
-                r'root:[\w\*\!]:0:0:',
+                r'command not found',
+                r'is not recognized as',
             ]
 
-            for indicator in rce_indicators:
+            for indicator in rce_high_confidence:
                 if re.search(indicator, response_text, re.I | re.M):
+                    # Even high-confidence: ensure it's NOT in baseline
+                    if baseline_response and re.search(indicator, baseline_response, re.I | re.M):
+                        continue  # Already present in normal response
                     return True
+
+            # Medium-confidence: only count if NEW compared to baseline
+            rce_medium_confidence = [
+                ('linux_version', r'Linux\s+\w+\s+\d+\.\d+'),
+                ('windows', r'Microsoft\s+Windows'),
+                ('volume', r'Volume\s+in\s+drive'),
+                ('directory', r'Directory\s+of'),
+                ('shell_prompt', r'[\w\-]+@[\w\-]+:'),
+                ('bin_path', r'/bin/\w+'),
+                ('usr_bin', r'/usr/bin/\w+'),
+                ('ping_output', r'\d+\s+bytes\s+from\s+[\d\.]+.*ttl=\d+'),
+                ('icmp_seq', r'icmp_seq=\d+\s+ttl=\d+'),
+                ('packets_transmitted', r'packets transmitted.*received'),
+            ]
+
+            if baseline_response:
+                new_findings = SemanticResponseDiffer.has_new_content(
+                    baseline_response, response_text, rce_medium_confidence
+                )
+                if new_findings:
+                    return True
+            else:
+                # No baseline available — fall back to basic pattern matching
+                for name, indicator in rce_medium_confidence:
+                    if re.search(indicator, response_text, re.I | re.M):
+                        return True
         
         elif vuln_type == 'xxe':
             # XXE specific indicators
@@ -5351,8 +5505,10 @@ class SmartCrawler:
         elif vuln_type == 'ssti':
             # Template injection indicators
             # Check if mathematical operations were evaluated
-            if '49' in response_text and '7*7' in payload:  # 7*7=49
-                return True
+            if '49' in response_text and '7*7' in payload:
+                # Ensure '49' is NOT already in the baseline (reduces false positives)
+                if not baseline_response or '49' not in baseline_response:
+                    return True
 
             template_errors = [
                 r'TemplateSyntaxError',
@@ -5367,11 +5523,18 @@ class SmartCrawler:
                 if re.search(error, response_text, re.I):
                     return True
 
-        # If using bypass and response is different from expected blocked response
-        if bypass and status_code not in [403, 406, 418, 429]:
-            # Additional validation for bypass success
-            if len(response_text) > 100:  # Not just an error page
-                return True
+        # Bypass success validation: a bypass changes how the request reaches the server,
+        # but the RESPONSE still needs to show actual vulnerability indicators.
+        # Simply getting a 200 response with content does NOT mean the target is vulnerable.
+        # The vulnerability-specific checks above already handle detection.
+        # Only boost confidence if the response is semantically DIFFERENT from baseline.
+        if bypass and baseline_response and status_code not in [403, 406, 418, 429]:
+            sim = SemanticResponseDiffer.similarity(baseline_response, response_text)
+            if sim < 0.6 and len(response_text) > 100:
+                # Response is substantially different with bypass — worth noting but
+                # not automatically a vulnerability. Log for manual review.
+                logger.info(f"Bypass '{bypass.get('type', 'unknown')}' caused significant "
+                           f"response change (similarity: {sim:.2f})")
 
         return False
 
