@@ -581,7 +581,7 @@ class DebugSession:
             url=url,
             headers=kwargs.get('headers', self._session.headers),
             body=kwargs.get('data') or kwargs.get('json'),
-            cookies=dict(self._session.cookies),
+            cookies={c.name: c.value for c in self._session.cookies},
             auth_type=self._logger.session_state.get('auth_type')
         )
 
