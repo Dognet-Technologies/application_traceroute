@@ -4838,12 +4838,20 @@ class SmartCrawler:
                         post_data[p_name] = p.get('value', '') or ''
                 resp = self.session.post(base_url, data=post_data, timeout=10, verify=False, allow_redirects=True)
 
-            # Detect session loss (redirected to login page)
+            # Detect WAF block vs real session loss
             if resp and resp.url:
-                login_indicators = ['login', 'security.php', 'signin', 'auth', 'session']
-                if any(ind in resp.url.lower() for ind in login_indicators):
-                    if resp.url.lower() != base_url.lower():
+                final_url_lower = resp.url.lower()
+                if final_url_lower != base_url.lower():
+                    # PHPIDS/WAF redirect - payload blocked but session is valid
+                    if 'phpids=' in final_url_lower or 'waf' in final_url_lower:
+                        logger.debug(f"WAF/IDS blocked raw payload: {resp.url}")
+                        return None
+
+                    # Real session loss - login redirect
+                    login_indicators = ['login.php', 'signin', '/auth']
+                    if any(ind in final_url_lower for ind in login_indicators):
                         logger.warning(f"Session lost in raw payload: redirected to {resp.url}")
+                        self._try_reauth()
                         return None
 
             return resp
@@ -4866,6 +4874,42 @@ class SmartCrawler:
                         print(f"  🔄 Synced {len(cookies_dict)} cookies with native detector")
         except Exception as e:
             logger.warning(f"Failed to sync native detector session: {e}")
+
+    def _try_reauth(self):
+        """
+        Try to re-authenticate when session is lost.
+        Returns True if re-authentication succeeded.
+        """
+        if not hasattr(self, '_reauth_lock'):
+            self._reauth_lock = False
+            self._reauth_count = 0
+
+        # Prevent concurrent re-auth attempts and limit total retries
+        if self._reauth_lock or self._reauth_count >= 5:
+            return False
+
+        self._reauth_lock = True
+        try:
+            if (self.auth_manager and self.auth_manager.auth_config):
+                logger.info("Attempting session re-authentication...")
+                result = self.auth_manager.setup_authentication(
+                    self.session, self.auth_manager.auth_config
+                )
+                if result:
+                    self._reauth_count += 1
+                    self._sync_native_detector_cookies()
+                    logger.info("Session re-authenticated successfully")
+                    if self.verbose:
+                        print(f"      🔄 Session re-authenticated (attempt {self._reauth_count}/5)")
+                    return True
+                else:
+                    logger.warning("Re-authentication failed")
+            return False
+        except Exception as e:
+            logger.error(f"Re-authentication error: {e}")
+            return False
+        finally:
+            self._reauth_lock = False
 
     def test_with_wordlists(self, endpoint, param, vuln_type, wordlists):
         """
@@ -5176,15 +5220,35 @@ class SmartCrawler:
                 if base_url in self._url_error_counts:
                     self._url_error_counts[base_url] = 0
 
-                # Detect session loss: if we were redirected to login/security page,
-                # the response is NOT a valid vulnerability test result
+                # Detect WAF/IDS block vs real session loss
                 final_url = response.url if response.url else ''
                 if final_url != request_params['url']:
-                    login_indicators = ['login', 'security.php', 'signin', 'auth', 'session']
-                    if any(ind in final_url.lower() for ind in login_indicators):
-                        logger.warning(f"Session lost: redirected to {final_url} - skipping analysis")
-                        if self.verbose:
+                    final_url_lower = final_url.lower()
+
+                    # PHPIDS/WAF redirect (security.php?phpids=...) - NOT session loss
+                    # The payload was detected by the WAF but session is still valid
+                    if 'phpids=' in final_url_lower or 'waf' in final_url_lower or 'blocked' in final_url_lower:
+                        logger.debug(f"WAF/IDS blocked payload: {final_url}")
+                        return False
+
+                    # Real session loss: redirect to login page
+                    login_indicators = ['login.php', 'signin', '/auth']
+                    if any(ind in final_url_lower for ind in login_indicators):
+                        logger.warning(f"Session lost: redirected to {final_url}")
+                        # Try to re-authenticate
+                        if self._try_reauth():
+                            if self.verbose:
+                                print(f"      🔄 Session restored, retrying payload")
+                            # Don't retry the payload here - just let the loop continue
+                        elif self.verbose:
                             print(f"      ⚠️ Session lost: redirected to {final_url}")
+                        return False
+
+                    # security.php WITHOUT phpids= could be the security settings page
+                    # (e.g. DVWA redirects here when security level requires login)
+                    if 'security.php' in final_url_lower and 'phpids' not in final_url_lower:
+                        # Check if this is a login redirect by trying to access the original URL
+                        logger.debug(f"Redirect to security.php (no phpids) - checking session validity")
                         return False
 
             except requests.Timeout:
