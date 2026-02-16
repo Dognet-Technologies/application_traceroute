@@ -3415,11 +3415,12 @@ class SmartCrawler:
             return False
         
         # Skip static file types (non-injectable resources)
+        # NOTE: .js files are NOT skipped - they are analyzed for API endpoints and vulnerabilities
         skip_extensions = [
             '.jpg', '.jpeg', '.png', '.gif', '.pdf', '.zip', '.exe',
-            '.js', '.css', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot',
+            '.css', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot',
             '.mp3', '.mp4', '.avi', '.mov', '.webm', '.webp',
-            '.map', '.min.js', '.min.css'
+            '.map', '.min.css'
         ]
         url_lower = url.lower().split('?')[0]  # Ignore query params for extension check
         if any(url_lower.endswith(ext) for ext in skip_extensions):
@@ -3510,11 +3511,15 @@ class SmartCrawler:
             
             response.raise_for_status()
 
-            # Skip non-HTML responses (JS, CSS, images served without extension)
+            # Skip non-parseable responses (CSS, images, fonts served without extension)
+            # NOTE: application/javascript IS allowed - JS files are analyzed for API endpoints and vulns
             content_type = response.headers.get('Content-Type', '').lower()
-            if content_type and not any(ct in content_type for ct in ['text/html', 'application/xhtml']):
+            skip_content_types = ['text/css', 'image/', 'font/', 'audio/', 'video/',
+                                  'application/octet-stream', 'application/zip',
+                                  'application/pdf']
+            if content_type and any(ct in content_type for ct in skip_content_types):
                 if self.verbose:
-                    print(f"  ⏭️ Skipping non-HTML response: {content_type}")
+                    print(f"  ⏭️ Skipping non-parseable response: {content_type}")
                 return
 
             # Detect technologies
