@@ -669,11 +669,11 @@ class BehavioralContextEngine:
             ],
             
             'reflection_context': [
-                {'param': 'UNIQUE_MARKER_12345', 'analyze': 'position'},
-                {'param': '<UNIQUE>', 'analyze': 'html_encoding'},
-                {'param': '"UNIQUE"', 'analyze': 'quote_encoding'},
-                {'param': 'javascript:UNIQUE', 'analyze': 'js_protocol'},
-                {'param': 'style="color:UNIQUE"', 'analyze': 'css_context'}
+                {'param': 'UNIQUE_MARKER_12345', 'response_key': 'UNIQUE_MARKER_12345', 'analyze': 'position'},
+                {'param': '<UNIQUE>', 'response_key': 'html_canary', 'analyze': 'html_encoding'},
+                {'param': '"UNIQUE"', 'response_key': 'quoted_canary', 'analyze': 'quote_encoding'},
+                {'param': 'javascript:UNIQUE', 'response_key': 'js_protocol', 'analyze': 'js_protocol'},
+                {'param': 'style="color:UNIQUE"', 'response_key': 'css_context', 'analyze': 'css_context'}
             ],
             
             'file_operations': [
@@ -979,22 +979,48 @@ class BehavioralContextEngine:
             sql_and = results.get('sql_and', {})
             sql_or = results.get('sql_or', {})
             non_existent = results.get('non_existent_id', {})
-            
-            # Different response for numeric vs alphanumeric?
+
+            # Check 1: SQL error patterns in body of single-quote probe
+            # (DVWA returns 200 with SQL error in body, not status 500)
+            sql_error_keywords = [
+                'sql syntax', 'mysql_fetch', 'you have an error in your sql',
+                'ora-', 'sqlite_error', 'pg_query', 'unclosed quotation',
+                'warning.*mysql', 'supplied argument is not a valid mysql',
+                'microsoft ole db', 'odbc sql server', 'syntax error at or near',
+                'column count', 'unknown column',
+            ]
+            quote_text = str(quote.get('text_sample', '')).lower()
+            if any(kw in quote_text for kw in sql_error_keywords):
+                return {'detected': True, 'confidence': 95, 'type': 'sql_injection_confirmed'}
+
+            # Check 2: Status 500/503 on single-quote probe
+            if quote.get('status') in [500, 503]:
+                return {'detected': True, 'confidence': 90, 'type': 'sql_injection_confirmed'}
+
+            # Check 3: Generic 'sql' in body (PHP warnings, etc.)
+            if 'sql' in quote_text:
+                return {'detected': True, 'confidence': 80, 'type': 'sql_error_in_body'}
+
+            # Check 4: Size difference for valid vs invalid ID (lowered threshold)
+            if abs(numeric.get('length', 0) - non_existent.get('length', 0)) > 100:
+                return {'detected': True, 'confidence': 85, 'type': 'database_lookup'}
+
+            # Check 5: Different response for numeric vs alphanumeric
             if numeric.get('status') == 200 and alpha.get('status') in [400, 404]:
                 return {'detected': True, 'confidence': 85, 'type': 'numeric_id_validation'}
-            
-            # Size difference for valid vs invalid ID
-            if abs(numeric.get('length', 0) - non_existent.get('length', 0)) > 500:
-                return {'detected': True, 'confidence': 90, 'type': 'database_lookup'}
-            
-            # SQL syntax causes error?
-            if quote.get('status') in [500, 503] or 'sql' in str(quote.get('text_sample', '')).lower():
-                return {'detected': True, 'confidence': 95, 'type': 'sql_injection_confirmed'}
-            
-            # Boolean-based behavior
-            if sql_and.get('length', 0) != sql_or.get('length', 0):
+
+            # Check 6: Boolean-based behavior (size difference between AND 1=1 and OR 1=1)
+            and_len = sql_and.get('length', 0)
+            or_len = sql_or.get('length', 0)
+            numeric_len = numeric.get('length', 0)
+            if and_len > 0 and or_len > 0 and abs(and_len - or_len) > 50:
                 return {'detected': True, 'confidence': 88, 'type': 'boolean_based_sql'}
+
+            # Check 7: AND 1=1 returns same content as numeric baseline
+            if and_len > 0 and numeric_len > 0 and abs(and_len - numeric_len) < 50:
+                or_diff = abs(or_len - numeric_len) if or_len > 0 else 0
+                if or_diff > 100:
+                    return {'detected': True, 'confidence': 82, 'type': 'boolean_based_sql'}
         
         elif context == 'template_engine':
             # Check if math was evaluated
@@ -4664,7 +4690,7 @@ class SmartCrawler:
         except Exception:
             return False
 
-        similarity_threshold = 0.85
+        similarity_threshold = 0.75
 
         for true_payload, false_payload in PayloadDB.SQLI_BOOLEAN_BASED[:5]:
             try:
@@ -4685,10 +4711,27 @@ class SmartCrawler:
                 false_sim = SemanticResponseDiffer.similarity(baseline_text, false_text)
                 true_false_sim = SemanticResponseDiffer.similarity(true_text, false_text)
 
-                # TRUE response should be similar to baseline, FALSE should differ
-                if (true_sim > similarity_threshold and
+                true_size = len(true_resp.content)
+                false_size = len(false_resp.content)
+                baseline_size = len(baseline.content)
+                size_differential = abs(true_size - false_size)
+                true_vs_baseline = abs(true_size - baseline_size)
+
+                # Primary condition: similarity
+                similarity_match = (
+                    true_sim > similarity_threshold and
                     false_sim < similarity_threshold and
-                    true_false_sim < similarity_threshold):
+                    true_false_sim < similarity_threshold
+                )
+                # Fallback: size differential
+                # true close to baseline, false significantly different
+                size_match = (
+                    size_differential > 50 and
+                    true_vs_baseline < size_differential and
+                    true_vs_baseline < 200
+                )
+
+                if similarity_match or size_match:
 
                     confidence = 85
                     if self.verbose:
