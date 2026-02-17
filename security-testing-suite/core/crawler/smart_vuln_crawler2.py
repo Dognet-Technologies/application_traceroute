@@ -3168,7 +3168,7 @@ class SmartCrawler:
             print(f"🔧 Bypass Manager initialized with {len(bypass_manager.validated_bypasses)} validated bypasses")
             print(f"📊 Technology Stack: {bypass_manager.technology_stack}")
 
-    def should_test_parameter(self, param_name, vuln_type, url=None, max_tests_per_param=3):
+    def should_test_parameter(self, param_name, vuln_type, url=None, max_tests_per_param=20):
         """
         Verifica se un parametro dovrebbe essere testato per una specifica vulnerabilità.
 
@@ -4419,7 +4419,7 @@ class SmartCrawler:
                 # ===== PHASE 1: Static payloads =====
                 found = False
                 tested_count = 0
-                max_payloads = 20
+                max_payloads = 100
                 failed_payloads = []  # Track failed payloads for mutation
 
                 for payload in all_payloads[:max_payloads]:
@@ -4704,6 +4704,9 @@ class SmartCrawler:
         except Exception:
             return False
 
+        if self.verbose:
+            print(f"      Baseline: value='{baseline_value}', size={len(baseline.content)}")
+
         similarity_threshold = 0.75
 
         for true_payload, false_payload in PayloadDB.SQLI_BOOLEAN_BASED[:5]:
@@ -4735,6 +4738,9 @@ class SmartCrawler:
                 true_vs_baseline = abs(true_size - baseline_size)
 
                 if self.verbose:
+                    print(f"      TRUE={true_payload[:30]}... → size={true_size}")
+                    print(f"      FALSE={false_payload[:30]}... → size={false_size}")
+                    print(f"      Differential: {size_differential}, baseline_diff: {true_vs_baseline}")
                     print(f"        Similarity: true={true_sim:.2f}, false={false_sim:.2f}, diff={true_false_sim:.2f}")
                     print(f"        Size: baseline={baseline_size}, true={true_size}, false={false_size}, diff={size_differential}")
 
@@ -5453,7 +5459,7 @@ class SmartCrawler:
                 target=self.target_url
             )
 
-            if result.is_vulnerable and result.confidence >= 50:
+            if result.is_vulnerable and result.confidence >= 40:
                 if self.verbose:
                     print(f"      ✓ Verified by VulnerabilityVerifier (confidence: {result.confidence}%)")
                     for ev in result.evidence[:3]:
