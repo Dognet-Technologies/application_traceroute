@@ -2080,7 +2080,9 @@ class ParameterAnalyzer:
         has_reflection = False
         reflection_context = None
 
-        if param_value_str and response_text and param_value_str in response_text:
+        # Empty string is falsy in Python, but add explicit len() check for clarity:
+        # empty param values (common in form inputs) would match everywhere via `"" in text`
+        if param_value_str and len(param_value_str) > 0 and response_text and param_value_str in response_text:
             reflection_context = self._get_reflection_context(param_value_str, response_text)
             if reflection_context:
                 has_reflection = True
