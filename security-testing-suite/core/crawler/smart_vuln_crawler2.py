@@ -5787,9 +5787,13 @@ class SmartCrawler:
         # Es: var x = "<script>alert(1)<\/script>";
         js_escaped_pattern = re.escape(payload).replace(r'\<', r'\\<').replace(r'\/', r'\\/')
         js_string_pattern = r'["\']' + js_escaped_pattern + r'["\']'
-        if re.search(js_string_pattern, response_text, re.I):
-            # Verifica se c'è escape dello slash in chiusura tag
-            if r'<\/' in response_text or r'<\\/' in response_text:
+        match = re.search(js_string_pattern, response_text, re.I)
+        if match:
+            # Check that the MATCHED string itself contains the escaped slash,
+            # not just that <\/ exists somewhere on the page (it always does
+            # in pages with legitimate </script> tags)
+            matched_string = match.group(0)
+            if r'<\/' in matched_string or r'<\\/' in matched_string:
                 return True
 
         return False
