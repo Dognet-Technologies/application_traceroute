@@ -3500,7 +3500,9 @@ class SmartCrawler:
             
             # Make request with dynamic timeout based on depth
             timeout = 15 if depth == 0 else 10
-            allow_redirects = (depth == 0)
+            # Always follow redirects - at depth > 0, not following redirects
+            # causes empty response bodies when DVWA/apps redirect (session, HTTP→HTTPS)
+            allow_redirects = True
             
             # Try normal request first
             response = self.session.get(url, timeout=timeout, verify=False, allow_redirects=allow_redirects)
