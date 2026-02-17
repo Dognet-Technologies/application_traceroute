@@ -1970,30 +1970,80 @@ class ParameterAnalyzer:
         # ===== REGEX PATTERNS invece di liste esatte =====
         # Patterns per SQL Injection - cattura variazioni come user_id, product_id, etc.
         self.sql_patterns = [
-            r'^id$',                    # exact 'id'
-            r'.*_id$',                  # ends with _id (user_id, product_id, etc.)
+            # Primary keys e identificatori
+            r'^id$', r'^.*_id$', r'^uid$', r'^user_id$', r'^userid$',
+            r'^pid$', r'^product_id$', r'^item_id$', r'^post_id$',
+            r'^order_id$', r'^invoice_id$', r'^ticket_id$',
             r'^.*id$',                  # ends with id (userid, categoryid)
-            r'^(cat|category|item)$',   # category params
-            r'^(sort|order|limit|offset)$',  # ordering params
-            r'^(search|q|query|keyword|s)$', # search params
-            r'.*_key$',                 # ends with _key
-            r'^(num|number|count)$',    # numeric params
-            r'^(page|pag)$',            # pagination (also LFI candidate)
+
+            # User/Auth parameters
+            r'^user$', r'^username$', r'^uname$', r'^login$',
+            r'^email$', r'^mail$', r'^account$', r'^acc$',
+
+            # Search/Filter/Query
+            r'^name$', r'^search$', r'^q$', r'^query$', r'^keyword$',
+            r'^order$', r'^sort$', r'^sortby$', r'^orderby$',
+            r'^filter$', r'^where$', r'^group$', r'^groupby$',
+
+            # Category/Type/Status
+            r'^category$', r'^cat$', r'^type$', r'^status$',
+            r'^state$', r'^level$', r'^priority$', r'^role$',
+            r'^item$',
+
+            # Keys/Codes
+            r'^.*key$', r'^.*_key$', r'^.*code$', r'^.*_code$',
+            r'^token$', r'^session$', r'^sess$',
+
+            # Table/Column hints
+            r'^table$', r'^column$', r'^field$', r'^param$',
+            r'^value$', r'^val$', r'^data$',
+
+            # Numeric patterns (likely IDs)
+            r'^num$', r'^number$', r'^no$', r'^count$', r'^limit$',
+            r'^offset$', r'^start$', r'^end$', r'^page$', r'^pagenum$',
+            r'^pag$',
             r'^(year|month|day|date)$', # date params (often in queries)
         ]
 
         # Patterns per File Inclusion (LFI/RFI)
         self.file_patterns = [
-            r'^(file|filename|filepath)$',  # file params
-            r'^(path|pathname|dir|directory|folder)$',  # path params
-            r'^(include|require|load|read)$',  # include params
-            r'^(template|tpl|view|layout)$',  # template params (also SSTI)
-            r'^(module|plugin|addon|ext)$',  # module loading
-            r'^(doc|document|attachment)$',  # document params
-            r'.*file$',                 # ends with 'file' (uploadfile, configfile)
-            r'.*path$',                 # ends with 'path' (filepath, imgpath)
-            r'^(src|source|img|image)$', # source params
-            r'^(page)$',                # 'page' - può essere LFI
+            # Direct file references
+            r'^file$', r'^filename$', r'^fname$', r'^filepath$',
+            r'^.*file$', r'^.*_file$', r'^.*File$',
+
+            # Path parameters
+            r'^path$', r'^filepath$', r'^dir$', r'^directory$',
+            r'^folder$', r'^location$', r'^.*path$', r'^.*_path$',
+            r'^pathname$',
+
+            # Include/Template
+            r'^page$', r'^include$', r'^require$', r'^inc$',
+            r'^template$', r'^tmpl$', r'^view$', r'^layout$',
+            r'^theme$', r'^skin$', r'^style$',
+            r'^tpl$',
+
+            # Module loading
+            r'^module$', r'^plugin$', r'^addon$', r'^ext$',
+
+            # Document/Download
+            r'^doc$', r'^document$', r'^download$', r'^dl$',
+            r'^attachment$', r'^attach$', r'^asset$',
+
+            # Load/Read operations
+            r'^load$', r'^read$', r'^open$', r'^get$',
+            r'^fetch$', r'^retrieve$', r'^show$', r'^display$',
+
+            # Image/Media (can be LFI vectors)
+            r'^img$', r'^image$', r'^photo$', r'^picture$',
+            r'^media$', r'^resource$', r'^src$', r'^source$',
+
+            # Config/Language files
+            r'^config$', r'^conf$', r'^cfg$', r'^ini$',
+            r'^lang$', r'^language$', r'^locale$', r'^l10n$',
+
+            # URL/URI (RFI indicators)
+            r'^url$', r'^uri$', r'^link$', r'^href$',
+            r'^redirect$', r'^redir$', r'^goto$', r'^next$',
         ]
 
         # Patterns per Command Injection (RCE)
@@ -2009,11 +2059,29 @@ class ParameterAnalyzer:
 
         # Patterns per XXE
         self.xxe_patterns = [
-            r'^(xml|xmldata|xmlinput)$',  # XML params
-            r'^(data|input|payload|body)$',  # generic input (potrebbero essere XML)
-            r'^(soap|wsdl)$',           # SOAP params
-            r'^(config|configuration)$', # config params (spesso XML)
-            r'.*xml$',                  # ends with 'xml'
+            # Explicit XML
+            r'^xml$', r'^xmldata$', r'^xmlinput$', r'^xmlcontent$',
+            r'.*xml$', r'.*_xml$', r'.*XML$',
+
+            # SOAP/WSDL
+            r'^soap$', r'^wsdl$', r'^envelope$', r'^message$',
+
+            # Generic data (potrebbero essere XML)
+            r'^data$', r'^input$', r'^payload$', r'^body$',
+            r'^content$', r'^request$', r'^req$',
+
+            # Config (spesso XML)
+            r'^config$', r'^configuration$', r'^conf$', r'^cfg$',
+            r'^settings$', r'^preferences$', r'^prefs$',
+
+            # Feed/RSS (XML-based)
+            r'^feed$', r'^rss$', r'^atom$', r'^sitemap$',
+
+            # API/RPC
+            r'^api$', r'^rpc$', r'^xmlrpc$', r'^method$',
+
+            # Document formats (can be XML)
+            r'^doc$', r'^document$', r'^svg$', r'^xsl$', r'^xslt$',
         ]
 
         # Patterns per SSTI
@@ -2043,6 +2111,54 @@ class ParameterAnalyzer:
             r'.*_dn$',                  # ends with '_dn'
         ]
 
+        # XSS-prone parameter names (often reflected)
+        self.xss_reflection_patterns = [
+            # Search/Input
+            r'^q$', r'^query$', r'^search$', r'^s$', r'^keyword$',
+            r'^term$', r'^terms$', r'^find$',
+
+            # User input
+            r'^name$', r'^title$', r'^msg$', r'^message$',
+            r'^comment$', r'^text$', r'^content$', r'^body$',
+            r'^description$', r'^desc$', r'^bio$', r'^about$',
+
+            # Reflection contexts
+            r'^error$', r'^err$', r'^warning$', r'^info$',
+            r'^callback$', r'^cb$', r'^jsonp$',
+            r'^debug$', r'^trace$', r'^log$',
+
+            # URL/Navigation
+            r'^url$', r'^link$', r'^redirect$', r'^redir$',
+            r'^next$', r'^return$', r'^returnurl$', r'^back$',
+
+            # Generic input fields
+            r'^input$', r'^value$', r'^val$', r'^data$',
+            r'^param$', r'^parameter$', r'^arg$', r'^v$',
+        ]
+
+        # CSRF-sensitive actions (state-changing operations)
+        self.csrf_action_patterns = [
+            # Password/Account changes
+            r'^password', r'^.*password.*', r'^pwd$', r'^newpwd$',
+            r'^email$', r'^newemail$', r'^.*email.*change.*',
+
+            # User management
+            r'^delete', r'^.*delete.*', r'^remove', r'^.*remove.*',
+            r'^update', r'^.*update.*', r'^edit', r'^.*edit.*',
+            r'^create', r'^.*create.*', r'^add', r'^.*add.*',
+
+            # Money/Payment
+            r'^amount$', r'^transfer$', r'^payment$', r'^pay$',
+            r'^withdraw$', r'^deposit$', r'^send$',
+
+            # Permissions/Access
+            r'^role$', r'^.*role.*', r'^permission', r'^.*permission.*',
+            r'^admin$', r'^privilege', r'^access',
+
+            # Actions
+            r'^action$', r'^submit$', r'^confirm$', r'^execute$',
+        ]
+
         # Compile all patterns for efficiency
         self._compiled_patterns = {
             'sqli': [re.compile(p, re.IGNORECASE) for p in self.sql_patterns],
@@ -2052,6 +2168,8 @@ class ParameterAnalyzer:
             'ssti': [re.compile(p, re.IGNORECASE) for p in self.ssti_patterns],
             'open_redirect': [re.compile(p, re.IGNORECASE) for p in self.redirect_patterns],
             'ldapi': [re.compile(p, re.IGNORECASE) for p in self.ldap_patterns],
+            'xss_reflection': [re.compile(p, re.IGNORECASE) for p in self.xss_reflection_patterns],
+            'csrf_action': [re.compile(p, re.IGNORECASE) for p in self.csrf_action_patterns],
         }
 
     def _matches_pattern(self, param_name: str, vuln_type: str) -> bool:
@@ -2176,18 +2294,49 @@ class ParameterAnalyzer:
                 'priority': 4
             })
 
-        # ===== STEP 9: FALLBACK per parametri sconosciuti =====
+        # ===== STEP 9: CSRF (Cross-Site Request Forgery) =====
+        # Rileva parametri che potrebbero essere vulnerabili a CSRF
+        # Criteri: parametro senza CSRF token + azione state-changing
+        if self._matches_pattern(param_name, 'csrf_action'):
+            matched_any_pattern = True
+            # Confidence dipende dal tipo di azione
+            is_high_risk = any(p in param_name.lower() for p in ['password', 'delete', 'transfer', 'payment'])
+            confidence = 70 if is_high_risk else 50
+
+            vulnerabilities.append({
+                'type': 'csrf',
+                'confidence': confidence,
+                'context': 'state_changing_action',
+                'evidence': f'State-changing parameter without apparent CSRF protection: {param_name}',
+                'priority': 2 if is_high_risk else 3
+            })
+
+        # ===== STEP 10: FALLBACK per parametri sconosciuti =====
         # Se nessun pattern ha matchato, testa comunque XSS con bassa confidenza
         # SQLi fallback SOLO se il nome parametro suggerisce uso database
         if not matched_any_pattern:
-            # XSS fallback - sempre testare, potrebbe esserci reflection non rilevata
-            vulnerabilities.append({
-                'type': 'xss',
-                'confidence': 40,
-                'context': 'unknown_parameter',
-                'evidence': f'Unknown parameter tested for XSS: {param_name}',
-                'priority': 3
-            })
+            # Check se il nome suggerisce reflection (XSS-prone)
+            is_reflection_prone = self._matches_pattern(param_name, 'xss_reflection')
+
+            if is_reflection_prone:
+                # Parametro che tipicamente riflette input → XSS con confidence media
+                vulnerabilities.append({
+                    'type': 'xss',
+                    'confidence': 55,
+                    'context': 'reflection_prone_parameter',
+                    'evidence': f'Reflection-prone parameter name: {param_name}',
+                    'priority': 2
+                })
+                matched_any_pattern = True
+            else:
+                # Parametro generico → XSS con bassa confidence
+                vulnerabilities.append({
+                    'type': 'xss',
+                    'confidence': 40,
+                    'context': 'unknown_parameter',
+                    'evidence': f'Unknown parameter tested for XSS: {param_name}',
+                    'priority': 3
+                })
 
             # SQLi fallback - SOLO per parametri che sembrano database-related
             # Evita falsi positivi su parametri testuali come 'name', 'message', etc.
@@ -4286,11 +4435,15 @@ class SmartCrawler:
                     endpoint['parameters'].append(param_data)
                     continue
 
+                # Get form encoding type (for XXE detection)
+                form_enctype = form.get('enctype', 'application/x-www-form-urlencoded')
+
                 # Analyze form input for vulnerabilities
                 vulns = self.param_analyzer.analyze_parameter(
                     input_data['name'],
                     input_data['value'],
-                    response_text
+                    response_text,
+                    content_type=form_enctype
                 )
 
                 # Add form-specific vulnerabilities
@@ -4549,6 +4702,17 @@ class SmartCrawler:
                 native_payloads.extend(getattr(PayloadDB, 'RCE_PAYLOADS', [])[:max_per_source])
             elif vuln_type == 'lfi':
                 native_payloads.extend(getattr(PayloadDB, 'LFI_PAYLOADS', [])[:max_per_source])
+            elif vuln_type == 'csrf':
+                # CSRF testing: tentativo di eseguire azione senza token valido
+                native_payloads = [
+                    '',
+                    ' ',
+                    'invalid_token_12345',
+                    'AAAAAAAAAAAAAAAA',
+                    'stolen_token_xyz',
+                ]
+            elif vuln_type == 'xxe':
+                native_payloads.extend(getattr(PayloadDB, 'XXE_PAYLOADS', [])[:max_per_source])
 
             all_payloads.extend(native_payloads)
 
@@ -5708,20 +5872,44 @@ class SmartCrawler:
                         return True
         
         elif vuln_type == 'xxe':
-            # XXE specific indicators
+            # ========== XXE DETECTION ==========
+            # XXE è vulnerabile se:
+            # 1. File content appare nel response (/etc/passwd, win.ini)
+            # 2. SSRF success (AWS metadata, internal IPs)
+            # 3. XML parsing errors che rivelano structure
+
             xxe_indicators = [
-                r'<!DOCTYPE',
-                r'<!ENTITY',
-                r'SYSTEM\s+"file:',
-                r'java\.io\.FileNotFoundException',
-                r'org\.xml\.sax\.SAXParseException',
-                r'expect:\/\/',
-                r'jar:file:',
-                r'gopher:\/\/'
+                # Linux files
+                (r'root:[\w\*!]:0:0:', 'File content: /etc/passwd'),
+                (r'daemon:[\w\*!]:1:1:', 'File content: /etc/passwd'),
+                (r'nobody:[\w\*!]:\d+:', 'File content: /etc/passwd'),
+
+                # Windows files
+                (r'\[fonts\]', 'File content: win.ini'),
+                (r'\[extensions\]', 'File content: win.ini'),
+                (r'\[mci extensions\]', 'File content: win.ini'),
+
+                # PHP source (base64)
+                (r'PD9waHA', 'PHP source (base64): <?php'),
+                (r'PCFET0NUWVBF', 'HTML source (base64): <!DOCTYPE'),
+
+                # AWS metadata (SSRF via XXE)
+                (r'ami-[a-z0-9]+', 'AWS metadata leaked'),
+                (r'i-[a-z0-9]+', 'AWS instance ID leaked'),
+
+                # XML parsing errors
+                (r'XML.*error', 'XML parsing error'),
+                (r'DOCTYPE.*entity', 'Entity processing error'),
+                (r'External entity', 'External entity error'),
+                (r'java\.io\.FileNotFoundException', 'Java file not found'),
+                (r'org\.xml\.sax\.SAXParseException', 'SAX parse exception'),
+
+                # Test string
+                (r'XXE_TEST_STRING', 'XXE entity processed'),
             ]
-            
-            for indicator in xxe_indicators:
-                if re.search(indicator, response_text, re.I):
+
+            for pattern, description in xxe_indicators:
+                if re.search(pattern, response_text, re.I | re.M):
                     return True
 
         elif vuln_type == 'ssti':
@@ -5744,6 +5932,50 @@ class SmartCrawler:
             for error in template_errors:
                 if re.search(error, response_text, re.I):
                     return True
+
+        elif vuln_type == 'csrf':
+            # ========== CSRF DETECTION ==========
+            # CSRF è vulnerabile se:
+            # 1. Action eseguita senza token valido (status 200)
+            # 2. Nessun errore "invalid token" o "csrf failed"
+            # 3. Response mostra che l'azione è stata eseguita
+
+            if status_code == 200:
+                # Check se c'è messaggio di errore CSRF
+                csrf_errors = [
+                    r'csrf.*fail',
+                    r'csrf.*invalid',
+                    r'csrf.*miss',
+                    r'token.*invalid',
+                    r'token.*miss',
+                    r'token.*require',
+                    r'invalid.*token',
+                    r'security.*token',
+                    r'forbidden',
+                    r'not.*authorized'
+                ]
+
+                has_csrf_error = any(re.search(err, response_text_lower) for err in csrf_errors)
+
+                if not has_csrf_error:
+                    # Azione eseguita senza errore CSRF = vulnerabile
+                    # Cerca conferme che l'azione sia stata eseguita
+                    success_indicators = [
+                        r'success',
+                        r'updated',
+                        r'changed',
+                        r'deleted',
+                        r'created',
+                        r'saved',
+                        r'complete',
+                        r'confirmed'
+                    ]
+
+                    has_success = any(re.search(ind, response_text_lower) for ind in success_indicators)
+
+                    if has_success or len(response_text) > 100:
+                        # Response normale senza errore CSRF = probabile vuln
+                        return True
 
         # Bypass success validation: a bypass changes how the request reaches the server,
         # but the RESPONSE still needs to show actual vulnerability indicators.

