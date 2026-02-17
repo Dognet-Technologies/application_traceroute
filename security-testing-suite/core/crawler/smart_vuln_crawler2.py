@@ -4623,6 +4623,9 @@ class SmartCrawler:
                 if response is None:
                     continue
 
+                if self.verbose:
+                    print(f"      Timing test: '{payload[:40]}...' -> {elapsed:.2f}s")
+
                 if elapsed >= time_threshold:
                     # Verify: send non-delayed version
                     verify_payload = payload.replace('5', '0').replace("'0:0:5'", "'0:0:0'")
@@ -4684,12 +4687,19 @@ class SmartCrawler:
             print(f"    Testing boolean-based blind SQLi...")
 
         try:
-            # Get baseline response (normal request)
+            # Get baseline response using actual parameter value (not hardcoded)
+            # Priority: 1) param['value'], 2) param['value_sample'], 3) fallback to '1'
+            baseline_value = param.get('value', '') or param.get('value_sample', '') or '1'
+
+            if self.verbose:
+                print(f"      Using baseline value: {baseline_value}")
+
             self.rate_limiter.wait()
-            baseline = self._send_raw_payload(endpoint, param, 'normalvalue123')
+            baseline = self._send_raw_payload(endpoint, param, baseline_value)
             if baseline is None:
                 return False
             baseline_text = baseline.text[:5000] if baseline.text else ""
+            baseline_size = len(baseline.content)
 
         except Exception:
             return False
@@ -4706,6 +4716,9 @@ class SmartCrawler:
                 if true_resp is None or false_resp is None:
                     continue
 
+                if self.verbose:
+                    print(f"      Testing: TRUE='{true_payload[:30]}...' vs FALSE='{false_payload[:30]}...'")
+
                 true_text = true_resp.text[:5000] if true_resp.text else ""
                 false_text = false_resp.text[:5000] if false_resp.text else ""
 
@@ -4717,9 +4730,13 @@ class SmartCrawler:
 
                 true_size = len(true_resp.content)
                 false_size = len(false_resp.content)
-                baseline_size = len(baseline.content)
+                # baseline_size already computed above from initial baseline request
                 size_differential = abs(true_size - false_size)
                 true_vs_baseline = abs(true_size - baseline_size)
+
+                if self.verbose:
+                    print(f"        Similarity: true={true_sim:.2f}, false={false_sim:.2f}, diff={true_false_sim:.2f}")
+                    print(f"        Size: baseline={baseline_size}, true={true_size}, false={false_size}, diff={size_differential}")
 
                 # Primary condition: similarity
                 similarity_match = (
