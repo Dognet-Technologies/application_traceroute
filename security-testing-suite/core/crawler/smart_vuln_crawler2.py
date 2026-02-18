@@ -3431,6 +3431,22 @@ class WordlistMapper:
         Returns:
             Lista di path assoluti ai file wordlist
         """
+        # Normalize technology: accept string, list, dict, or None
+        if isinstance(technology, dict):
+            # Extract tech names from dict (e.g. self.results['technologies'])
+            tech_str = None
+            for key in technology:
+                val = str(key).lower() if key else ''
+                if val:
+                    tech_str = val
+                    break
+            technology = tech_str
+        elif isinstance(technology, (list, set)):
+            # Take first element if list
+            technology = str(technology[0]).lower() if technology else None
+        elif technology is not None:
+            technology = str(technology).lower()
+
         cache_key = f"{vuln_type}_{technology}"
         if cache_key in self.intelligent_cache:
             return self.intelligent_cache[cache_key]
