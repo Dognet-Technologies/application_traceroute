@@ -1956,6 +1956,111 @@ class TechnologyDetector:
         return js_libs
 
 
+class ParameterNormalizer:
+    """
+    Normalizza i nomi dei parametri per migliorare pattern matching.
+
+    Trasforma:
+    - camelCase → snake_case (userId → user_id)
+    - kebab-case → snake_case (user-id → user_id)
+    - Rimuove prefissi/suffissi comuni (new_, old_, tmp_)
+    - Rimuove numeri trailing (id1 → id, user2 → user)
+    """
+
+    COMMON_PREFIXES = [
+        'new_', 'old_', 'tmp_', 'temp_', 'current_', 'prev_', 'next_',
+        'src_', 'dst_', 'source_', 'dest_', 'target_',
+        'input_', 'output_', 'in_', 'out_',
+        'req_', 'res_', 'request_', 'response_',
+    ]
+
+    COMMON_SUFFIXES = [
+        '_new', '_old', '_tmp', '_temp', '_current', '_prev', '_next',
+        '_src', '_dst', '_source', '_dest', '_target',
+        '_input', '_output', '_in', '_out',
+        '_req', '_res', '_request', '_response',
+        '_val', '_value', '_param', '_parameter',
+    ]
+
+    @staticmethod
+    def normalize(param_name: str) -> str:
+        """
+        Normalizza un nome parametro per matching migliore.
+
+        Returns: versione normalizzata del nome
+        """
+        if not param_name:
+            return param_name
+
+        # 1. Lowercase
+        normalized = param_name.lower()
+
+        # 2. camelCase → snake_case
+        # userId → user_id, productId → product_id
+        normalized = re.sub(r'([a-z])([A-Z])', r'\1_\2', normalized)
+        normalized = normalized.lower()
+
+        # 3. kebab-case → snake_case
+        # user-id → user_id
+        normalized = normalized.replace('-', '_')
+
+        # 4. Rimuovi prefissi comuni
+        for prefix in ParameterNormalizer.COMMON_PREFIXES:
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix):]
+                break  # Solo il primo prefisso
+
+        # 5. Rimuovi suffissi comuni
+        for suffix in ParameterNormalizer.COMMON_SUFFIXES:
+            if normalized.endswith(suffix):
+                normalized = normalized[:-len(suffix)]
+                break
+
+        # 6. Rimuovi numeri trailing (id1 → id, user2 → user)
+        normalized = re.sub(r'\d+$', '', normalized)
+
+        # 7. Rimuovi underscore multipli consecutivi
+        normalized = re.sub(r'_+', '_', normalized)
+
+        # 8. Rimuovi underscore iniziali/finali
+        normalized = normalized.strip('_')
+
+        return normalized
+
+    @staticmethod
+    def get_variants(param_name: str) -> list:
+        """
+        Genera varianti del parametro per matching flessibile.
+
+        Returns: lista di varianti [originale, normalizzato, abbreviato, ...]
+        """
+        variants = [param_name]  # Originale
+
+        # Normalizzato
+        normalized = ParameterNormalizer.normalize(param_name)
+        if normalized != param_name:
+            variants.append(normalized)
+
+        # Senza underscore (userid vs user_id)
+        no_underscore = normalized.replace('_', '')
+        if no_underscore not in variants:
+            variants.append(no_underscore)
+
+        # Prima parola (user_id → user)
+        if '_' in normalized:
+            first_part = normalized.split('_')[0]
+            if len(first_part) > 2:  # Evita singole lettere
+                variants.append(first_part)
+
+        # Ultima parola (user_id → id)
+        if '_' in normalized:
+            last_part = normalized.split('_')[-1]
+            if len(last_part) > 1:
+                variants.append(last_part)
+
+        return list(set(variants))  # Rimuovi duplicati
+
+
 class ParameterAnalyzer:
     """
     Analyze parameters for vulnerability indicators.
@@ -2221,10 +2326,81 @@ class ParameterAnalyzer:
             r'^action$', r'^submit$', r'^confirm$', r'^execute$',
         ]
 
+        # ===== COMPOUND PATTERNS (parametri con multiple parole) =====
+        # Catturano parametri come "user_search_query", "product_id_list"
+
+        # SQL Injection - compound patterns
+        self.sql_compound_patterns = [
+            r'.*search.*query', r'.*search.*term', r'.*search.*keyword',
+            r'.*user.*id', r'.*product.*id', r'.*item.*id', r'.*order.*id',
+            r'.*list.*id', r'.*ids$',  # multiple IDs
+            r'.*filter.*', r'.*where.*', r'.*having.*',
+            r'.*sort.*by', r'.*order.*by', r'.*group.*by',
+        ]
+
+        # LFI - compound patterns
+        self.lfi_compound_patterns = [
+            r'.*file.*path', r'.*file.*name', r'.*file.*location',
+            r'.*upload.*file', r'.*download.*file', r'.*attach.*file',
+            r'.*include.*file', r'.*require.*file',
+            r'.*template.*file', r'.*config.*file',
+            r'.*image.*path', r'.*media.*path', r'.*resource.*path',
+        ]
+
+        # XSS - compound patterns
+        self.xss_compound_patterns = [
+            r'.*search.*', r'.*query.*', r'.*keyword.*',
+            r'.*name.*', r'.*title.*', r'.*message.*',
+            r'.*comment.*', r'.*description.*',
+            r'.*error.*message', r'.*success.*message',
+            r'.*callback.*url', r'.*redirect.*url',
+        ]
+
+        # ===== TYPO e ABBREVIAZIONI comuni =====
+        self.sql_typo_patterns = [
+            # Typo comuni su 'user'
+            r'^usr$', r'^usrname$', r'^usename$',
+
+            # Typo su 'email'
+            r'^emai$', r'^emial$', r'^e-mail$',
+
+            # Typo su 'search'
+            r'^seach$', r'^serch$', r'^srch$',
+
+            # Typo su 'password'
+            r'^pasword$', r'^passw$', r'^passwd$', r'^pswd$', r'^pass$',
+
+            # Abbreviazioni comuni
+            r'^uid$', r'^usr$', r'^pwd$', r'^psw$',
+            r'^cat$', r'^pg$', r'^idx$', r'^cnt$',
+            r'^num$', r'^no$', r'^nr$',
+        ]
+
+        self.lfi_typo_patterns = [
+            # Typo su 'file'
+            r'^fle$', r'^fil$', r'^filee$',
+
+            # Typo su 'path'
+            r'^paht$', r'^pth$', r'^pah$',
+
+            # Typo su 'page'
+            r'^pge$', r'^pag$', r'^pg$',
+
+            # Typo su 'include'
+            r'^includ$', r'^inc$', r'^incl$',
+
+            # Typo su 'template'
+            r'^templete$', r'^templ$', r'^tpl$', r'^tmpl$',
+        ]
+
         # Compile all patterns for efficiency
         self._compiled_patterns = {
             'sqli': [re.compile(p, re.IGNORECASE) for p in self.sql_patterns],
+            'sqli_compound': [re.compile(p, re.IGNORECASE) for p in self.sql_compound_patterns],
+            'sqli_typo': [re.compile(p, re.IGNORECASE) for p in self.sql_typo_patterns],
             'lfi': [re.compile(p, re.IGNORECASE) for p in self.file_patterns],
+            'lfi_compound': [re.compile(p, re.IGNORECASE) for p in self.lfi_compound_patterns],
+            'lfi_typo': [re.compile(p, re.IGNORECASE) for p in self.lfi_typo_patterns],
             'rce': [re.compile(p, re.IGNORECASE) for p in self.cmd_patterns],
             'xxe': [re.compile(p, re.IGNORECASE) for p in self.xxe_patterns],
             'ssti': [re.compile(p, re.IGNORECASE) for p in self.ssti_patterns],
@@ -2233,15 +2409,34 @@ class ParameterAnalyzer:
             'xpath': [re.compile(p, re.IGNORECASE) for p in self.xpath_patterns],
             'ldapi': [re.compile(p, re.IGNORECASE) for p in self.ldap_patterns],
             'xss_reflection': [re.compile(p, re.IGNORECASE) for p in self.xss_reflection_patterns],
+            'xss_compound': [re.compile(p, re.IGNORECASE) for p in self.xss_compound_patterns],
             'csrf_action': [re.compile(p, re.IGNORECASE) for p in self.csrf_action_patterns],
         }
 
     def _matches_pattern(self, param_name: str, vuln_type: str) -> bool:
-        """Check if parameter name matches any pattern for given vulnerability type"""
+        """
+        Check if parameter name matches any pattern for given vulnerability type.
+
+        Uses parameter normalization for better matching:
+        - userId, user_id, user-id → all match 'user' or 'id' patterns
+        - oldPassword, old_password → match 'password' pattern
+        """
         patterns = self._compiled_patterns.get(vuln_type, [])
+
+        # Test original name
         for pattern in patterns:
             if pattern.match(param_name):
                 return True
+
+        # Test normalized variants
+        variants = ParameterNormalizer.get_variants(param_name)
+        for variant in variants:
+            if variant == param_name:
+                continue  # Already tested
+            for pattern in patterns:
+                if pattern.match(variant):
+                    return True
+
         return False
 
     def analyze_parameter(self, param_name, param_value, response_text, content_type=""):
@@ -2280,25 +2475,57 @@ class ParameterAnalyzer:
                 })
 
         # ===== STEP 2: SQL Injection - REGEX MATCHING =====
-        if self._matches_pattern(param_name, 'sqli'):
+        sqli_matched = self._matches_pattern(param_name, 'sqli')
+        sqli_compound = self._matches_pattern(param_name, 'sqli_compound')
+        sqli_typo = self._matches_pattern(param_name, 'sqli_typo')
+
+        if sqli_matched or sqli_compound or sqli_typo:
             matched_any_pattern = True
+            # Typo e compound hanno confidence leggermente più bassa (più generici)
+            if sqli_matched:
+                confidence = 70
+                context = 'database_parameter'
+            elif sqli_typo:
+                confidence = 62
+                context = 'database_typo_parameter'
+            else:  # compound
+                confidence = 60
+                context = 'database_compound_parameter'
+
             vulnerabilities.append({
                 'type': 'sqli',
-                'confidence': 70,
-                'context': 'database_parameter',
+                'confidence': confidence,
+                'context': context,
                 'evidence': f'Parameter name matches SQL pattern: {param_name}',
                 'priority': 2
             })
 
         # ===== STEP 3: File Inclusion (LFI) - REGEX MATCHING =====
-        if self._matches_pattern(param_name, 'lfi'):
+        lfi_matched = self._matches_pattern(param_name, 'lfi')
+        lfi_compound = self._matches_pattern(param_name, 'lfi_compound')
+        lfi_typo = self._matches_pattern(param_name, 'lfi_typo')
+
+        if lfi_matched or lfi_compound or lfi_typo:
             matched_any_pattern = True
+
+            if lfi_matched:
+                confidence = 70
+                context = 'file_parameter'
+            elif lfi_typo:
+                confidence = 58
+                context = 'file_typo_parameter'
+            else:  # compound
+                confidence = 55
+                context = 'file_compound_parameter'
+
             # 'page' ha confidenza minore
-            confidence = 50 if param_name_lower == 'page' else 70
+            if param_name_lower == 'page':
+                confidence = 50
+
             vulnerabilities.append({
                 'type': 'lfi',
                 'confidence': confidence,
-                'context': 'file_parameter',
+                'context': context,
                 'evidence': f'Parameter name matches file pattern: {param_name}',
                 'priority': 2 if confidence >= 70 else 3
             })
@@ -2411,12 +2638,14 @@ class ParameterAnalyzer:
         if not matched_any_pattern:
             # Check se il nome suggerisce reflection (XSS-prone)
             is_reflection_prone = self._matches_pattern(param_name, 'xss_reflection')
+            is_xss_compound = self._matches_pattern(param_name, 'xss_compound')
 
-            if is_reflection_prone:
+            if is_reflection_prone or is_xss_compound:
                 # Parametro che tipicamente riflette input → XSS con confidence media
+                confidence = 55 if is_reflection_prone else 48  # Compound leggermente più basso
                 vulnerabilities.append({
                     'type': 'xss',
-                    'confidence': 55,
+                    'confidence': confidence,
                     'context': 'reflection_prone_parameter',
                     'evidence': f'Reflection-prone parameter name: {param_name}',
                     'priority': 2
@@ -2461,6 +2690,73 @@ class ParameterAnalyzer:
         vulnerabilities = self._enrich_with_taxonomy(vulnerabilities)
 
         return vulnerabilities
+
+    def analyze_parameter_context(self, param_name: str, all_param_names: list) -> dict:
+        """
+        Analizza il contesto del parametro basandosi sugli altri parametri presenti.
+
+        Esempi:
+        - Se vedi ['user', 'password'] insieme → authentication context → SQLi più probabile
+        - Se vedi ['file', 'upload', 'type'] → file upload context → LFI possibile
+        - Se vedi ['search', 'query', 'page'] → search context → XSS reflection probabile
+
+        Returns:
+            {
+                'context': 'authentication' | 'search' | 'file_operation' | 'generic',
+                'confidence_boost': int (0-20, da aggiungere alla confidence base)
+            }
+        """
+        normalized_names = [ParameterNormalizer.normalize(p) for p in all_param_names]
+
+        # Authentication context
+        auth_indicators = ['user', 'username', 'password', 'pass', 'login', 'email']
+        auth_count = sum(1 for ind in auth_indicators if any(ind in n for n in normalized_names))
+
+        if auth_count >= 2:
+            return {
+                'context': 'authentication',
+                'confidence_boost': 15,
+                'reason': 'Multiple auth parameters detected'
+            }
+
+        # Search context
+        search_indicators = ['search', 'query', 'keyword', 'q', 'find', 'term']
+        search_count = sum(1 for ind in search_indicators if any(ind in n for n in normalized_names))
+
+        if search_count >= 1:
+            return {
+                'context': 'search',
+                'confidence_boost': 10,
+                'reason': 'Search parameters detected'
+            }
+
+        # File operation context
+        file_indicators = ['file', 'upload', 'download', 'path', 'filename', 'attach']
+        file_count = sum(1 for ind in file_indicators if any(ind in n for n in normalized_names))
+
+        if file_count >= 2:
+            return {
+                'context': 'file_operation',
+                'confidence_boost': 12,
+                'reason': 'File operation parameters detected'
+            }
+
+        # Database context
+        db_indicators = ['id', 'table', 'column', 'where', 'sort', 'order', 'limit']
+        db_count = sum(1 for ind in db_indicators if any(ind in n for n in normalized_names))
+
+        if db_count >= 2:
+            return {
+                'context': 'database_query',
+                'confidence_boost': 10,
+                'reason': 'Database query parameters detected'
+            }
+
+        return {
+            'context': 'generic',
+            'confidence_boost': 0,
+            'reason': 'No specific context detected'
+        }
 
     def _enrich_with_taxonomy(self, vulnerabilities: List[Dict]) -> List[Dict]:
         """
@@ -3973,13 +4269,22 @@ class SmartCrawler:
             behavioral_vulns = self.behavioral_engine.predict_vulnerabilities(behavioral_results)
             
             # Traditional analysis
+            all_param_names = list(params.keys())
             traditional_vulns = self.param_analyzer.analyze_parameter(
                 param_name, param_value, response_text
             )
-            
+
+            # Apply semantic context boost
+            param_context = self.param_analyzer.analyze_parameter_context(param_name, all_param_names)
+            if param_context['confidence_boost'] > 0:
+                for vuln in traditional_vulns:
+                    vuln['confidence'] = min(vuln['confidence'] + param_context['confidence_boost'], 95)
+                    vuln['context'] += f" (semantic: {param_context['context']})"
+                    vuln['evidence'] += f" | {param_context['reason']}"
+
             # Merge and prioritize vulnerabilities
             merged_vulns = self.merge_vulnerability_predictions(
-                behavioral_vulns, 
+                behavioral_vulns,
                 traditional_vulns,
                 behavioral_results
             )
@@ -4519,6 +4824,9 @@ class SmartCrawler:
                 'source': 'html_form'
             }
 
+            # Get all input names for semantic context analysis
+            all_input_names = [inp['name'] for inp in inputs if inp.get('name')]
+
             # ===== PHASE 1: Build ALL parameters FIRST (with values) =====
             # Critical: we must have the complete form data before testing,
             # otherwise POST requests will be missing fields (e.g. Submit button)
@@ -4551,6 +4859,16 @@ class SmartCrawler:
                     response_text,
                     content_type=form_enctype
                 )
+
+                # Apply semantic context boost
+                param_context = self.param_analyzer.analyze_parameter_context(
+                    input_data['name'],
+                    all_input_names
+                )
+                if param_context['confidence_boost'] > 0:
+                    for vuln in vulns:
+                        vuln['confidence'] = min(vuln['confidence'] + param_context['confidence_boost'], 95)
+                        vuln['context'] += f" (semantic: {param_context['context']})"
 
                 # Add form-specific vulnerabilities
                 if input_data['type'] == 'file':
