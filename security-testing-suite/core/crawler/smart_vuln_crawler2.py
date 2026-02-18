@@ -3719,20 +3719,79 @@ class SmartCrawler:
             print(f"🔧 Bypass Manager initialized with {len(bypass_manager.validated_bypasses)} validated bypasses")
             print(f"📊 Technology Stack: {bypass_manager.technology_stack}")
 
-    def should_test_parameter(self, param_name, vuln_type, url=None, max_tests_per_param=20):
+    # Limiti dinamici per tipo di vulnerabilità
+    # Vuln critiche (RCE, SQLi) meritano più test su URL diversi
+    DYNAMIC_LIMITS_BY_VULN_TYPE = {
+        'rce': 30,       # Critico - testare su molti endpoint
+        'sqli': 28,      # Critico - testare su molti endpoint
+        'xxe': 25,       # Alto impatto
+        'ssti': 25,      # Alto impatto
+        'lfi': 25,       # Alto impatto
+        'ldapi': 22,     # Medio-alto
+        'xpath': 22,     # Medio-alto
+        'open_redirect': 20,  # Medio
+        'crlf': 18,      # Medio
+        'csrf': 15,      # Medio-basso (spesso falsi positivi)
+        'xss': 15,       # Più comune, meno test necessari per param
+    }
+
+    # Default per tipi non elencati
+    DEFAULT_MAX_TESTS = 20
+
+    def _calculate_dynamic_limit(self, vuln_type, confidence=None):
+        """
+        Calcola il limite dinamico di test per parametro basandosi su:
+        1. Tipo di vulnerabilità (critiche → più test)
+        2. Confidence della predizione (alta → più test)
+        3. Dimensione del sito (più endpoint → limiti più alti proporzionalmente)
+
+        Returns:
+            int: numero massimo di URL su cui testare questo param+vuln
+        """
+        # Base limit dal tipo di vulnerabilità
+        base_limit = self.DYNAMIC_LIMITS_BY_VULN_TYPE.get(
+            vuln_type, self.DEFAULT_MAX_TESTS
+        )
+
+        # Confidence boost: alta confidence → +30% test ammessi
+        if confidence is not None:
+            if confidence >= 80:
+                base_limit = int(base_limit * 1.3)
+            elif confidence >= 65:
+                base_limit = int(base_limit * 1.15)
+            elif confidence < 45:
+                # Bassa confidence → riduci per evitare spreco
+                base_limit = int(base_limit * 0.7)
+
+        # Site size scaling: siti grandi hanno più endpoint da coprire
+        total_endpoints = len(self.endpoints) if hasattr(self, 'endpoints') else 0
+        if total_endpoints > 100:
+            # Siti grandi: scala leggermente il limite (max +50%)
+            scale_factor = min(1.5, 1.0 + (total_endpoints - 100) / 500)
+            base_limit = int(base_limit * scale_factor)
+        elif total_endpoints < 10:
+            # Siti piccoli: testa quasi tutto, nessuna riduzione
+            base_limit = max(base_limit, 25)
+
+        return base_limit
+
+    def should_test_parameter(self, param_name, vuln_type, url=None, max_tests_per_param=None, confidence=None):
         """
         Verifica se un parametro dovrebbe essere testato per una specifica vulnerabilità.
 
-        Questo metodo implementa una deduplicazione intelligente che:
-        - Evita di testare lo stesso parametro per la stessa vulnerabilità su URL diversi
+        Implementa deduplicazione intelligente con limiti DINAMICI:
+        - Limite base per tipo di vulnerabilità (RCE/SQLi: 28-30, XSS: 15)
+        - Boost per alta confidence (+30% se >= 80)
+        - Scaling per dimensione sito (siti grandi → limiti proporzionali)
+        - Evita di testare lo stesso parametro per la stessa vuln su URL identici
         - Permette di testare un parametro su un numero limitato di URL diversi
-        - Riduce drasticamente il tempo di scansione evitando test ridondanti
 
         Args:
             param_name: Nome del parametro
             vuln_type: Tipo di vulnerabilità (xss, sqli, lfi, etc.)
             url: URL dove è stato trovato il parametro (opzionale)
-            max_tests_per_param: Numero massimo di URL su cui testare lo stesso parametro (default: 3)
+            max_tests_per_param: Override manuale del limite (None = calcolo dinamico)
+            confidence: Confidence della predizione (0-100, per calcolo dinamico)
 
         Returns:
             True se il parametro dovrebbe essere testato, False altrimenti
@@ -3763,10 +3822,13 @@ class SmartCrawler:
                 logger.debug(f"⏭️  Skipping {param_name} ({vuln_type}) - already tested on {normalized_url}")
             return False
 
+        # Calcola limite dinamico (o usa override manuale)
+        effective_limit = max_tests_per_param if max_tests_per_param is not None else self._calculate_dynamic_limit(vuln_type, confidence)
+
         # Se è stato testato su troppi URL diversi, skippa (evita loop)
-        if len(tested_urls) >= max_tests_per_param:
+        if len(tested_urls) >= effective_limit:
             if self.verbose:
-                logger.debug(f"⏭️  Skipping {param_name} ({vuln_type}) - already tested on {len(tested_urls)} URLs")
+                logger.debug(f"⏭️  Skipping {param_name} ({vuln_type}) - already tested on {len(tested_urls)}/{effective_limit} URLs")
             return False
 
         return True
@@ -4953,11 +5015,13 @@ class SmartCrawler:
             print(f"\n  Testing: {endpoint_url} parameter '{param_name}'")
 
         # Filter already-tested vulnerabilities for this parameter
+        # Pass confidence to enable dynamic limit calculation
         vulns_to_test = []
         for vuln in vulnerabilities:
             vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
+            vuln_confidence = vuln.get('confidence', None)
 
-            if self.should_test_parameter(param_name, vuln_type, endpoint_url):
+            if self.should_test_parameter(param_name, vuln_type, endpoint_url, confidence=vuln_confidence):
                 vulns_to_test.append(vuln)
             else:
                 if self.verbose:
