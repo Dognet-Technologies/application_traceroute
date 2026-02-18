@@ -2086,11 +2086,30 @@ class ParameterAnalyzer:
 
         # Patterns per SSTI
         self.ssti_patterns = [
-            r'^(template|tpl|tmpl)$',   # template params
-            r'^(render|view|layout)$',  # render params
-            r'^(engine|theme|skin)$',   # theming params
-            r'^(format|output)$',       # format params
-            r'.*template$',             # ends with 'template'
+            # Template files
+            r'^template$', r'^tpl$', r'^tmpl$', r'^.*template$',
+            r'^.*_template$', r'^.*Template$',
+
+            # Rendering
+            r'^render$', r'^view$', r'^layout$', r'^page$',
+            r'^content$', r'^body$', r'^html$',
+
+            # Template engines
+            r'^engine$', r'^theme$', r'^skin$', r'^style$',
+            r'^jinja$', r'^twig$', r'^blade$', r'^mustache$',
+            r'^handlebars$', r'^velocity$', r'^freemarker$',
+
+            # Output formatting (can use templates)
+            r'^format$', r'^output$', r'^display$', r'^show$',
+            r'^message$', r'^msg$', r'^text$', r'^data$',
+
+            # Email templates
+            r'^email$', r'^mail$', r'^subject$', r'^mailbody$',
+            r'^email_template$', r'^mail_template$',
+
+            # Expressions (direct eval context)
+            r'^expr$', r'^expression$', r'^eval$', r'^code$',
+            r'^snippet$', r'^fragment$',
         ]
 
         # Patterns per Open Redirect
@@ -2101,6 +2120,49 @@ class ParameterAnalyzer:
             r'^(callback|success|error|back)$',  # callback URLs
             r'.*url$',                  # ends with 'url'
             r'.*_uri$',                 # ends with '_uri'
+        ]
+
+        # CRLF Injection patterns (HTTP Response Splitting)
+        self.crlf_patterns = [
+            # URL/Redirect parameters (CRLF comune qui)
+            r'^url$', r'^uri$', r'^redirect$', r'^redir$',
+            r'^location$', r'^goto$', r'^next$', r'^return$',
+            r'^returnurl$', r'^returnUrl$', r'^backurl$',
+
+            # Header manipulation
+            r'^header$', r'^headers$', r'^.*header.*',
+            r'^referer$', r'^referrer$', r'^origin$',
+
+            # Email headers (CRLF in email injection)
+            r'^to$', r'^from$', r'^cc$', r'^bcc$',
+            r'^subject$', r'^message$', r'^body$',
+
+            # Cookie manipulation
+            r'^cookie$', r'^cookies$', r'^.*cookie.*',
+            r'^session$', r'^sessionid$',
+
+            # Generic output that might become headers
+            r'^output$', r'^response$', r'^data$',
+            r'^content$', r'^text$',
+        ]
+
+        # XPath Injection patterns
+        self.xpath_patterns = [
+            # XML/XPath parameters
+            r'^xpath$', r'^query$', r'^xquery$', r'^xpathquery$',
+            r'^xml$', r'^xmlquery$', r'^xmlsearch$',
+
+            # Search in XML data
+            r'^search$', r'^find$', r'^lookup$', r'^select$',
+            r'^filter$', r'^where$', r'^criteria$',
+
+            # User/Authentication (XPath in XML auth)
+            r'^user$', r'^username$', r'^login$', r'^email$',
+            r'^password$', r'^pass$', r'^pwd$',
+
+            # Generic query/data
+            r'^q$', r'^query$', r'^data$', r'^input$',
+            r'^value$', r'^val$', r'^term$',
         ]
 
         # Patterns per LDAP Injection
@@ -2167,6 +2229,8 @@ class ParameterAnalyzer:
             'xxe': [re.compile(p, re.IGNORECASE) for p in self.xxe_patterns],
             'ssti': [re.compile(p, re.IGNORECASE) for p in self.ssti_patterns],
             'open_redirect': [re.compile(p, re.IGNORECASE) for p in self.redirect_patterns],
+            'crlf': [re.compile(p, re.IGNORECASE) for p in self.crlf_patterns],
+            'xpath': [re.compile(p, re.IGNORECASE) for p in self.xpath_patterns],
             'ldapi': [re.compile(p, re.IGNORECASE) for p in self.ldap_patterns],
             'xss_reflection': [re.compile(p, re.IGNORECASE) for p in self.xss_reflection_patterns],
             'csrf_action': [re.compile(p, re.IGNORECASE) for p in self.csrf_action_patterns],
@@ -2292,6 +2356,36 @@ class ParameterAnalyzer:
                 'context': 'authentication_parameter',
                 'evidence': f'Parameter name matches auth pattern: {param_name}',
                 'priority': 4
+            })
+
+        # ===== STEP 8.5: CRLF Injection =====
+        if self._matches_pattern(param_name, 'crlf'):
+            matched_any_pattern = True
+            # CRLF in URL params è più pericoloso (HTTP Response Splitting)
+            is_url_param = any(p in param_name.lower() for p in ['url', 'redirect', 'location', 'goto'])
+            confidence = 65 if is_url_param else 50
+
+            vulnerabilities.append({
+                'type': 'crlf',
+                'confidence': confidence,
+                'context': 'header_injection_vector' if is_url_param else 'potential_header_injection',
+                'evidence': f'Parameter name matches CRLF injection pattern: {param_name}',
+                'priority': 2 if is_url_param else 3
+            })
+
+        # ===== STEP 8.6: XPath Injection =====
+        if self._matches_pattern(param_name, 'xpath'):
+            matched_any_pattern = True
+            # XPath in auth context è più critico
+            is_auth_param = any(p in param_name.lower() for p in ['user', 'login', 'password', 'auth'])
+            confidence = 60 if is_auth_param else 45
+
+            vulnerabilities.append({
+                'type': 'xpath',
+                'confidence': confidence,
+                'context': 'xml_authentication' if is_auth_param else 'xml_query',
+                'evidence': f'Parameter name matches XPath injection pattern: {param_name}',
+                'priority': 2 if is_auth_param else 3
             })
 
         # ===== STEP 9: CSRF (Cross-Site Request Forgery) =====
@@ -2538,6 +2632,18 @@ class WordlistMapper:
             '//evil.com/%2f..',
             '/\\evil.com',
             '////evil.com',
+        ],
+        'crlf': [
+            '%0d%0aSet-Cookie:crlf=injected',
+            '%0ASet-Cookie:test=crlf',
+            '\\r\\nSet-Cookie:crlf=injected',
+            '%0d%0aLocation:http://evil.com',
+        ],
+        'xpath': [
+            "' or '1'='1",
+            "' or 1=1 or ''='",
+            "test'",
+            "' | //user/password | '",
         ],
     }
 
@@ -4713,6 +4819,12 @@ class SmartCrawler:
                 ]
             elif vuln_type == 'xxe':
                 native_payloads.extend(getattr(PayloadDB, 'XXE_PAYLOADS', [])[:max_per_source])
+            elif vuln_type == 'crlf':
+                native_payloads.extend(getattr(PayloadDB, 'CRLF_PAYLOADS', [])[:max_per_source])
+            elif vuln_type == 'ssti':
+                native_payloads.extend(getattr(PayloadDB, 'SSTI_PAYLOADS', [])[:max_per_source])
+            elif vuln_type == 'xpath':
+                native_payloads.extend(getattr(PayloadDB, 'XPATH_PAYLOADS', [])[:max_per_source])
 
             all_payloads.extend(native_payloads)
 
@@ -5913,24 +6025,193 @@ class SmartCrawler:
                     return True
 
         elif vuln_type == 'ssti':
-            # Template injection indicators
-            # Check if mathematical operations were evaluated
-            if '49' in response_text and '7*7' in payload:
-                # Ensure '49' is NOT already in the baseline (reduces false positives)
-                if not baseline_response or '49' not in baseline_response:
-                    return True
+            # ========== SSTI DETECTION (Enhanced) ==========
 
+            # Check 1: Math evaluation (7*7=49, 7+7=14)
+            math_checks = [
+                ('7*7', '49'),
+                ('7+7', '14'),
+                ('8*8', '64'),
+                ('9*9', '81'),
+            ]
+
+            for operation, result in math_checks:
+                if operation in payload and result in response_text:
+                    # Verify result is NEW (not in baseline)
+                    if not baseline_response or result not in baseline_response:
+                        # Additional check: result appears near our injection point
+                        if payload in response_text:
+                            payload_pos = response_text.find(payload)
+                            # Check if result is within 100 chars of payload
+                            nearby_text = response_text[max(0, payload_pos-50):payload_pos+len(payload)+50]
+                            if result in nearby_text:
+                                return True
+                        else:
+                            # Payload not visible, but result appeared
+                            return True
+
+            # Check 2: Template engine disclosure
+            engine_disclosures = [
+                (r'jinja2', 'Jinja2 template engine'),
+                (r'smarty', 'Smarty template engine'),
+                (r'twig', 'Twig template engine'),
+                (r'freemarker', 'FreeMarker template engine'),
+                (r'velocity', 'Velocity template engine'),
+                (r'blade', 'Blade template engine'),
+            ]
+
+            for pattern, engine in engine_disclosures:
+                if re.search(pattern, response_text_lower):
+                    # Engine name appeared - might be from {{config}} or similar
+                    baseline_text = baseline_response.lower() if isinstance(baseline_response, str) else ''
+                    if not baseline_response or not re.search(pattern, baseline_text):
+                        return True
+
+            # Check 3: Template syntax errors
             template_errors = [
                 r'TemplateSyntaxError',
                 r'jinja2\.exceptions',
                 r'Smarty\s+Error',
                 r'DotLiquid\s+Error',
                 r'freemarker\.template',
-                r'velocity\.exception'
+                r'velocity\.exception',
+                r'UndefinedError',
+                r'TemplateNotFound',
+                r'template.*error',
+                r'rendering.*error',
             ]
 
             for error in template_errors:
                 if re.search(error, response_text, re.I):
+                    return True
+
+            # Check 4: Object/Class disclosure (Jinja2 exploitation)
+            class_indicators = ['__mro__', '__subclasses__', '__globals__', '__builtins__', 'object at 0x', '<class ']
+            if any(indicator in response_text_lower for indicator in class_indicators):
+                baseline_text = baseline_response.lower() if isinstance(baseline_response, str) else ''
+                if not baseline_response or not any(ind in baseline_text for ind in ['__mro__', '__subclasses__']):
+                    return True
+
+            # Check 5: Command execution output (if RCE payload used)
+            if any(cmd in payload.lower() for cmd in ['exec', 'system', 'popen', 'runtime', 'getruntime']):
+                rce_indicators = [
+                    r'uid=\d+',
+                    r'gid=\d+',
+                    r'root:.*:0:0:',
+                    r'win32|windows',
+                ]
+                for pattern in rce_indicators:
+                    if re.search(pattern, response_text, re.I):
+                        return True
+
+        elif vuln_type == 'crlf':
+            # ========== CRLF INJECTION DETECTION ==========
+            # CRLF è vulnerabile se:
+            # 1. Header injected appare nella risposta HTTP
+            # 2. Cookie injected appare nei Set-Cookie headers
+            # 3. Location header manipolato
+
+            # Check response headers
+            response_headers = dict(response.headers) if hasattr(response, 'headers') else {}
+            response_headers_lower = {k.lower(): v.lower() for k, v in response_headers.items()}
+
+            # Check 1: Injected header presente
+            crlf_indicators = [
+                ('x-injected-header', 'Custom header injection'),
+                ('x-crlf', 'CRLF header injection'),
+            ]
+
+            for header_name, description in crlf_indicators:
+                if header_name in response_headers_lower:
+                    return True
+
+            # Check 2: Cookie injection
+            if 'set-cookie' in response_headers_lower:
+                cookies = response_headers_lower.get('set-cookie', '')
+                if 'crlf=injected' in cookies or 'test=crlf' in cookies:
+                    return True
+
+            # Check 3: Location header manipulation
+            if 'location' in response_headers_lower:
+                location = response_headers_lower['location']
+                if 'evil.com' in location or 'attacker' in location:
+                    return True
+
+            # Check 4: Response splitting (double CRLF in payload, HTML in response)
+            if '%0d%0a%0d%0a' in payload.lower() or '\\r\\n\\r\\n' in payload:
+                if '<html>crlf</html>' in response_text_lower or 'crlf</body>' in response_text_lower:
+                    return True
+
+        elif vuln_type == 'xpath':
+            # ========== XPATH INJECTION DETECTION ==========
+            # XPath è vulnerabile se:
+            # 1. Errori XPath nel response
+            # 2. Boolean bypass successful (authentication bypass)
+            # 3. Data extraction (XML nodes in response)
+
+            # Check 1: XPath syntax errors
+            xpath_errors = [
+                r'xpath.*error',
+                r'xpath.*syntax',
+                r'invalid.*xpath',
+                r'xmlexception',
+                r'org\.apache\.xpath',
+                r'javax\.xml\.xpath',
+                r'XPathException',
+                r'SimpleXMLElement',
+                r'DOMXPath',
+                r'XPath.*Exception',
+            ]
+
+            for error in xpath_errors:
+                if re.search(error, response_text, re.I):
+                    return True
+
+            # Check 2: Authentication bypass (boolean-based)
+            if "or '1'='1" in payload.lower() or 'or 1=1' in payload.lower():
+                success_indicators = [
+                    r'welcome',
+                    r'logged.*in',
+                    r'dashboard',
+                    r'profile',
+                    r'logout',
+                    r'success.*login',
+                    r'authentication.*success',
+                ]
+
+                if any(re.search(ind, response_text_lower) for ind in success_indicators):
+                    if baseline_response:
+                        baseline_lower = baseline_response.lower() if isinstance(baseline_response, str) else ''
+                        if not any(re.search(ind, baseline_lower) for ind in success_indicators):
+                            return True
+                    else:
+                        return True
+
+            # Check 3: Data extraction (XML nodes leaked)
+            if '|' in payload or '//' in payload:
+                xml_patterns = [
+                    r'<[a-z]+>[^<]+</[a-z]+>',
+                    r'<user>.*</user>',
+                    r'<password>.*</password>',
+                    r'<name>.*</name>',
+                    r'<email>.*</email>',
+                ]
+
+                for pattern in xml_patterns:
+                    matches = re.findall(pattern, response_text, re.I | re.S)
+                    if matches:
+                        if baseline_response:
+                            baseline_str = baseline_response if isinstance(baseline_response, str) else ''
+                            baseline_matches = re.findall(pattern, baseline_str, re.I | re.S)
+                            if len(matches) > len(baseline_matches):
+                                return True
+                        else:
+                            return True
+
+            # Check 4: Boolean content difference
+            if baseline_response and isinstance(baseline_response, str):
+                size_diff = abs(len(response_text) - len(baseline_response))
+                if size_diff > 50 and status_code == 200:
                     return True
 
         elif vuln_type == 'csrf':
