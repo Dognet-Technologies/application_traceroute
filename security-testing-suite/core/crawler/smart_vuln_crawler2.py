@@ -2950,6 +2950,44 @@ class WordlistMapper:
             'seclists': '/usr/share/wordlists/SecLists'
         }
 
+        # Intelligent recursive scanning
+        self.use_intelligent_scan = True  # Feature flag
+        self.intelligent_cache = {}  # Cache per file trovati
+
+        # Vulnerability keywords per intelligent matching
+        self.vuln_keywords = {
+            'sqli': ['sql', 'sqli', 'injection', 'database', 'mysql', 'mssql', 'postgres', 'oracle', 'sqlite'],
+            'xss': ['xss', 'cross-site', 'script', 'javascript', 'html'],
+            'lfi': ['lfi', 'file-inclusion', 'path-traversal', 'directory-traversal', 'traversal'],
+            'rfi': ['rfi', 'remote-file', 'remote-inclusion'],
+            'rce': ['rce', 'command', 'cmd', 'exec', 'shell', 'code-execution', 'os-command'],
+            'xxe': ['xxe', 'xml', 'external-entity'],
+            'ssti': ['ssti', 'template', 'injection', 'jinja', 'twig', 'velocity'],
+            'csrf': ['csrf', 'cross-site-request'],
+            'crlf': ['crlf', 'http-response-splitting', 'header-injection'],
+            'xpath': ['xpath', 'xml-injection'],
+            'ldapi': ['ldap', 'ldapi', 'ldap-injection'],
+            'open_redirect': ['redirect', 'open-redirect', 'url-redirect'],
+            'file_upload': ['upload', 'file-upload', 'extension'],
+            'idor': ['idor', 'insecure-direct-object'],
+            'nosqli': ['nosql', 'mongodb', 'couchdb', 'cassandra'],
+        }
+
+        # Technology keywords
+        self.tech_keywords = {
+            'mysql': ['mysql', 'mariadb'],
+            'mssql': ['mssql', 'sqlserver', 'tsql'],
+            'postgresql': ['postgres', 'postgresql', 'pgsql'],
+            'oracle': ['oracle', 'plsql'],
+            'sqlite': ['sqlite'],
+            'php': ['php'],
+            'java': ['java', 'jsp', 'spring'],
+            'python': ['python', 'django', 'flask'],
+            'nodejs': ['node', 'nodejs', 'javascript', 'express'],
+            'asp': ['asp', 'aspx', 'dotnet'],
+            'ruby': ['ruby', 'rails'],
+        }
+
         self.wordlist_map = {
             'xss': {
                 'fuzzdb': [
@@ -3323,9 +3361,35 @@ class WordlistMapper:
         }
     
     def get_wordlists_for_vulnerability(self, vuln_type, technology=None):
-        """Get appropriate wordlists for a vulnerability type"""
+        """
+        Get appropriate wordlists for a vulnerability type.
+
+        ENHANCED: Usa intelligent scanning se abilitato (use_intelligent_scan=True),
+        altrimenti fallback al mapping statico (backward compatible).
+        """
         wordlists = []
 
+        # Intelligent scanning mode
+        if self.use_intelligent_scan:
+            intelligent_files = self._find_wordlist_files_intelligent(vuln_type, technology)
+
+            if intelligent_files:
+                for filepath in intelligent_files:
+                    source = 'unknown'
+                    for src_name, base_path in self.base_paths.items():
+                        if filepath.startswith(base_path):
+                            source = src_name
+                            break
+
+                    wordlists.append({
+                        'source': source,
+                        'path': filepath,
+                        'relative_path': filepath.replace(self.base_paths.get(source, ''), '').lstrip('/')
+                    })
+
+                return wordlists
+
+        # FALLBACK: Old static mapping (backward compatible)
         if vuln_type not in self.wordlist_map:
             return wordlists
 
@@ -3351,6 +3415,122 @@ class WordlistMapper:
         """
         vuln_type_lower = vuln_type.lower()
         return self.INTERNAL_PAYLOADS.get(vuln_type_lower, [])
+
+    # ========== INTELLIGENT SCANNER METHODS ==========
+
+    def _find_wordlist_files_intelligent(self, vuln_type, technology=None, max_depth=5):
+        """
+        Scansione ricorsiva intelligente delle wordlist directories.
+        Trova TUTTI i file che matchano vulnerability + technology.
+
+        Args:
+            vuln_type: Tipo vulnerabilità
+            technology: Stack tecnologico (opzionale)
+            max_depth: Profondità massima ricerca
+
+        Returns:
+            Lista di path assoluti ai file wordlist
+        """
+        cache_key = f"{vuln_type}_{technology}"
+        if cache_key in self.intelligent_cache:
+            return self.intelligent_cache[cache_key]
+
+        found_files = []
+        vuln_keywords = self.vuln_keywords.get(vuln_type, [vuln_type])
+        tech_keywords = self.tech_keywords.get(technology, [technology]) if technology else []
+
+        for source_name, base_dir in self.base_paths.items():
+            if not os.path.exists(base_dir):
+                continue
+
+            for root, dirs, files in os.walk(base_dir):
+                depth = root[len(base_dir):].count(os.sep)
+                if depth > max_depth:
+                    continue
+
+                root_lower = root.lower()
+
+                dir_matches_vuln = any(kw in root_lower for kw in vuln_keywords)
+
+                if not dir_matches_vuln:
+                    continue
+
+                for filename in files:
+                    if not self._is_wordlist_file(filename):
+                        continue
+
+                    filepath = os.path.join(root, filename)
+                    filename_lower = filename.lower()
+
+                    file_matches_vuln = any(kw in filename_lower for kw in vuln_keywords)
+
+                    file_matches_tech = True
+                    if technology and tech_keywords:
+                        file_matches_tech = any(kw in filename_lower or kw in root_lower for kw in tech_keywords)
+
+                    if file_matches_vuln and file_matches_tech:
+                        found_files.append(filepath)
+
+        found_files = list(set(found_files))
+        self.intelligent_cache[cache_key] = found_files
+
+        return found_files
+
+    def _is_wordlist_file(self, filename):
+        """Check se il file è una wordlist valida"""
+        text_extensions = ['.txt', '.fuzz', '.list', '.wordlist', '.payloads', '.md']
+        ignore_extensions = ['.jpg', '.png', '.gif', '.zip', '.tar', '.gz', '.exe', '.dll', '.py', '.sh']
+
+        filename_lower = filename.lower()
+
+        if any(filename_lower.endswith(ext) for ext in ignore_extensions):
+            return False
+
+        if any(filename_lower.endswith(ext) for ext in text_extensions):
+            return True
+
+        if '.' not in filename:
+            return True
+
+        return False
+
+    def load_payloads_from_files(self, file_paths, max_payloads=200):
+        """
+        Carica payload da lista di file e deduplica.
+
+        Args:
+            file_paths: Lista di path ai file wordlist
+            max_payloads: Massimo numero payload da ritornare
+
+        Returns:
+            Lista di payload deduplicati
+        """
+        payloads = []
+
+        for filepath in file_paths:
+            try:
+                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        line = line.strip()
+
+                        if not line or line.startswith('#'):
+                            continue
+
+                        if len(line) > 10000:
+                            continue
+
+                        special_chars = sum(1 for c in line if not c.isprintable())
+                        if special_chars > len(line) * 0.3:
+                            continue
+
+                        payloads.append(line)
+
+            except Exception:
+                pass
+
+        payloads = sorted(set(payloads))
+
+        return payloads[:max_payloads]
 
 
 class DiscoveryWordlistMapper:
@@ -5045,7 +5225,7 @@ class SmartCrawler:
                     print(f"  Testing {vuln_type.upper()} (confidence: {confidence})")
 
                 # ===== UNIFIED FLOW: Collect ALL payloads from all sources =====
-                all_payloads = self._collect_all_payloads(vuln_type)
+                all_payloads = self._collect_all_payloads(vuln_type, endpoint=endpoint)
 
                 if not all_payloads:
                     if self.verbose:
@@ -5060,7 +5240,7 @@ class SmartCrawler:
                 # ===== PHASE 1: Static payloads =====
                 found = False
                 tested_count = 0
-                max_payloads = 100
+                max_payloads = 150
                 failed_payloads = []  # Track failed payloads for mutation
 
                 for payload in all_payloads[:max_payloads]:
@@ -5165,12 +5345,16 @@ class SmartCrawler:
                 self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
                 continue
 
-    def _collect_all_payloads(self, vuln_type):
+    def _collect_all_payloads(self, vuln_type, endpoint=None):
         """
         Collect and deduplicate payloads from ALL sources:
         1. Native PayloadDB (smart, technique-specific payloads)
-        2. External wordlists (SecLists, fuzzdb, etc.)
+        2. External wordlists (SecLists, fuzzdb, etc.) - ENHANCED with intelligent scanner
         3. Internal fallback payloads
+
+        Args:
+            vuln_type: Tipo vulnerabilità
+            endpoint: Endpoint dict (opzionale, per technology detection)
 
         Returns deduplicated list prioritizing native payloads first.
         """
@@ -5210,27 +5394,43 @@ class SmartCrawler:
 
             all_payloads.extend(native_payloads)
 
-        # === Source 2: External wordlists ===
+        # === Source 2: External wordlists (ENHANCED) ===
+        technology = self._detect_technology_from_endpoint(endpoint) if endpoint else None
+
         wordlists = self.wordlist_mapper.get_wordlists_for_vulnerability(
-            vuln_type, self.results['technologies']
+            vuln_type, technology=technology
         )
-        for wordlist in wordlists[:3]:
-            if not os.path.exists(wordlist['path']):
-                continue
-            try:
-                with open(wordlist['path'], 'r', encoding='utf-8', errors='ignore') as f:
-                    count = 0
-                    for line in itertools.islice(f, max_per_source * 10):
-                        line = line.strip()
-                        if not line or line.startswith('#'):
-                            continue
-                        if self._is_valid_payload(line):
-                            all_payloads.append(line)
-                            count += 1
-                            if count >= max_per_source:
-                                break
-            except Exception as e:
-                logger.error(f"Error reading wordlist {wordlist['path']}: {e}")
+
+        if self.verbose and wordlists:
+            print(f"      📚 Found {len(wordlists)} wordlist files for {vuln_type}" +
+                  (f" (tech: {technology})" if technology else ""))
+
+        # Use intelligent loader if available, otherwise old per-file reading
+        if self.wordlist_mapper.use_intelligent_scan and wordlists:
+            wordlist_paths = [wl['path'] for wl in wordlists]
+            wordlist_payloads = self.wordlist_mapper.load_payloads_from_files(
+                wordlist_paths,
+                max_payloads=150
+            )
+            all_payloads.extend(wordlist_payloads)
+        else:
+            for wordlist in wordlists[:3]:
+                if not os.path.exists(wordlist['path']):
+                    continue
+                try:
+                    with open(wordlist['path'], 'r', encoding='utf-8', errors='ignore') as f:
+                        count = 0
+                        for line in itertools.islice(f, max_per_source * 10):
+                            line = line.strip()
+                            if not line or line.startswith('#'):
+                                continue
+                            if self._is_valid_payload(line):
+                                all_payloads.append(line)
+                                count += 1
+                                if count >= max_per_source:
+                                    break
+                except Exception as e:
+                    logger.error(f"Error reading wordlist {wordlist['path']}: {e}")
 
         # === Source 3: Internal fallback (if nothing else available) ===
         if not all_payloads:
@@ -5247,6 +5447,40 @@ class SmartCrawler:
                 unique_payloads.append(p)
 
         return unique_payloads
+
+    def _detect_technology_from_endpoint(self, endpoint):
+        """
+        Detect technology stack from endpoint for technology-specific payloads.
+
+        Returns:
+            Technology string (mysql, php, etc.) or None
+        """
+        if not endpoint:
+            return None
+
+        url = endpoint.get('url', '').lower()
+
+        # Check detected tech (se disponibile)
+        if hasattr(self, 'detected_tech') and self.detected_tech:
+            tech = str(self.detected_tech).lower()
+            if 'mysql' in tech or 'mariadb' in tech:
+                return 'mysql'
+            if 'postgresql' in tech or 'postgres' in tech:
+                return 'postgresql'
+            if 'mssql' in tech or 'sqlserver' in tech:
+                return 'mssql'
+            if 'oracle' in tech:
+                return 'oracle'
+
+        # Fallback: euristica da URL
+        if '.php' in url or 'php' in url:
+            return 'php'
+        if '.asp' in url or 'aspx' in url:
+            return 'asp'
+        if '.jsp' in url or 'java' in url:
+            return 'java'
+
+        return None
 
     def _test_timing_sqli(self, endpoint, param):
         """
