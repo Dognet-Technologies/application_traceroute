@@ -3471,6 +3471,11 @@ class WordlistMapper:
                 if not dir_matches_vuln:
                     continue
 
+                # Check if the directory itself is a vuln-specific directory
+                # e.g. fuzzdb/attack/rfi/ - last component matches a keyword
+                last_dir = os.path.basename(root).lower()
+                dir_is_vuln_specific = any(kw == last_dir for kw in vuln_keywords)
+
                 for filename in files:
                     if not self._is_wordlist_file(filename):
                         continue
@@ -3480,11 +3485,15 @@ class WordlistMapper:
 
                     file_matches_vuln = any(kw in filename_lower for kw in vuln_keywords)
 
+                    # If directory is vuln-specific (e.g. attack/rfi/), include all
+                    # wordlist files in it even if filename doesn't repeat the keyword
+                    matches_vuln = file_matches_vuln or dir_is_vuln_specific
+
                     file_matches_tech = True
                     if technology and tech_keywords:
                         file_matches_tech = any(kw in filename_lower or kw in root_lower for kw in tech_keywords)
 
-                    if file_matches_vuln and file_matches_tech:
+                    if matches_vuln and file_matches_tech:
                         found_files.append(filepath)
 
         found_files = list(set(found_files))
