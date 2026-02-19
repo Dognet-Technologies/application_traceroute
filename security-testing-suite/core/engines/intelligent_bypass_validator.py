@@ -25,7 +25,7 @@ import statistics
 import math
 
 # DEBUG: trace which file is actually being executed
-print(f"[DEBUG] validator loading from: {__file__}")
+print(f"[DEBUG] validator loading from: {__file__}", flush=True)
 
 # Import advanced modules if available
 try:
