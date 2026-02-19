@@ -57,9 +57,9 @@ try:
         AttackCategory
     )
     ADVANCED_MODULES_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     ADVANCED_MODULES_AVAILABLE = False
-    print("⚠️  Advanced modules not available - using standard tests only")
+    print(f"⚠️  Advanced modules not available - using standard tests only ({e})")
 
 # Suppress SSL warnings for security testing
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
