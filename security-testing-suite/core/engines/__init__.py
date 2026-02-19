@@ -11,10 +11,15 @@ from .semantic_bypass_engine import (
 )
 from .graph_attack_planner import GraphAttackPlanner
 from .intelligent_bypass_validator import IntelligentBypassValidator
-from .smart_crawler_advanced_engine import (
-    BayesianVulnerabilityScorer,
-    AttackGraphEngine
-)
+
+try:
+    from .smart_crawler_advanced_engine import (
+        BayesianVulnerabilityScorer,
+        AttackGraphEngine
+    )
+except ImportError:
+    BayesianVulnerabilityScorer = None
+    AttackGraphEngine = None
 
 __all__ = [
     'ResponseDifferentialAnalyzer',
