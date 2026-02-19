@@ -21,6 +21,7 @@ import requests
 import re
 import json
 import time
+import signal
 import urllib.parse
 from urllib.parse import urlparse, urljoin, parse_qs
 from bs4 import BeautifulSoup
@@ -3798,6 +3799,11 @@ class SmartCrawler:
         else:
             print("  ⚠ Native detector not available - using wordlist-based detection only")
 
+        # Ctrl+C skip mechanism: press once to skip current test, twice quickly to quit
+        self._skip_current_test = False
+        self._last_sigint_time = 0
+        self._original_sigint_handler = None
+
         # Sistema di deduplicazione avanzato
         # Traccia parametri testati per evitare test ridondanti su URL diversi
         # Chiave: (param_name, vuln_type) -> valore: set di URL dove è stato testato
@@ -3906,6 +3912,30 @@ class SmartCrawler:
             'behavioral_analysis_results': []  # Store behavioral analysis results
         }
     
+    def _sigint_handler(self, signum, frame):
+        """Handle Ctrl+C: first press skips current test, second press (within 2s) quits"""
+        now = time.time()
+        if now - self._last_sigint_time < 2.0:
+            # Double Ctrl+C within 2 seconds → hard quit
+            print("\n\n  ⛔ Double Ctrl+C detected - stopping crawler...")
+            self._restore_sigint_handler()
+            raise KeyboardInterrupt
+        self._last_sigint_time = now
+        self._skip_current_test = True
+        print("\n  ⏭️  Ctrl+C: skipping current test... (press again within 2s to quit)")
+
+    def _install_sigint_handler(self):
+        """Install custom SIGINT handler for skip support"""
+        self._skip_current_test = False
+        self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, self._sigint_handler)
+
+    def _restore_sigint_handler(self):
+        """Restore original SIGINT handler"""
+        if self._original_sigint_handler is not None:
+            signal.signal(signal.SIGINT, self._original_sigint_handler)
+            self._original_sigint_handler = None
+
     def set_bypass_manager(self, bypass_manager):
         """Set the bypass manager for the crawler"""
         self.bypass_manager = bypass_manager
@@ -5240,14 +5270,29 @@ class SmartCrawler:
         if self.verbose and baseline_text is not None:
             print(f"    Baseline captured: {len(baseline_text)} bytes, {baseline_time:.2f}s")
 
-        for vuln in vulns_to_test:
+        # Install Ctrl+C skip handler for the testing phase
+        self._install_sigint_handler()
+
+        # Cap on how many bypasses to try per payload (prevents combinatorial explosion)
+        max_bypasses_per_payload = 10
+
+        try:
+          for vuln_idx, vuln in enumerate(vulns_to_test):
             vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
             confidence = vuln.get('confidence', 'unknown')
+
+            # Check if skip was requested before starting this vuln type
+            if self._skip_current_test:
+                self._skip_current_test = False
+                if self.verbose:
+                    print(f"  ⏭️  Skipped {vuln_type.upper()} for '{param_name}' (Ctrl+C)")
+                self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
+                continue
 
             # Wrap each vuln type in try/except so a failure in one doesn't skip the rest
             try:
                 if self.verbose:
-                    print(f"  Testing {vuln_type.upper()} (confidence: {confidence})")
+                    print(f"  Testing {vuln_type.upper()} (confidence: {confidence}) [{vuln_idx+1}/{len(vulns_to_test)}]")
 
                 # ===== UNIFIED FLOW: Collect ALL payloads from all sources =====
                 all_payloads = self._collect_all_payloads(vuln_type, endpoint=endpoint)
@@ -5259,16 +5304,26 @@ class SmartCrawler:
                     # this allows retesting on different URLs where payloads might exist
                     continue
 
+                num_bypasses = len(self.bypass_manager.validated_bypasses) if self.bypass_manager and self.bypass_manager.validated_bypasses else 0
+                effective_bypasses = min(num_bypasses, max_bypasses_per_payload)
+                total_estimate = min(len(all_payloads), 150) * (1 + effective_bypasses)
                 if self.verbose:
-                    print(f"    Collected {len(all_payloads)} payloads")
+                    bypass_info = f" × {effective_bypasses} bypasses" if effective_bypasses > 0 else ""
+                    print(f"    Collected {len(all_payloads)} payloads{bypass_info} (~{total_estimate} max requests)")
 
                 # ===== PHASE 1: Static payloads =====
                 found = False
+                skipped = False
                 tested_count = 0
                 max_payloads = 150
                 failed_payloads = []  # Track failed payloads for mutation
 
                 for payload in all_payloads[:max_payloads]:
+                    # Check for Ctrl+C skip
+                    if self._skip_current_test:
+                        skipped = True
+                        break
+
                     self.rate_limiter.wait()
 
                     # Test without bypass first
@@ -5285,19 +5340,32 @@ class SmartCrawler:
 
                     failed_payloads.append(payload)
 
-                    # If not successful, try with validated bypasses
+                    # If not successful, try with validated bypasses (capped)
                     if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                        for bypass in self.bypass_manager.validated_bypasses:
+                        for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                            if bp_idx >= max_bypasses_per_payload:
+                                break
+                            if self._skip_current_test:
+                                skipped = True
+                                break
                             self.rate_limiter.wait()
                             success = self.test_single_payload(
                                 endpoint, param, payload, vuln_type, bypass,
                                 baseline_response=baseline_text
                             )
+                            tested_count += 1
                             if success:
                                 found = True
                                 break
-                        if found:
+                        if found or skipped:
                             break
+
+                if skipped:
+                    self._skip_current_test = False
+                    if self.verbose:
+                        print(f"  ⏭️  Skipped {vuln_type.upper()} for '{param_name}' after {tested_count} payloads (Ctrl+C)")
+                    self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
+                    continue
 
                 # ===== PHASE 2: Mutated payloads (if static failed) =====
                 if not found and self.mutation_engine and failed_payloads:
@@ -5310,6 +5378,10 @@ class SmartCrawler:
                         print(f"    Mutating {len(mutation_candidates)} payloads...")
 
                     for base_payload in mutation_candidates:
+                        if self._skip_current_test:
+                            skipped = True
+                            break
+
                         try:
                             mutations = self.mutation_engine.mutate(
                                 base_payload,
@@ -5321,6 +5393,10 @@ class SmartCrawler:
                             continue
 
                         for mutation in mutations:
+                            if self._skip_current_test:
+                                skipped = True
+                                break
+
                             mutated_payload = mutation.mutated if hasattr(mutation, 'mutated') else str(mutation)
 
                             # Skip if identical to original or already tested
@@ -5342,11 +5418,18 @@ class SmartCrawler:
                                     print(f"    Mutation hit! Base: {base_payload[:30]}... → {mutated_payload[:30]}...")
                                 break
 
-                        if found:
+                        if found or skipped:
                             break
 
                     if self.verbose and mutated_tested > 0:
                         print(f"    Tested {mutated_tested} mutations")
+
+                if skipped:
+                    self._skip_current_test = False
+                    if self.verbose:
+                        print(f"  ⏭️  Skipped {vuln_type.upper()} for '{param_name}' after {tested_count} payloads (Ctrl+C)")
+                    self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
+                    continue
 
                 # ===== PHASE 3: Multi-request techniques (timing/boolean) =====
                 if not found and vuln_type == 'sqli':
@@ -5369,6 +5452,8 @@ class SmartCrawler:
                 # Mark as tested to avoid infinite retry, but continue to next vuln type
                 self.mark_parameter_tested(param_name, vuln_type, endpoint_url)
                 continue
+        finally:
+            self._restore_sigint_handler()
 
     def _collect_all_payloads(self, vuln_type, endpoint=None):
         """
@@ -5993,8 +6078,12 @@ class SmartCrawler:
                 success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
                 if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                    # Test with each validated bypass
-                    for bypass in self.bypass_manager.validated_bypasses:
+                    # Test with each validated bypass (capped to prevent explosion)
+                    for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                        if bp_idx >= 10:
+                            break
+                        if self._skip_current_test:
+                            break
                         if self.verbose:
                             print(f"      🔧 Applying bypass: {bypass['type']}")
 
@@ -6037,9 +6126,11 @@ class SmartCrawler:
             # Test without bypass first
             success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
-            # Se non ha successo, prova con bypass
+            # Se non ha successo, prova con bypass (capped to prevent explosion)
             if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                for bypass in self.bypass_manager.validated_bypasses:
+                for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                    if bp_idx >= 10:
+                        break
                     self.rate_limiter.wait()
                     success = self.test_single_payload(endpoint, param, payload, vuln_type, bypass)
                     if success:
