@@ -24,6 +24,9 @@ from enum import Enum
 import statistics
 import math
 
+# DEBUG: trace which file is actually being executed
+print(f"[DEBUG] validator loading from: {__file__}")
+
 # Import advanced modules if available
 try:
     from .advanced_bypass_engine import (
