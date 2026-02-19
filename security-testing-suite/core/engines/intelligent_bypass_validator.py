@@ -35,8 +35,18 @@ try:
     )
     ADVANCED_VALIDATION = True
 except ImportError:
-    ADVANCED_VALIDATION = False
-    print("⚠️  Advanced validation modules not available, falling back to basic mode")
+    try:
+        from core.engines.advanced_bypass_engine import (
+            ResponseDifferentialAnalyzer,
+            BayesianBypassInference,
+            BypassEvidence,
+            BypassConfidence,
+            ResponseFingerprint
+        )
+        ADVANCED_VALIDATION = True
+    except ImportError as e:
+        ADVANCED_VALIDATION = False
+        print(f"⚠️  Advanced validation modules not available, falling back to basic mode ({e})")
 
 
 class ValidationStrategy(Enum):
