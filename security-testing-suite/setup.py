@@ -26,6 +26,8 @@ setup(
         'hdbscan>=0.8.33',
         'lxml>=4.9.0',
         'urllib3>=2.0.0',
+        'aiohttp>=3.9.0',
+        'networkx>=3.1',
     ],
     python_requires='>=3.10',
     entry_points={
