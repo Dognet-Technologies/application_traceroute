@@ -34,6 +34,7 @@ try:
         ResponseFingerprint
     )
     ADVANCED_VALIDATION = True
+    print("✅ Intelligent Bypass Validator loaded successfully")
 except ImportError:
     try:
         from core.engines.advanced_bypass_engine import (
@@ -44,10 +45,9 @@ except ImportError:
             ResponseFingerprint
         )
         ADVANCED_VALIDATION = True
+        print("✅ Intelligent Bypass Validator loaded successfully")
     except ImportError as e:
         ADVANCED_VALIDATION = False
-        import sys as _sys
-        print(f">>> VALIDATOR IMPORT FAILED [{__file__}]: {e}", file=_sys.stderr, flush=True)
         print(f"⚠️  Advanced validation modules not available, falling back to basic mode ({e})")
 
 
