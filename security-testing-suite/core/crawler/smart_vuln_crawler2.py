@@ -4489,9 +4489,12 @@ class SmartCrawler:
     
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 =======
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
     def _queue_url(self, url, depth):
         """Non-blocking queue add. Skips if queue is full to prevent deadlock."""
         try:
@@ -4506,7 +4509,12 @@ class SmartCrawler:
 =======
 =======
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
     def crawl_page(self, url, depth=0):
         """Crawl a single page and extract information with extended analysis"""
         if depth > self.max_depth or len(self.visited_urls) >= self.max_pages:
@@ -4611,16 +4619,25 @@ class SmartCrawler:
                             if self.is_valid_url(js_url_found):
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                                 self.url_queue.put((js_url_found, depth + 1))
 =======
                                 self._queue_url(js_url_found, depth + 1)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                                 self._queue_url(js_url_found, depth + 1)
 =======
                                 self.url_queue.put((js_url_found, depth + 1))
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+                                self.url_queue.put((js_url_found, depth + 1))
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                                 if '/api/' in js_url_found or '/v1/' in js_url_found:
                                     self.results['api_endpoints'].append(js_url_found)
 
@@ -4649,16 +4666,25 @@ class SmartCrawler:
                         if self.is_valid_url(js_url_found):
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                             self.url_queue.put((js_url_found, depth + 1))
 =======
                             self._queue_url(js_url_found, depth + 1)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                             self._queue_url(js_url_found, depth + 1)
 =======
                             self.url_queue.put((js_url_found, depth + 1))
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+                            self.url_queue.put((js_url_found, depth + 1))
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                             if '/api/' in js_url_found or '/v1/' in js_url_found:
                                 self.results['api_endpoints'].append(js_url_found)
 
@@ -4673,16 +4699,25 @@ class SmartCrawler:
                     if self.is_valid_url(absolute_url):
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                         self.url_queue.put((absolute_url, depth + 1))
 =======
                         self._queue_url(absolute_url, depth + 1)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                         self._queue_url(absolute_url, depth + 1)
 =======
                         self.url_queue.put((absolute_url, depth + 1))
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+                        self.url_queue.put((absolute_url, depth + 1))
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
             
             # Extract comments
             comments = soup.find_all(string=lambda text: isinstance(text, str) and '<!--' in text)
@@ -7485,16 +7520,25 @@ class SmartCrawler:
                             if self.normalize_url(final_url) not in self.visited_urls:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                                 self.url_queue.put((final_url, 0))
 =======
                                 self._queue_url(final_url, 0)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                                 self._queue_url(final_url, 0)
 =======
                                 self.url_queue.put((final_url, 0))
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+                                self.url_queue.put((final_url, 0))
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                                 
                                 if self.verbose:
                                     print(f"    ✅ Added redirect destination to crawl queue: {final_url}")
@@ -7588,16 +7632,25 @@ class SmartCrawler:
             for endpoint in basic_endpoints:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 self.url_queue.put((self.target_url + endpoint, 0))
 =======
                 self._queue_url(self.target_url + endpoint, 0)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                 self._queue_url(self.target_url + endpoint, 0)
 =======
                 self.url_queue.put((self.target_url + endpoint, 0))
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+                self.url_queue.put((self.target_url + endpoint, 0))
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         
         # === SEED COMMON VULNERABLE ENDPOINTS ===
         # These are common PHP endpoints often missed by link-based crawling
@@ -7633,6 +7686,7 @@ class SmartCrawler:
                         print(f"  ✓ Found: {endpoint} ({response.status_code})")
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                     self.url_queue.put((full_url, 1))
             except Exception:
                 pass
@@ -7647,6 +7701,8 @@ class SmartCrawler:
 =======
 =======
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
                     self._queue_url(full_url, 1)
             except Exception:
                 pass
@@ -7693,6 +7749,8 @@ class SmartCrawler:
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
 =======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
                     self.url_queue.put((full_url, 1))
             except Exception:
                 pass
@@ -7704,8 +7762,14 @@ class SmartCrawler:
                 print(f"\n📄 Processing from queue: {url} (depth: {depth})")
             self.crawl_page(url, depth)
             
+<<<<<<< HEAD
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
             # Small delay between requests
             time.sleep(random.uniform(0.5, 1.5))
         

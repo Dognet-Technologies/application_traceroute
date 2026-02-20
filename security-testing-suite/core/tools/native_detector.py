@@ -330,9 +330,12 @@ class PayloadDB:
         '; dir',
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 =======
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         '& hostname',
         '| hostname',
         # PowerShell
@@ -348,7 +351,12 @@ class PayloadDB:
 =======
 =======
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
     ]
 
     # LFI payloads
@@ -359,6 +367,7 @@ class PayloadDB:
         '..%2f..%2f..%2fetc/passwd',
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         '/etc/passwd',
         'file:///etc/passwd',
         # Windows
@@ -367,6 +376,8 @@ class PayloadDB:
 =======
 =======
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         '%2e%2e%2f%2e%2e%2fetc/passwd',
         '/etc/passwd',
         'file:///etc/passwd',
@@ -382,13 +393,21 @@ class PayloadDB:
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
 =======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
         '/etc/passwd',
         'file:///etc/passwd',
         # Windows
         '..\\..\\..\\windows\\win.ini',
         '..\\..\\..\\boot.ini',
+<<<<<<< HEAD
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         # /proc/* files (Linux system info)
         '/proc/version',
         '../proc/version',
@@ -397,25 +416,37 @@ class PayloadDB:
         '../../../../proc/version',
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         '/../../../../../../../../../../proc/version',  # Acunetix style
 =======
         '/../../../../../../../../../../proc/version',
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         '/../../../../../../../../../../proc/version',
 =======
         '/../../../../../../../../../../proc/version',  # Acunetix style
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+        '/../../../../../../../../../../proc/version',  # Acunetix style
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         '/proc/cpuinfo',
         '/proc/meminfo',
         '/proc/self/environ',
         '/proc/self/cmdline',
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 =======
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         '/proc/net/tcp',
         '/proc/1/cgroup',
         # Cloud/Container paths
@@ -440,11 +471,17 @@ class PayloadDB:
 =======
 =======
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
     ]
 
     # SQL error patterns for error-based detection
     SQL_ERRORS = [
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         r"SQL syntax.*MySQL",
@@ -465,6 +502,8 @@ class PayloadDB:
 =======
 =======
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
         # MySQL
         r"SQL syntax.*MySQL",
         r"Warning.*mysql_",
@@ -511,6 +550,8 @@ class PayloadDB:
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
 =======
 =======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
         r"SQL syntax.*MySQL",
         r"Warning.*mysql_",
         r"MySQLSyntaxErrorException",
@@ -526,8 +567,14 @@ class PayloadDB:
         r"You have an error in your SQL syntax",
         r"Unclosed quotation mark",
         r"syntax error at or near",
+<<<<<<< HEAD
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+<<<<<<< HEAD
 >>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
+>>>>>>> 4a6c6b8 (Risolto errore di merge)
     ]
 
 
@@ -922,6 +969,7 @@ class XSSDetector:
 # =============================================================================
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # =============================================================================
 # RCE DETECTOR
 # =============================================================================
@@ -1077,6 +1125,8 @@ class LFIDetector:
 
 =======
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
 class VulnDetector:
     """
     Unified vulnerability detector using pure Python libraries.
@@ -1087,10 +1137,14 @@ class VulnDetector:
             url='http://target/page.php',
             parameter='id',
 <<<<<<< HEAD
+<<<<<<< HEAD
             vuln_types=['sqli', 'xss', 'rce', 'lfi']
 =======
             vuln_types=['sqli', 'xss']
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+            vuln_types=['sqli', 'xss']
+>>>>>>> 96be02e (Risolto errore di merge)
         )
     """
 
@@ -1114,10 +1168,13 @@ class VulnDetector:
         self.sqli_detector = SQLiDetector(self.session, timeout)
         self.xss_detector = XSSDetector(self.session, timeout)
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.rce_detector = RCEDetector(self.session, timeout)
         self.lfi_detector = LFIDetector(self.session, timeout)
 =======
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
 
     def scan(self,
              url: str,
@@ -1150,6 +1207,7 @@ class VulnDetector:
             results.extend(xss_results)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         if 'rce' in vuln_types:
             rce_results = self.rce_detector.detect(url, parameter, method, data)
             results.extend(rce_results)
@@ -1160,6 +1218,8 @@ class VulnDetector:
 
 =======
 >>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+=======
+>>>>>>> 96be02e (Risolto errore di merge)
         return results
 
     def scan_endpoints(self,
