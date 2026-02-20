@@ -46,6 +46,8 @@ except ImportError:
         ADVANCED_VALIDATION = True
     except ImportError as e:
         ADVANCED_VALIDATION = False
+        import sys as _sys
+        print(f">>> VALIDATOR IMPORT FAILED [{__file__}]: {e}", file=_sys.stderr, flush=True)
         print(f"⚠️  Advanced validation modules not available, falling back to basic mode ({e})")
 
 

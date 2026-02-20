@@ -59,6 +59,8 @@ try:
     ADVANCED_MODULES_AVAILABLE = True
 except ImportError as e:
     ADVANCED_MODULES_AVAILABLE = False
+    import sys as _sys
+    print(f">>> MAIN IMPORT FAILED [{__file__}]: {e}", file=_sys.stderr, flush=True)
     print(f"⚠️  Advanced modules not available - using standard tests only ({e})")
 
 # Suppress SSL warnings for security testing
