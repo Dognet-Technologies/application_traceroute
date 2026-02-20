@@ -2510,8 +2510,13 @@ class ParameterAnalyzer:
             matched_any_pattern = True
 
             if lfi_matched:
-                confidence = 70
-                context = 'file_parameter'
+                # BOOST: 'file' parameter is VERY high confidence for LFI
+                if param_name_lower == 'file':
+                    confidence = 85  # Higher than default 70
+                    context = 'critical_file_parameter'
+                else:
+                    confidence = 70
+                    context = 'file_parameter'
             elif lfi_typo:
                 confidence = 58
                 context = 'file_typo_parameter'
@@ -7367,6 +7372,42 @@ class SmartCrawler:
             for endpoint in basic_endpoints:
                 self.url_queue.put((self.target_url + endpoint, 0))
         
+        # === SEED COMMON VULNERABLE ENDPOINTS ===
+        # These are common PHP endpoints often missed by link-based crawling
+        # but frequently vulnerable to LFI/RCE
+        common_endpoints = [
+            '/showimage.php',
+            '/show_image.php',
+            '/showfile.php',
+            '/show_file.php',
+            '/getimage.php',
+            '/getfile.php',
+            '/download.php',
+            '/uploads.php',
+            '/view.php',
+            '/display.php',
+            '/read.php',
+            '/render.php',
+            '/include.php',
+        ]
+
+        if self.verbose:
+            print(f"\n🎯 Seeding {len(common_endpoints)} common vulnerable endpoints...")
+
+        for endpoint in common_endpoints:
+            full_url = urljoin(self.target_url, endpoint)
+
+            # Quick check if exists
+            try:
+                response = self.session.head(full_url, timeout=5, verify=False)
+                if response.status_code in [200, 301, 302, 401, 403]:
+                    # Endpoint exists, queue it for crawling
+                    if self.verbose:
+                        print(f"  ✓ Found: {endpoint} ({response.status_code})")
+                    self.url_queue.put((full_url, 1))
+            except Exception:
+                pass
+
         # Continue crawling
         while not self.url_queue.empty() and len(self.visited_urls) < self.max_pages:
             url, depth = self.url_queue.get()

