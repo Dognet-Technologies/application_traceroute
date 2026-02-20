@@ -40,11 +40,6 @@ from typing import Dict, List, Optional, Tuple, Set, Any
 import urllib3
 import warnings
 
-# DEBUG: trace which file is actually being executed
-import sys as _sys
-print(f"[DEBUG] traceroute loading from: {__file__}", flush=True)
-print(f"[DEBUG] sys.path[0:3]: {_sys.path[:3]}", flush=True)
-
 # Import advanced modules
 try:
     from core.engines.advanced_bypass_engine import (

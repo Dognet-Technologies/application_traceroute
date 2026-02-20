@@ -16,7 +16,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Simone",
-    packages=find_packages(),
+    packages=find_packages(exclude=['build', 'build.*']),
     install_requires=[
         'requests>=2.31.0',
         'beautifulsoup4>=4.12.0',
