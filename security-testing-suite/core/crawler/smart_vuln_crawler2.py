@@ -4488,7 +4488,10 @@ class SmartCrawler:
         return urls
     
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
     def _queue_url(self, url, depth):
         """Non-blocking queue add. Skips if queue is full to prevent deadlock."""
         try:
@@ -4498,7 +4501,12 @@ class SmartCrawler:
             logger.debug(f"Queue full (maxsize={self.url_queue.maxsize}), skipping: {url}")
             return False
 
+<<<<<<< HEAD
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+=======
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
     def crawl_page(self, url, depth=0):
         """Crawl a single page and extract information with extended analysis"""
         if depth > self.max_depth or len(self.visited_urls) >= self.max_pages:
@@ -4602,10 +4610,17 @@ class SmartCrawler:
                         for js_url_found in js_urls:
                             if self.is_valid_url(js_url_found):
 <<<<<<< HEAD
+<<<<<<< HEAD
                                 self.url_queue.put((js_url_found, depth + 1))
 =======
                                 self._queue_url(js_url_found, depth + 1)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+                                self._queue_url(js_url_found, depth + 1)
+=======
+                                self.url_queue.put((js_url_found, depth + 1))
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
                                 if '/api/' in js_url_found or '/v1/' in js_url_found:
                                     self.results['api_endpoints'].append(js_url_found)
 
@@ -4633,10 +4648,17 @@ class SmartCrawler:
                     for js_url_found in js_urls:
                         if self.is_valid_url(js_url_found):
 <<<<<<< HEAD
+<<<<<<< HEAD
                             self.url_queue.put((js_url_found, depth + 1))
 =======
                             self._queue_url(js_url_found, depth + 1)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+                            self._queue_url(js_url_found, depth + 1)
+=======
+                            self.url_queue.put((js_url_found, depth + 1))
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
                             if '/api/' in js_url_found or '/v1/' in js_url_found:
                                 self.results['api_endpoints'].append(js_url_found)
 
@@ -4650,10 +4672,17 @@ class SmartCrawler:
                     absolute_url = urljoin(url, href)
                     if self.is_valid_url(absolute_url):
 <<<<<<< HEAD
+<<<<<<< HEAD
                         self.url_queue.put((absolute_url, depth + 1))
 =======
                         self._queue_url(absolute_url, depth + 1)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+                        self._queue_url(absolute_url, depth + 1)
+=======
+                        self.url_queue.put((absolute_url, depth + 1))
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
             
             # Extract comments
             comments = soup.find_all(string=lambda text: isinstance(text, str) and '<!--' in text)
@@ -7455,10 +7484,17 @@ class SmartCrawler:
                             # Aggiungi la destinazione finale alla coda se non è già stata visitata
                             if self.normalize_url(final_url) not in self.visited_urls:
 <<<<<<< HEAD
+<<<<<<< HEAD
                                 self.url_queue.put((final_url, 0))
 =======
                                 self._queue_url(final_url, 0)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+                                self._queue_url(final_url, 0)
+=======
+                                self.url_queue.put((final_url, 0))
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
                                 
                                 if self.verbose:
                                     print(f"    ✅ Added redirect destination to crawl queue: {final_url}")
@@ -7551,10 +7587,17 @@ class SmartCrawler:
             basic_endpoints = ['/robots.txt', '/sitemap.xml', '/.well-known/', '/api/', '/admin/']
             for endpoint in basic_endpoints:
 <<<<<<< HEAD
+<<<<<<< HEAD
                 self.url_queue.put((self.target_url + endpoint, 0))
 =======
                 self._queue_url(self.target_url + endpoint, 0)
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+                self._queue_url(self.target_url + endpoint, 0)
+=======
+                self.url_queue.put((self.target_url + endpoint, 0))
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
         
         # === SEED COMMON VULNERABLE ENDPOINTS ===
         # These are common PHP endpoints often missed by link-based crawling
@@ -7589,6 +7632,7 @@ class SmartCrawler:
                     if self.verbose:
                         print(f"  ✓ Found: {endpoint} ({response.status_code})")
 <<<<<<< HEAD
+<<<<<<< HEAD
                     self.url_queue.put((full_url, 1))
             except Exception:
                 pass
@@ -7601,6 +7645,8 @@ class SmartCrawler:
             self.crawl_page(url, depth)
             
 =======
+=======
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
                     self._queue_url(full_url, 1)
             except Exception:
                 pass
@@ -7643,7 +7689,23 @@ class SmartCrawler:
                             f"{self.url_queue.qsize()} in queue, "
                             f"{self.performance_monitor.http_requests} HTTP requests")
 
+<<<<<<< HEAD
 >>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
+=======
+=======
+                    self.url_queue.put((full_url, 1))
+            except Exception:
+                pass
+
+        # Continue crawling
+        while not self.url_queue.empty() and len(self.visited_urls) < self.max_pages:
+            url, depth = self.url_queue.get()
+            if self.verbose:
+                print(f"\n📄 Processing from queue: {url} (depth: {depth})")
+            self.crawl_page(url, depth)
+            
+>>>>>>> d718d2c (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
+>>>>>>> 17c2b55 (Improve LFI detection: boost 'file' param confidence, add /proc payloads, seed common endpoints)
             # Small delay between requests
             time.sleep(random.uniform(0.5, 1.5))
         
