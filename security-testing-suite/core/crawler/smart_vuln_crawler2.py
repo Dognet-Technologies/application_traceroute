@@ -241,18 +241,20 @@ class RateLimiter:
     def wait(self):
         """
         Aspetta il tempo necessario per rispettare il rate limit.
-        Thread-safe.
+        Thread-safe. Non tiene il lock durante sleep() per evitare
+        di bloccare altri thread inutilmente.
         """
+        sleep_time = 0
         with self.lock:
             current_time = time.time()
             elapsed = current_time - self.last_request_time
 
             if elapsed < self.min_interval:
                 sleep_time = self.min_interval - elapsed
-                time.sleep(sleep_time)
-                self.last_request_time = time.time()
-            else:
-                self.last_request_time = current_time
+            self.last_request_time = current_time + sleep_time
+
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
     def set_rate(self, requests_per_second):
         """Modifica il rate limit dinamicamente"""
@@ -3991,6 +3993,21 @@ class SmartCrawler:
         self._url_circuit_broken = set()  # URLs to skip entirely
         self._CIRCUIT_BREAKER_THRESHOLD = 3  # Skip URL after N consecutive errors
 
+        # Global scan timeout (default: 30 minuti)
+        self.max_runtime = 1800  # seconds
+        self._scan_start_time = None
+
+        # WAF/block detection globale
+        self._consecutive_blocks = 0  # contatore 403/429 consecutivi
+        self._BLOCK_DETECTION_THRESHOLD = 10  # dopo N blocchi consecutivi → rallenta
+        self._BLOCK_ABORT_THRESHOLD = 30  # dopo N blocchi consecutivi → abort
+        self._total_blocks = 0  # totale blocchi nella sessione
+        self._waf_detected = False
+
+        # Global error tracking per abort automatico
+        self._global_error_count = 0
+        self._GLOBAL_ERROR_ABORT_THRESHOLD = 100  # abort dopo N errori totali
+
         # ⚡ REGEX PRECOMPILATE per evitare ricompilazione ripetuta
         self._compile_regex_patterns()
 
@@ -4496,6 +4513,84 @@ class SmartCrawler:
             logger.debug(f"Queue full (maxsize={self.url_queue.maxsize}), skipping: {url}")
             return False
 
+    def _check_scan_timeout(self):
+        """Controlla se lo scan ha superato il tempo massimo."""
+        if self._scan_start_time is None:
+            return False
+        elapsed = time.time() - self._scan_start_time
+        if elapsed > self.max_runtime:
+            logger.warning(f"Global scan timeout: {elapsed:.0f}s > {self.max_runtime}s limit")
+            if self.verbose:
+                print(f"\n⏰ Scan timeout raggiunto ({elapsed:.0f}s), interruzione...")
+            return True
+        return False
+
+    def _track_response_status(self, status_code):
+        """Traccia i codici di stato per WAF/block detection globale.
+        Ritorna True se lo scan deve continuare, False se deve fermarsi."""
+        if status_code in (403, 429, 503):
+            self._consecutive_blocks += 1
+            self._total_blocks += 1
+
+            # Soglia rallentamento: rallenta automaticamente
+            if self._consecutive_blocks == self._BLOCK_DETECTION_THRESHOLD:
+                self._waf_detected = True
+                old_rate = self.rate_limiter.rate
+                new_rate = max(1, old_rate / 2)
+                self.rate_limiter.set_rate(new_rate)
+                logger.warning(
+                    f"WAF/block detected: {self._consecutive_blocks} consecutive {status_code}s. "
+                    f"Rate reduced: {old_rate:.1f} → {new_rate:.1f} req/s"
+                )
+                if self.verbose:
+                    print(f"\n🛡️  WAF detected! Rate ridotto a {new_rate:.1f} req/s")
+
+            # Soglia abort: troppi blocchi consecutivi → abort scan
+            if self._consecutive_blocks >= self._BLOCK_ABORT_THRESHOLD:
+                logger.error(
+                    f"WAF/block abort: {self._consecutive_blocks} consecutive blocks. "
+                    f"Target is actively blocking requests."
+                )
+                if self.verbose:
+                    print(f"\n🚫 Target sta bloccando attivamente ({self._consecutive_blocks} blocchi). Abort.")
+                return False
+        else:
+            # Reset blocchi consecutivi su risposta OK
+            if self._consecutive_blocks > 0:
+                self._consecutive_blocks = 0
+                # Se eravamo in WAF mode, ripristina gradualmente il rate
+                if self._waf_detected:
+                    current_rate = self.rate_limiter.rate
+                    restored_rate = min(5, current_rate * 1.5)
+                    self.rate_limiter.set_rate(restored_rate)
+                    if restored_rate >= 5:
+                        self._waf_detected = False
+                        logger.info("WAF detection cleared, rate restored to normal")
+
+        return True
+
+    def _track_global_error(self):
+        """Incrementa contatore errori globali. Ritorna False se va abortito."""
+        self._global_error_count += 1
+        if self._global_error_count >= self._GLOBAL_ERROR_ABORT_THRESHOLD:
+            logger.error(
+                f"Global error threshold: {self._global_error_count} errors. Aborting scan."
+            )
+            if self.verbose:
+                print(f"\n❌ Troppi errori globali ({self._global_error_count}), abort scan.")
+            return False
+        return True
+
+    def _should_abort_scan(self):
+        """Check combinato: timeout, WAF abort, error threshold."""
+        if self._check_scan_timeout():
+            return True
+        if self._consecutive_blocks >= self._BLOCK_ABORT_THRESHOLD:
+            return True
+        if self._global_error_count >= self._GLOBAL_ERROR_ABORT_THRESHOLD:
+            return True
+        return False
+
     def crawl_page(self, url, depth=0):
         """Crawl a single page and extract information with extended analysis"""
         if depth > self.max_depth or len(self.visited_urls) >= self.max_pages:
@@ -4553,6 +4648,10 @@ class SmartCrawler:
                         except:
                             continue
             
+            # WAF/block tracking globale
+            if not self._track_response_status(response.status_code):
+                return  # abort: target sta bloccando
+
             response.raise_for_status()
 
             # Skip non-parseable responses (CSS, images, fonts served without extension)
@@ -4672,6 +4771,7 @@ class SmartCrawler:
             self.analyze_forms_immediately(soup, url, response.text)
             
         except requests.RequestException as e:
+            self._track_global_error()
             logger.error(f"Error crawling {url}: {e}")
             if depth == 0 and 'timeout' in str(e).lower():
                 try:
@@ -6460,6 +6560,10 @@ class SmartCrawler:
                 # Incrementa contatore HTTP requests
                 self.performance_monitor.increment_requests()
 
+                # WAF/block tracking globale
+                if not self._track_response_status(response.status_code):
+                    return False  # target sta bloccando
+
                 # Reset error count on success (circuit breaker)
                 if base_url in self._url_error_counts:
                     self._url_error_counts[base_url] = 0
@@ -6510,6 +6614,7 @@ class SmartCrawler:
                             print(f"      ⚡ Circuit breaker activated for {base_url}")
                 logger.warning(f"Timeout testing payload on {base_url}")
                 self.performance_monitor.increment_errors()
+                self._track_global_error()
                 return False
             except requests.ConnectionError as e:
                 self._url_error_counts[base_url] = self._url_error_counts.get(base_url, 0) + 1
@@ -6518,10 +6623,12 @@ class SmartCrawler:
                     logger.warning(f"Circuit breaker: skipping {base_url} after repeated connection errors")
                 logger.warning(f"Connection error testing payload on {base_url}: {e}")
                 self.performance_monitor.increment_errors()
+                self._track_global_error()
                 return False
             except requests.RequestException as e:
                 logger.error(f"Request error testing payload on {base_url}: {e}")
                 self.performance_monitor.increment_errors()
+                self._track_global_error()
                 return False
 
             response_time = time.time() - request_start
@@ -7507,15 +7614,25 @@ class SmartCrawler:
         
         return score
     
-    def run(self, discovery_limit=1000, skip_discovery=False):
-        """Run the crawler"""
-        logger.info(f"Starting crawl of {self.target_url}")
-        
+    def run(self, discovery_limit=1000, skip_discovery=False, max_runtime=None):
+        """Run the crawler.
+
+        Args:
+            discovery_limit: Max paths for endpoint discovery
+            skip_discovery: Skip endpoint discovery phase
+            max_runtime: Max scan duration in seconds (default: self.max_runtime)
+        """
+        if max_runtime is not None:
+            self.max_runtime = max_runtime
+        self._scan_start_time = time.time()
+
+        logger.info(f"Starting crawl of {self.target_url} (max_runtime={self.max_runtime}s)")
+
         # Resolve initial redirects
         if not self.resolve_initial_redirects():
             logger.error("Failed to reach target URL")
             return self.results
-        
+
         # Start with resolved target URL
         self.url_queue.put((self.target_url, 0))
         
@@ -7573,8 +7690,23 @@ class SmartCrawler:
         _stall_counter = 0
         _last_visited_count = len(self.visited_urls)
         _progress_interval = 50  # Print progress every N URLs
+        _abort_reason = None
 
         while not self.url_queue.empty() and len(self.visited_urls) < self.max_pages:
+            # Global abort checks (timeout, WAF block, error threshold)
+            if self._should_abort_scan():
+                elapsed = time.time() - self._scan_start_time
+                _abort_reason = (
+                    f"timeout ({elapsed:.0f}s)" if elapsed > self.max_runtime
+                    else f"WAF block ({self._consecutive_blocks} consecutive)"
+                    if self._consecutive_blocks >= self._BLOCK_ABORT_THRESHOLD
+                    else f"errors ({self._global_error_count} total)"
+                )
+                logger.warning(f"Scan aborted: {_abort_reason}. "
+                               f"Visited {len(self.visited_urls)} pages, "
+                               f"{self.url_queue.qsize()} remaining in queue.")
+                break
+
             try:
                 url, depth = self.url_queue.get(timeout=30)
             except queue.Empty:
@@ -7585,7 +7717,7 @@ class SmartCrawler:
                 print(f"\n📄 Processing from queue: {url} (depth: {depth})")
             self.crawl_page(url, depth)
 
-            # Stall detection: if visited count hasn't changed in 20 iterations,
+            # Stall detection: if visited count hasn't changed in 50 iterations,
             # the crawler is spinning on already-visited URLs
             current_count = len(self.visited_urls)
             if current_count == _last_visited_count:
@@ -7601,14 +7733,26 @@ class SmartCrawler:
                 _stall_counter = 0
                 _last_visited_count = current_count
 
-            # Progress log
+            # Progress log con tempo trascorso
             if current_count % _progress_interval == 0 and current_count > 0:
+                elapsed = time.time() - self._scan_start_time
+                remaining = self.max_runtime - elapsed
                 logger.info(f"Progress: {current_count} pages visited, "
                             f"{self.url_queue.qsize()} in queue, "
-                            f"{self.performance_monitor.http_requests} HTTP requests")
+                            f"{self.performance_monitor.http_requests} HTTP requests, "
+                            f"{elapsed:.0f}s elapsed ({remaining:.0f}s remaining)")
 
-            # Small delay between requests
-            time.sleep(random.uniform(0.5, 1.5))
+            # Small delay between requests (aumentato se WAF detected)
+            base_delay = random.uniform(0.5, 1.5)
+            if self._waf_detected:
+                base_delay *= 2  # raddoppia delay se WAF attivo
+            time.sleep(base_delay)
+
+        # Log abort reason se presente
+        if _abort_reason:
+            self.results['scan_info'] = self.results.get('scan_info', {})
+            self.results['scan_info']['abort_reason'] = _abort_reason
+            self.results['scan_info']['was_aborted'] = True
         
         # Process results
         self.results['endpoints'] = self.endpoints
@@ -7625,8 +7769,24 @@ class SmartCrawler:
         self.results['api_endpoints'] = list(set(self.results['api_endpoints']))
         self.results['emails'] = list(set(self.results['emails']))
         
-        logger.info(f"Crawl complete. Found {len(self.results['endpoints'])} endpoints")
-        
+        # Scan info finale
+        elapsed = time.time() - self._scan_start_time if self._scan_start_time else 0
+        scan_info = self.results.get('scan_info', {})
+        scan_info.update({
+            'duration_seconds': round(elapsed, 1),
+            'pages_visited': len(self.visited_urls),
+            'total_http_requests': self.performance_monitor.http_requests,
+            'total_errors': self._global_error_count,
+            'total_blocks': self._total_blocks,
+            'waf_detected': self._waf_detected,
+            'circuit_broken_urls': len(self._url_circuit_broken),
+        })
+        self.results['scan_info'] = scan_info
+
+        logger.info(f"Crawl complete. Found {len(self.results['endpoints'])} endpoints "
+                     f"in {elapsed:.0f}s ({self._total_blocks} blocks, "
+                     f"{self._global_error_count} errors)")
+
         return self.results
     
     def export_results(self, filename='attack_surface.json'):
