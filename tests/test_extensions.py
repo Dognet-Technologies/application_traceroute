@@ -520,6 +520,229 @@ class TestIntegration(unittest.TestCase):
 
 
 # =============================================================================
+# MODULE 4 TESTS: Extended Analyzer Routing
+# =============================================================================
+
+class TestExtendedAnalyzerRouting(unittest.TestCase):
+    """Tests for CausalVulnerabilityAnalyzer routing to extended analyzers"""
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures"""
+        from extensions.vulnerability import CausalVulnerabilityAnalyzer
+        cls.CausalVulnerabilityAnalyzer = CausalVulnerabilityAnalyzer
+
+    def setUp(self):
+        """Set up for each test"""
+        self.analyzer = self.CausalVulnerabilityAnalyzer()
+
+    def test_ssti_detection(self):
+        """Test SSTI detection via extended analyzer routing"""
+        response = mock_response(
+            status_code=200,
+            text='Hello 49!'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/greet",
+            param="name",
+            payload="{{7*7}}",
+            response=response,
+            vuln_type="ssti"
+        )
+
+        self.assertTrue(result.is_vulnerable)
+        self.assertGreater(result.confidence, 0.75)
+        self.assertEqual(result.vulnerability_type, 'ssti')
+
+    def test_xxe_detection(self):
+        """Test XXE detection via extended analyzer routing"""
+        response = mock_response(
+            status_code=200,
+            text='root:x:0:0:root:/root:/bin/bash\nnobody:x:65534:65534'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/xml",
+            param="data",
+            payload='<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+            response=response,
+            vuln_type="xxe"
+        )
+
+        self.assertTrue(result.is_vulnerable)
+        self.assertGreater(result.confidence, 0.75)
+        self.assertEqual(result.vulnerability_type, 'xxe')
+
+    def test_nosqli_detection(self):
+        """Test NoSQL injection detection via extended analyzer routing"""
+        response = mock_response(
+            status_code=500,
+            text='MongoError: command failed with error 2'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/api/users",
+            param="id",
+            payload='{"$ne": null}',
+            response=response,
+            vuln_type="nosqli"
+        )
+
+        self.assertTrue(result.is_vulnerable)
+        self.assertGreater(result.confidence, 0.75)
+        self.assertEqual(result.vulnerability_type, 'nosqli')
+
+    def test_xpath_detection(self):
+        """Test XPath injection detection via extended analyzer routing"""
+        response = mock_response(
+            status_code=500,
+            text='XPath error: Invalid XPath expression supplied'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/search",
+            param="query",
+            payload="' or '1'='1",
+            response=response,
+            vuln_type="xpath"
+        )
+
+        self.assertTrue(result.is_vulnerable)
+        self.assertGreater(result.confidence, 0.75)
+        self.assertEqual(result.vulnerability_type, 'xpath')
+
+    def test_ssti_no_vulnerability(self):
+        """Test SSTI with clean response returns not vulnerable"""
+        response = mock_response(
+            status_code=200,
+            text='Hello {{7*7}}!'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/greet",
+            param="name",
+            payload="{{7*7}}",
+            response=response,
+            vuln_type="ssti"
+        )
+
+        # Template expression was NOT evaluated (echoed back literally)
+        self.assertFalse(result.is_vulnerable)
+
+    def test_unknown_type_returns_generic(self):
+        """Test unknown vuln type falls through to generic handler"""
+        response = mock_response(
+            status_code=200,
+            text='Normal page content'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/page",
+            param="id",
+            payload="test",
+            response=response,
+            vuln_type="unknown_type"
+        )
+
+        self.assertFalse(result.is_vulnerable)
+
+
+class TestXSSFalsePositiveFixes(unittest.TestCase):
+    """Tests for XSS false positive reduction"""
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures"""
+        from extensions.vulnerability import XSSAnalyzer, XSSContext
+        cls.XSSAnalyzer = XSSAnalyzer
+        cls.XSSContext = XSSContext
+
+    def setUp(self):
+        """Set up for each test"""
+        self.analyzer = self.XSSAnalyzer()
+
+    def test_no_false_positive_from_distant_event_handler(self):
+        """Event handlers far from reflected payload should not trigger bypass detection"""
+        # Payload is reflected in a div, but legitimate onclick is elsewhere on page
+        response_text = (
+            '<html><body>'
+            '<button onclick="save()">Save</button>'  # Legitimate handler
+            '<div>Some content here</div>'
+            '<p>Your search: test_value</p>'  # Reflected payload (safe)
+            '</body></html>'
+        )
+
+        result = self.analyzer.analyze(response_text, 'test_value')
+
+        # Should detect reflection but NOT flag as filter_bypassed
+        # because the event handler is far from the reflected payload
+        self.assertFalse(result.filter_bypassed)
+
+    def test_true_positive_reflected_xss(self):
+        """Actual XSS payload reflected in executable context"""
+        response_text = (
+            '<html><body>'
+            '<div><script>alert(1)</script></div>'
+            '</body></html>'
+        )
+
+        result = self.analyzer.analyze(response_text, '<script>alert(1)</script>')
+
+        self.assertTrue(result.is_vulnerable)
+        self.assertGreater(result.confidence, 0.8)
+
+
+class TestRCEFalsePositiveFixes(unittest.TestCase):
+    """Tests for RCE hostname pattern false positive reduction"""
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures"""
+        from extensions.vulnerability import CausalVulnerabilityAnalyzer
+        cls.CausalVulnerabilityAnalyzer = CausalVulnerabilityAnalyzer
+
+    def setUp(self):
+        """Set up for each test"""
+        self.analyzer = self.CausalVulnerabilityAnalyzer()
+
+    def test_no_false_positive_from_normal_text(self):
+        """Normal page text should not trigger RCE hostname detection"""
+        response = mock_response(
+            status_code=200,
+            text='<html><body>Welcome to our website</body></html>'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/page",
+            param="cmd",
+            payload="; whoami",
+            response=response,
+            vuln_type="rce"
+        )
+
+        self.assertFalse(result.is_vulnerable)
+
+    def test_true_positive_id_command(self):
+        """Actual id command output should be detected"""
+        response = mock_response(
+            status_code=200,
+            text='uid=33(www-data) gid=33(www-data) groups=33(www-data)'
+        )
+
+        result = self.analyzer.analyze(
+            endpoint="http://example.com/exec",
+            param="cmd",
+            payload="; id",
+            response=response,
+            vuln_type="rce"
+        )
+
+        self.assertTrue(result.is_vulnerable)
+        self.assertGreater(result.confidence, 0.75)
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 

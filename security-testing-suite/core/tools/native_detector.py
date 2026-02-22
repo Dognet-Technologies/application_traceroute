@@ -862,6 +862,159 @@ class XSSDetector:
 # UNIFIED DETECTOR
 # =============================================================================
 
+# =============================================================================
+# RCE DETECTOR
+# =============================================================================
+
+class RCEDetector:
+    """
+    Remote Code Execution detection using command output analysis.
+
+    Techniques:
+    1. Output-based: Look for command output in response
+    2. Time-based: Measure response time with sleep/ping payloads
+    """
+
+    # Patterns indicating successful command execution
+    _COMMAND_OUTPUT_PATTERNS = [
+        re.compile(r'uid=\d+\([^)]+\)\s+gid=\d+', re.I),  # id command
+        re.compile(r'^(root|www-data|apache|nginx|httpd|nobody)$', re.M | re.I),  # whoami
+        re.compile(r'Linux\s+\S+\s+\d+\.\d+', re.I),  # uname
+        re.compile(r'(drwx|Directory of|Volume Serial)', re.I),  # dir/ls
+    ]
+
+    def __init__(self,
+                 session: Optional[requests.Session] = None,
+                 timeout: int = 10):
+        self.session = session or requests.Session()
+        self.timeout = timeout
+
+    def detect(self,
+               url: str,
+               parameter: str,
+               method: str = "GET",
+               data: Optional[Dict] = None) -> List[DetectionResult]:
+        """Test a parameter for RCE"""
+        results = []
+
+        for payload in PayloadDB.RCE_PAYLOADS[:10]:  # Limit to first 10
+            try:
+                response = self._inject_payload(url, parameter, payload, method, data)
+                if response is None:
+                    continue
+
+                for pattern in self._COMMAND_OUTPUT_PATTERNS:
+                    if pattern.search(response.text):
+                        results.append(DetectionResult(
+                            vulnerable=True,
+                            vuln_type=VulnType.RCE,
+                            technique=DetectionTechnique.CONTENT_BASED,
+                            confidence=0.95,
+                            payload=payload,
+                            evidence=f"Command output detected: {pattern.pattern[:50]}",
+                        ))
+                        return results  # One confirmed RCE is enough
+            except Exception as e:
+                logger.debug(f"RCE test failed: {e}")
+
+        return results
+
+    def _inject_payload(self, url, parameter, payload, method, data):
+        """Inject payload into parameter"""
+        try:
+            if method.upper() == "GET":
+                parsed = urlparse(url)
+                params = parse_qs(parsed.query)
+                params[parameter] = [payload]
+                new_query = urlencode(params, doseq=True)
+                new_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{new_query}"
+                return self.session.get(new_url, timeout=self.timeout)
+            else:
+                new_data = (data or {}).copy()
+                new_data[parameter] = payload
+                return self.session.post(url, data=new_data, timeout=self.timeout)
+        except Exception:
+            return None
+
+
+# =============================================================================
+# LFI DETECTOR
+# =============================================================================
+
+class LFIDetector:
+    """
+    Local File Inclusion detection using file content analysis.
+
+    Techniques:
+    1. Content-based: Look for known file content signatures in response
+    """
+
+    # Patterns indicating successful file inclusion
+    _FILE_CONTENT_PATTERNS = [
+        re.compile(r'root:x?:0:0:.*?:/root:', re.I),  # /etc/passwd
+        re.compile(r'\[boot\s+loader\]', re.I),  # boot.ini
+        re.compile(r'-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY-----', re.I),  # SSH keys
+        re.compile(r'DB_PASSWORD\s*=', re.I),  # .env
+    ]
+
+    def __init__(self,
+                 session: Optional[requests.Session] = None,
+                 timeout: int = 10):
+        self.session = session or requests.Session()
+        self.timeout = timeout
+
+    def detect(self,
+               url: str,
+               parameter: str,
+               method: str = "GET",
+               data: Optional[Dict] = None) -> List[DetectionResult]:
+        """Test a parameter for LFI"""
+        results = []
+
+        for payload in PayloadDB.LFI_PAYLOADS[:15]:  # Limit to first 15
+            try:
+                response = self._inject_payload(url, parameter, payload, method, data)
+                if response is None:
+                    continue
+
+                for pattern in self._FILE_CONTENT_PATTERNS:
+                    if pattern.search(response.text):
+                        results.append(DetectionResult(
+                            vulnerable=True,
+                            vuln_type=VulnType.LFI,
+                            technique=DetectionTechnique.CONTENT_BASED,
+                            confidence=0.95,
+                            payload=payload,
+                            evidence=f"File content detected: {pattern.pattern[:50]}",
+                        ))
+                        return results  # One confirmed LFI is enough
+            except Exception as e:
+                logger.debug(f"LFI test failed: {e}")
+
+        return results
+
+    def _inject_payload(self, url, parameter, payload, method, data):
+        """Inject payload into parameter"""
+        try:
+            if method.upper() == "GET":
+                parsed = urlparse(url)
+                params = parse_qs(parsed.query)
+                params[parameter] = [payload]
+                new_query = urlencode(params, doseq=True)
+                new_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{new_query}"
+                return self.session.get(new_url, timeout=self.timeout)
+            else:
+                new_data = (data or {}).copy()
+                new_data[parameter] = payload
+                return self.session.post(url, data=new_data, timeout=self.timeout)
+        except Exception:
+            return None
+
+
+# =============================================================================
+# UNIFIED DETECTOR
+# =============================================================================
+
 class VulnDetector:
     """
     Unified vulnerability detector using pure Python libraries.
@@ -871,7 +1024,7 @@ class VulnDetector:
         results = detector.scan(
             url='http://target/page.php',
             parameter='id',
-            vuln_types=['sqli', 'xss']
+            vuln_types=['sqli', 'xss', 'rce', 'lfi']
         )
     """
 
@@ -894,6 +1047,8 @@ class VulnDetector:
         self.timeout = timeout
         self.sqli_detector = SQLiDetector(self.session, timeout)
         self.xss_detector = XSSDetector(self.session, timeout)
+        self.rce_detector = RCEDetector(self.session, timeout)
+        self.lfi_detector = LFIDetector(self.session, timeout)
 
     def scan(self,
              url: str,
@@ -924,6 +1079,14 @@ class VulnDetector:
         if 'xss' in vuln_types:
             xss_results = self.xss_detector.detect(url, parameter, method, data)
             results.extend(xss_results)
+
+        if 'rce' in vuln_types:
+            rce_results = self.rce_detector.detect(url, parameter, method, data)
+            results.extend(rce_results)
+
+        if 'lfi' in vuln_types:
+            lfi_results = self.lfi_detector.detect(url, parameter, method, data)
+            results.extend(lfi_results)
 
         return results
 
