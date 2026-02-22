@@ -4487,6 +4487,18 @@ class SmartCrawler:
         
         return urls
     
+<<<<<<< HEAD
+=======
+    def _queue_url(self, url, depth):
+        """Non-blocking queue add. Skips if queue is full to prevent deadlock."""
+        try:
+            self.url_queue.put_nowait((url, depth))
+            return True
+        except queue.Full:
+            logger.debug(f"Queue full (maxsize={self.url_queue.maxsize}), skipping: {url}")
+            return False
+
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
     def crawl_page(self, url, depth=0):
         """Crawl a single page and extract information with extended analysis"""
         if depth > self.max_depth or len(self.visited_urls) >= self.max_pages:
@@ -4589,7 +4601,11 @@ class SmartCrawler:
                         js_urls = self.extract_urls_from_js(js_response.text, url)
                         for js_url_found in js_urls:
                             if self.is_valid_url(js_url_found):
+<<<<<<< HEAD
                                 self.url_queue.put((js_url_found, depth + 1))
+=======
+                                self._queue_url(js_url_found, depth + 1)
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
                                 if '/api/' in js_url_found or '/v1/' in js_url_found:
                                     self.results['api_endpoints'].append(js_url_found)
 
@@ -4616,7 +4632,11 @@ class SmartCrawler:
                     js_urls = self.extract_urls_from_js(script.string, url)
                     for js_url_found in js_urls:
                         if self.is_valid_url(js_url_found):
+<<<<<<< HEAD
                             self.url_queue.put((js_url_found, depth + 1))
+=======
+                            self._queue_url(js_url_found, depth + 1)
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
                             if '/api/' in js_url_found or '/v1/' in js_url_found:
                                 self.results['api_endpoints'].append(js_url_found)
 
@@ -4629,7 +4649,11 @@ class SmartCrawler:
                 if href:
                     absolute_url = urljoin(url, href)
                     if self.is_valid_url(absolute_url):
+<<<<<<< HEAD
                         self.url_queue.put((absolute_url, depth + 1))
+=======
+                        self._queue_url(absolute_url, depth + 1)
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
             
             # Extract comments
             comments = soup.find_all(string=lambda text: isinstance(text, str) and '<!--' in text)
@@ -7430,7 +7454,11 @@ class SmartCrawler:
                             
                             # Aggiungi la destinazione finale alla coda se non è già stata visitata
                             if self.normalize_url(final_url) not in self.visited_urls:
+<<<<<<< HEAD
                                 self.url_queue.put((final_url, 0))
+=======
+                                self._queue_url(final_url, 0)
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
                                 
                                 if self.verbose:
                                     print(f"    ✅ Added redirect destination to crawl queue: {final_url}")
@@ -7522,7 +7550,11 @@ class SmartCrawler:
             logger.info("No technologies detected yet, using basic discovery")
             basic_endpoints = ['/robots.txt', '/sitemap.xml', '/.well-known/', '/api/', '/admin/']
             for endpoint in basic_endpoints:
+<<<<<<< HEAD
                 self.url_queue.put((self.target_url + endpoint, 0))
+=======
+                self._queue_url(self.target_url + endpoint, 0)
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
         
         # === SEED COMMON VULNERABLE ENDPOINTS ===
         # These are common PHP endpoints often missed by link-based crawling
@@ -7556,6 +7588,7 @@ class SmartCrawler:
                     # Endpoint exists, queue it for crawling
                     if self.verbose:
                         print(f"  ✓ Found: {endpoint} ({response.status_code})")
+<<<<<<< HEAD
                     self.url_queue.put((full_url, 1))
             except Exception:
                 pass
@@ -7567,6 +7600,50 @@ class SmartCrawler:
                 print(f"\n📄 Processing from queue: {url} (depth: {depth})")
             self.crawl_page(url, depth)
             
+=======
+                    self._queue_url(full_url, 1)
+            except Exception:
+                pass
+
+        # Continue crawling with stall detection
+        _stall_counter = 0
+        _last_visited_count = len(self.visited_urls)
+        _progress_interval = 50  # Print progress every N URLs
+
+        while not self.url_queue.empty() and len(self.visited_urls) < self.max_pages:
+            try:
+                url, depth = self.url_queue.get(timeout=30)
+            except queue.Empty:
+                logger.info("Queue drained, crawl complete")
+                break
+
+            if self.verbose:
+                print(f"\n📄 Processing from queue: {url} (depth: {depth})")
+            self.crawl_page(url, depth)
+
+            # Stall detection: if visited count hasn't changed in 20 iterations,
+            # the crawler is spinning on already-visited URLs
+            current_count = len(self.visited_urls)
+            if current_count == _last_visited_count:
+                _stall_counter += 1
+                if _stall_counter >= 50:
+                    logger.info(f"Stall detected: no new pages in 50 iterations, "
+                                f"draining queue ({self.url_queue.qsize()} remaining)")
+                    if self.verbose:
+                        print(f"\n⚠️  Stall detected: no new pages in 50 iterations, "
+                              f"moving on ({self.url_queue.qsize()} URLs skipped)")
+                    break
+            else:
+                _stall_counter = 0
+                _last_visited_count = current_count
+
+            # Progress log
+            if current_count % _progress_interval == 0 and current_count > 0:
+                logger.info(f"Progress: {current_count} pages visited, "
+                            f"{self.url_queue.qsize()} in queue, "
+                            f"{self.performance_monitor.http_requests} HTTP requests")
+
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
             # Small delay between requests
             time.sleep(random.uniform(0.5, 1.5))
         

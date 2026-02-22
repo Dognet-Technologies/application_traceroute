@@ -20,6 +20,8 @@ dependencies = [
     "urllib3>=2.0.0",
     "aiohttp>=3.9.0",
     "networkx>=3.1",
+    "rich>=13.0.0",
+    "click>=8.1.0",
 ]
 
 [project.scripts]
