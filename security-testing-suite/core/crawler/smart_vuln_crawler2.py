@@ -372,9 +372,130 @@ class PerformanceMonitor:
             return f"{hours:.1f}h"
 
 
-class VulnerabilityLogger: 
+class VulnerabilityLogger:
     """Gestisce il salvataggio immediato delle vulnerabilità rilevate"""
-    
+
+    # Mapping vulnerabilità → CWE/OWASP/Severity
+    VULN_METADATA = {
+        'SQLI': {
+            'cwe_id': 'CWE-89', 'cwe_name': 'SQL Injection',
+            'owasp': 'A03:2021 - Injection', 'cvss': 9.8, 'severity': 'CRITICAL',
+            'verify_tool': 'sqlmap',
+        },
+        'XSS': {
+            'cwe_id': 'CWE-79', 'cwe_name': 'Cross-Site Scripting',
+            'owasp': 'A03:2021 - Injection', 'cvss': 6.5, 'severity': 'MEDIUM',
+            'verify_tool': 'xsstrike/dalfox',
+        },
+        'RCE': {
+            'cwe_id': 'CWE-78', 'cwe_name': 'OS Command Injection',
+            'owasp': 'A03:2021 - Injection', 'cvss': 10.0, 'severity': 'CRITICAL',
+            'verify_tool': 'commix',
+        },
+        'LFI': {
+            'cwe_id': 'CWE-98', 'cwe_name': 'Local File Inclusion',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 8.0, 'severity': 'HIGH',
+            'verify_tool': 'manual/curl',
+        },
+        'RFI': {
+            'cwe_id': 'CWE-99', 'cwe_name': 'Remote File Inclusion',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 9.0, 'severity': 'CRITICAL',
+            'verify_tool': 'manual/curl',
+        },
+        'SSTI': {
+            'cwe_id': 'CWE-1336', 'cwe_name': 'Server-Side Template Injection',
+            'owasp': 'A03:2021 - Injection', 'cvss': 9.0, 'severity': 'CRITICAL',
+            'verify_tool': 'tplmap',
+        },
+        'XXE': {
+            'cwe_id': 'CWE-611', 'cwe_name': 'XML External Entity',
+            'owasp': 'A03:2021 - Injection', 'cvss': 8.5, 'severity': 'HIGH',
+            'verify_tool': 'manual/curl',
+        },
+        'SSRF': {
+            'cwe_id': 'CWE-918', 'cwe_name': 'Server-Side Request Forgery',
+            'owasp': 'A10:2021 - SSRF', 'cvss': 8.0, 'severity': 'HIGH',
+            'verify_tool': 'manual/curl',
+        },
+        'IDOR': {
+            'cwe_id': 'CWE-639', 'cwe_name': 'Insecure Direct Object Reference',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 7.0, 'severity': 'HIGH',
+            'verify_tool': 'manual/burp',
+        },
+        'OPEN_REDIRECT': {
+            'cwe_id': 'CWE-601', 'cwe_name': 'Open Redirect',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 5.0, 'severity': 'MEDIUM',
+            'verify_tool': 'manual/curl',
+        },
+        'LDAPI': {
+            'cwe_id': 'CWE-90', 'cwe_name': 'LDAP Injection',
+            'owasp': 'A03:2021 - Injection', 'cvss': 8.5, 'severity': 'HIGH',
+            'verify_tool': 'manual',
+        },
+    }
+
+    # Severity colors/symbols for terminal output
+    SEVERITY_ICONS = {
+        'CRITICAL': '🔴',
+        'HIGH': '🟠',
+        'MEDIUM': '🟡',
+        'LOW': '🟢',
+    }
+
+    @staticmethod
+    def confidence_bar(confidence, width=10):
+        """Genera barra visuale di confidenza: [████████░░] 75%"""
+        filled = int((confidence / 100) * width)
+        empty = width - filled
+        return f"[{'█' * filled}{'░' * empty}] {confidence}%"
+
+    @classmethod
+    def get_vuln_metadata(cls, vuln_type):
+        """Ritorna metadata CWE/OWASP/severity per un tipo di vulnerabilità"""
+        key = vuln_type.upper()
+        return cls.VULN_METADATA.get(key, {
+            'cwe_id': 'N/A', 'cwe_name': key,
+            'owasp': 'N/A', 'cvss': 5.0, 'severity': 'MEDIUM',
+            'verify_tool': 'manual',
+        })
+
+    @staticmethod
+    def detect_false_positive_indicators(status_code, payload, vuln_type):
+        """Rileva indicatori di possibili falsi positivi"""
+        indicators = []
+        if status_code == 403:
+            indicators.append("HTTP 403 may indicate WAF/firewall blocking, not actual vulnerability")
+        if status_code == 404:
+            indicators.append("HTTP 404 - endpoint may not exist or parameter is ignored")
+        if status_code == 302 or status_code == 301:
+            indicators.append("Redirect response - payload may not have been processed")
+        if vuln_type.upper() == 'SQLI' and 'UNION' in payload.upper() and status_code != 200:
+            indicators.append("UNION-based SQLi with non-200 status - verify data extraction manually")
+        if vuln_type.upper() == 'XSS' and status_code != 200:
+            indicators.append("XSS with non-200 status - reflection may not reach the browser")
+        return indicators
+
+    @staticmethod
+    def generate_verification_hint(vuln_type, endpoint, parameter, method='GET', payload=''):
+        """Genera suggerimento per tool di verifica"""
+        vuln_upper = vuln_type.upper()
+        if vuln_upper == 'SQLI':
+            if method.upper() == 'POST':
+                return f"sqlmap -u '{endpoint}' --data='{parameter}=test' -p {parameter} --technique=U --level=3 --risk=2 --batch"
+            return f"sqlmap -u '{endpoint}?{parameter}=test' -p {parameter} --technique=U --level=3 --risk=2 --batch"
+        elif vuln_upper == 'XSS':
+            return f"dalfox url '{endpoint}?{parameter}=test' -p {parameter} --silence"
+        elif vuln_upper == 'RCE':
+            if method.upper() == 'POST':
+                return f"commix -u '{endpoint}' --data='{parameter}=test' -p {parameter} --batch"
+            return f"commix -u '{endpoint}?{parameter}=test' -p {parameter} --batch"
+        elif vuln_upper == 'SSTI':
+            return f"tplmap -u '{endpoint}?{parameter}=test' --level=5"
+        elif vuln_upper == 'LFI':
+            return f"curl -s '{endpoint}?{parameter}=../../../etc/passwd' | head -5"
+        else:
+            return f"curl -v '{endpoint}?{parameter}={payload[:30]}'"
+
     def __init__(self, target_url):
         """Inizializza il logger"""
         parsed_url = urlparse(target_url)
@@ -457,47 +578,68 @@ class VulnerabilityLogger:
                     elif key == 'Cookie': 
                         request_headers['Cookie'] = "[REDACTED - Contains session data]"
             
+            # Enrichment: CWE/OWASP/severity metadata
+            meta = self.get_vuln_metadata(vulnerability_type)
+            conf = confidence if confidence is not None else 75
+            fp_indicators = self.detect_false_positive_indicators(
+                response_status if response_status else 0, payload, vulnerability_type
+            )
+            verify_hint = self.generate_verification_hint(
+                vulnerability_type, endpoint, parameter, method, payload
+            )
+
             vuln_entry = {
                 'id': len(self.vulnerabilities_data['vulnerabilities']) + 1,
-                'vulnerability_type': vulnerability_type. upper(),
+                'vulnerability_type': vulnerability_type.upper(),
+                'severity': meta['severity'],
+                'cvss_score': meta['cvss'],
+                'cwe_id': meta['cwe_id'],
+                'cwe_name': meta['cwe_name'],
+                'owasp_category': meta['owasp'],
                 'endpoint': endpoint,
                 'parameter': parameter,
                 'payload': payload,
-                'confidence': confidence if confidence is not None else 75,
+                'confidence': conf,
                 'request': {
-                    'method': method. upper(),
-                    'headers':  request_headers,
+                    'method': method.upper(),
+                    'headers': request_headers,
                     'body_parameter': parameter
                 },
                 'response': {
-                    'status_code':  response_status,
+                    'status_code': response_status,
                     'content_length': response_length
                 },
                 'bypass': {
                     'used': bypass_used is not None,
                     'type': bypass_used if bypass_used else None
                 },
-                'timestamps':  {
+                'false_positive_indicators': fp_indicators,
+                'verification_hint': verify_hint,
+                'timestamps': {
                     'detected_at': time.strftime('%Y-%m-%d %H:%M:%S'),
-                    'unix_timestamp':  int(time.time())
+                    'unix_timestamp': int(time.time())
                 }
             }
-            
+
             self.vulnerabilities_data['vulnerabilities'].append(vuln_entry)
-            
-            self. vulnerabilities_data['total_vulnerabilities'] = len(
+
+            self.vulnerabilities_data['total_vulnerabilities'] = len(
                 self.vulnerabilities_data['vulnerabilities']
             )
-            
+
             if vulnerability_type not in self.vulnerabilities_data['total_by_type']:
                 self.vulnerabilities_data['total_by_type'][vulnerability_type] = 0
             self.vulnerabilities_data['total_by_type'][vulnerability_type] += 1
-            
-            self. vulnerabilities_data['last_updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
-            
+
+            self.vulnerabilities_data['last_updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
+
             self._save_to_file()
-            
-            logger.info(f"🚨 [{vulnerability_type. upper()}] {endpoint} ? {parameter}={payload[: 30]}")
+
+            sev_icon = self.SEVERITY_ICONS.get(meta['severity'], '⚪')
+            logger.info(
+                f"🚨 [{vulnerability_type.upper()}] {sev_icon} {meta['severity']} "
+                f"(CVSS {meta['cvss']}) {endpoint} ? {parameter}={payload[:30]}"
+            )
     
     def get_output_dir(self):
         """Ritorna la directory di output"""
@@ -6674,13 +6816,34 @@ class SmartCrawler:
                 )
 
                 if self.verbose:
-                    bypass_info = f" with {bypass['type']}" if bypass else ""
-                    print(f"      🚨 VULNERABILITY DETECTED{bypass_info}!")
-                    print(f"         Type: {vuln_type.upper()}")
-                    print(f"         Payload: {payload[:50]}{'...' if len(payload) > 50 else ''}")
-                    print(f"         Status: {response.status_code}, Length: {len(response.content)}")
-                    print(f"         Method: {endpoint.get('method', 'GET')}")
-                    print(f"         📁 Saved to: {self.vuln_logger.get_output_dir()}")
+                    meta = VulnerabilityLogger.get_vuln_metadata(vuln_type)
+                    conf = 85 if bypass else 75
+                    conf_bar = VulnerabilityLogger.confidence_bar(conf)
+                    sev_icon = VulnerabilityLogger.SEVERITY_ICONS.get(meta['severity'], '⚪')
+                    bypass_info = f" via {bypass['type']}" if bypass else ""
+                    fp_indicators = VulnerabilityLogger.detect_false_positive_indicators(
+                        response.status_code, payload, vuln_type
+                    )
+                    verify_cmd = VulnerabilityLogger.generate_verification_hint(
+                        vuln_type, endpoint['url'], param_name, endpoint.get('method', 'GET'), payload
+                    )
+
+                    print(f"      ┌──────────────────────────────────────────────────────────")
+                    print(f"      │ 🚨 VULNERABILITY DETECTED{bypass_info}")
+                    print(f"      │ Type:       {vuln_type.upper()} ({meta['cwe_id']})")
+                    print(f"      │ Severity:   {sev_icon} {meta['severity']} [CVSS {meta['cvss']}]")
+                    print(f"      │ OWASP:      {meta['owasp']}")
+                    print(f"      │ Confidence: {conf_bar}")
+                    print(f"      │ Endpoint:   {endpoint['url']}")
+                    print(f"      │ Parameter:  {param_name} ({endpoint.get('method', 'GET')})")
+                    print(f"      │ Payload:    {payload[:60]}{'...' if len(payload) > 60 else ''}")
+                    print(f"      │ Response:   {response.status_code} ({len(response.content)} bytes)")
+                    if fp_indicators:
+                        for fp in fp_indicators:
+                            print(f"      │ ⚠️  {fp}")
+                    print(f"      │ Verify:     {verify_cmd}")
+                    print(f"      │ 📁 Saved to: {self.vuln_logger.get_output_dir()}")
+                    print(f"      └──────────────────────────────────────────────────────────")
 
                 return True
 
@@ -7970,19 +8133,61 @@ def main():
     
     # Vulnerability test results
     if results['vulnerability_test_results']:
-        print(f"\n🚨 VULNERABILITIES DETECTED: {len(results['vulnerability_test_results'])}")
-        
+        total_vulns = len(results['vulnerability_test_results'])
+        print(f"\n{'─' * 60}")
+        print(f"  🚨 VULNERABILITIES DETECTED: {total_vulns}")
+        print(f"{'─' * 60}")
+
         # Group by vulnerability type
         vuln_by_type = defaultdict(list)
         for result in results['vulnerability_test_results']:
             vuln_by_type[result['vulnerability_type']].append(result)
-        
+
+        # Severity overview table
+        print(f"\n  {'Type':<12} {'Count':>5}  {'Severity':<10} {'CVSS':>5}  {'CWE':<10} {'OWASP'}")
+        print(f"  {'─'*12} {'─'*5}  {'─'*10} {'─'*5}  {'─'*10} {'─'*20}")
         for vuln_type, vuln_results in vuln_by_type.items():
-            print(f"\n{vuln_type.upper()} ({len(vuln_results)} found):")
-            for result in vuln_results[:3]:  # Show first 3 of each type
+            meta = VulnerabilityLogger.get_vuln_metadata(vuln_type)
+            sev_icon = VulnerabilityLogger.SEVERITY_ICONS.get(meta['severity'], '⚪')
+            print(f"  {vuln_type.upper():<12} {len(vuln_results):>5}  {sev_icon} {meta['severity']:<8} {meta['cvss']:>5.1f}  {meta['cwe_id']:<10} {meta['owasp']}")
+
+        # Detail per vulnerability type
+        for vuln_type, vuln_results in vuln_by_type.items():
+            meta = VulnerabilityLogger.get_vuln_metadata(vuln_type)
+            sev_icon = VulnerabilityLogger.SEVERITY_ICONS.get(meta['severity'], '⚪')
+            print(f"\n  {sev_icon} {vuln_type.upper()} ({len(vuln_results)} found) │ {meta['cwe_id']} │ CVSS {meta['cvss']} {meta['severity']}")
+            print(f"  {'─' * 56}")
+
+            for result in vuln_results[:5]:  # Show first 5 of each type
                 bypass_info = f" (via {result['bypass_used']})" if result['bypass_used'] else ""
-                print(f"  📍 {result['endpoint']} → {result['parameter']}{bypass_info}")
-                print(f"     Payload: {result['payload'][:50]}{'...' if len(result['payload']) > 50 else ''}")
+                conf = result.get('confidence', 75)
+                conf_bar = VulnerabilityLogger.confidence_bar(conf)
+                status = result.get('response_status', '?')
+                length = result.get('response_length', '?')
+                fp_indicators = VulnerabilityLogger.detect_false_positive_indicators(
+                    status if isinstance(status, int) else 0, result['payload'], vuln_type
+                )
+
+                print(f"    📍 {result['endpoint']} → {result['parameter']}{bypass_info}")
+                print(f"       Payload:    {result['payload'][:60]}{'...' if len(result['payload']) > 60 else ''}")
+                print(f"       Confidence: {conf_bar}  │  Status: {status}  │  Length: {length}")
+                if fp_indicators:
+                    for fp in fp_indicators:
+                        print(f"       ⚠️  {fp}")
+                print()
+
+            if len(vuln_results) > 5:
+                print(f"    ... and {len(vuln_results) - 5} more (see JSON report)")
+
+            # Verification hint for the type
+            first = vuln_results[0]
+            verify_cmd = VulnerabilityLogger.generate_verification_hint(
+                vuln_type, first['endpoint'], first['parameter'],
+                'GET', first['payload']
+            )
+            print(f"    💡 Verify: {verify_cmd}")
+
+        print(f"\n{'─' * 60}")
     
     # Technology summary
     print("\nDETECTED TECHNOLOGIES:")
