@@ -2041,7 +2041,7 @@ class TechnologyDetector:
                 if 'cookies' in signatures:
                     for cookie_pattern in signatures['cookies']:
                         for cookie in response.cookies:
-                            if cookie_pattern.lower() in cookie.lower():
+                            if cookie_pattern.lower() in cookie.name.lower():
                                 confidence += 30
                 
                 # Check paths in HTML
