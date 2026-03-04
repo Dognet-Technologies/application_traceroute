@@ -50,7 +50,8 @@ try:
     from core.engines.semantic_bypass_engine import (
         SemanticBypassEngine,
         AttackVector,
-        EvolutionaryMutationEngine
+        EvolutionaryMutationEngine,
+        AnchorTagMutationEngine
     )
     from core.engines.graph_attack_planner import (
         GraphAttackPlanner,
@@ -1154,7 +1155,7 @@ class ProgressiveStackAnalyzer:
                     discovered_components.add(provider_name)
                     timeline.append({
                         'order': self._get_layer_order(category),
-                        'type': category.split('_')[0],
+                        'type': self._CATEGORY_TO_TYPE.get(category, category.split('_')[0]),
                         'name': provider_name,
                         'evidence': f"Matched fingerprint: {provider_name}",
                         'component': provider_name
@@ -1441,31 +1442,150 @@ class ProgressiveStackAnalyzer:
 
         return 'unknown_backend'
     
+    # Maps timeline 'type' values to canonical stack layer types.
+    # Types that map to None are informational and don't produce a distinct layer.
+    # Maps fingerprint category names to canonical short type strings.
+    # Needed because category.split('_')[0] would truncate multi-word names
+    # (e.g. api_gateway_detection → 'api', load_balancer_detection → 'load').
+    _CATEGORY_TO_TYPE = {
+        'cdn_detection':                    'cdn',
+        'waf_detection':                    'waf',
+        'proxy_detection':                  'proxy',
+        'backend_detection':                'backend',
+        'load_balancer_detection':          'load_balancer',
+        'api_gateway_detection':            'api_gateway',
+        'service_mesh_detection':           'service_mesh',
+        'cache_layer_detection':            'cache',
+        'microservice_detection':           'microservice',
+        'container_orchestration_detection':'container_orchestration',
+        'serverless_detection':             'serverless',
+    }
+
+    _TIMELINE_TYPE_TO_LAYER = {
+        # From fingerprint categories (via _CATEGORY_TO_TYPE)
+        'cdn':                    'CDN',
+        'waf':                    'WAF',
+        'proxy':                  'PROXY',
+        'backend':                'BACKEND',
+        'load_balancer':          'LOAD_BALANCER',
+        'api_gateway':            'API_GATEWAY',
+        'service_mesh':           'SERVICE_MESH',
+        'cache':                  'CACHE',
+        'microservice':           'FRAMEWORK',
+        'container_orchestration':'LOAD_BALANCER',
+        'serverless':             'BACKEND',
+        # Synthetic types from header analysis (Via, X-Forwarded-*, etc.)
+        'cdn/lb':                 'CDN',
+        'cdn/waf':                'WAF',
+        'proxy/lb':               'LOAD_BALANCER',
+        'forwarding':             'LOAD_BALANCER',   # X-Forwarded-* → proxying layer
+        'infrastructure':         'LOAD_BALANCER',   # X-Served-By, X-Backend-Server
+        'framework':              'FRAMEWORK',       # X-Powered-By, X-Runtime
+        'tracking':               None,              # X-Request-ID etc. – not a real hop
+    }
+
     def progressive_fingerprinting(self, baseline_response: requests.Response):
         """
         Progressive fingerprinting: start with timeline analysis,
         then deep-dive into each discovered layer type.
         """
         self.log("FINGERPRINTING", "Starting progressive stack analysis...", "INFO")
-        
+
         # Phase 1: Timeline analysis (already done)
         timeline = self.stack['timeline']
-        
-        # Phase 2: Deep fingerprinting for each layer type found
-        layer_types = set([layer['type'] for layer in timeline])
-        
-        for layer_type in layer_types:
-            if layer_type == 'cdn':
-                self.deep_cdn_fingerprinting(baseline_response)
-            elif layer_type == 'waf':
-                self.deep_waf_fingerprinting(baseline_response)
-            elif layer_type == 'proxy' or layer_type == 'proxy/lb':
-                self.deep_proxy_fingerprinting(baseline_response)
-            elif layer_type == 'backend':
-                self.deep_backend_fingerprinting(baseline_response)
-        
-        # Phase 3: Check for hidden layers (no header evidence)
+
+        # Phase 2: Deep fingerprinting for each layer type found.
+        # Map timeline types → fingerprinting method keys, then call each once.
+        _type_to_method = {
+            # From fingerprint categories (correctly typed via _CATEGORY_TO_TYPE)
+            'cdn':                    'cdn',
+            'waf':                    'waf',
+            'proxy':                  'proxy',
+            'backend':                'backend',
+            'load_balancer':          'load_balancer',
+            'api_gateway':            'api_gateway',
+            'service_mesh':           'service_mesh',
+            'cache':                  'cache',
+            'microservice':           'framework',
+            'container_orchestration':'load_balancer',
+            'serverless':             'backend',
+            # Synthetic types from header analysis
+            'cdn/lb':                 'load_balancer',
+            'cdn/waf':                'waf',
+            'proxy/lb':               'load_balancer',
+            'forwarding':             'load_balancer',
+            'infrastructure':         'load_balancer',
+            'framework':              'framework',
+            # 'tracking' intentionally omitted – not a real network hop
+        }
+
+        methods_to_call = set()
+        for layer in timeline:
+            method_key = _type_to_method.get(layer['type'])
+            if method_key:
+                methods_to_call.add(method_key)
+
+        method_dispatch = {
+            'cdn':          self.deep_cdn_fingerprinting,
+            'waf':          self.deep_waf_fingerprinting,
+            'proxy':        self.deep_proxy_fingerprinting,
+            'backend':      self.deep_backend_fingerprinting,
+            'load_balancer': self.deep_load_balancer_fingerprinting,
+            'cache':        self.deep_cache_fingerprinting,
+            'framework':    self.deep_framework_fingerprinting,
+        }
+
+        for key in methods_to_call:
+            method_dispatch[key](baseline_response)
+
+        # Phase 3: Promote every timeline hop that deep fingerprinting missed.
+        # This ensures the stack chain reflects all discovered hops, not just
+        # those that passed a confidence threshold inside a deep method.
+        self._promote_timeline_hops_to_layers(timeline)
+
+        # Phase 4: Check for hidden layers (no header evidence)
         self.detect_hidden_layers()
+
+    def _promote_timeline_hops_to_layers(self, timeline: List[Dict]):
+        """
+        For each timeline hop not already represented in self.stack['layers'],
+        add a layer entry derived directly from the timeline data.
+
+        This bridges the gap between "N hops detected" and the final stack chain:
+        - Types ignored by deep fingerprinting (cache, forwarding, infrastructure,
+          framework) always produce a layer here.
+        - Types handled by deep fingerprinting (cdn, waf, proxy, backend) may still
+          produce additional layers if deep fingerprinting returned only the best match
+          and there are further hops of the same type in the timeline (e.g. multiple
+          Via-header proxy hops).
+        """
+        # Build a lookup of components already added to layers
+        existing_components = {layer['component'] for layer in self.stack['layers']}
+
+        for hop in timeline:
+            timeline_type = hop.get('type', '')
+            canonical_type = self._TIMELINE_TYPE_TO_LAYER.get(timeline_type)
+
+            # Skip informational timeline entries (tracking IDs, etc.)
+            if canonical_type is None:
+                continue
+
+            component = hop.get('component') or hop.get('name') or 'unknown'
+
+            # Skip if this exact component is already a layer
+            if component in existing_components:
+                continue
+
+            self.stack['layers'].append({
+                'type': canonical_type,
+                'component': component,
+                'confidence': 30,           # lower than deep fingerprinting
+                'level': 'LOW',
+                'evidence': [hop.get('raw') or hop.get('evidence') or
+                             f"Timeline hop ({timeline_type})"],
+                'source': 'timeline',       # marks this as timeline-derived
+            })
+            existing_components.add(component)
     
     def deep_cdn_fingerprinting(self, response: requests.Response):
         """
@@ -1761,7 +1881,447 @@ class ProgressiveStackAnalyzer:
                 'evidence': best_match['evidence']
             })
             self.log("BACKEND", f"Detected: {best_match['name']} (confidence: {best_match['confidence']}/100)", "SUCCESS")
-    
+
+    # ------------------------------------------------------------------
+    # Deep fingerprinting – additional layer types
+    # ------------------------------------------------------------------
+
+    def deep_load_balancer_fingerprinting(self, response: requests.Response):
+        """
+        Deep Load Balancer / Reverse-Proxy analysis.
+
+        Confidence breakdown (100 pts max):
+          40 – Fingerprint header match
+          20 – Forwarding headers present (X-Forwarded-*, X-Real-IP, Forwarded)
+          20 – Body pattern match
+          10 – Behavioural path responds
+          10 – Timing jitter (LBs add measurable jitter)
+        """
+        self.log("LB", "Deep fingerprinting (Load Balancer)...", "DISCOVERY")
+
+        lb_fingerprints = self.fingerprints.get('load_balancer_detection', {})
+        detected = []
+
+        # Forwarding-header bonus (shared across all candidates)
+        _forwarding = ['X-Forwarded-For', 'X-Forwarded-Host', 'X-Real-IP',
+                       'X-Forwarded-Proto', 'X-Forwarded-Port', 'Forwarded']
+        forwarding_bonus = min(
+            sum(10 for h in _forwarding if h in response.headers),
+            20
+        )
+        if forwarding_bonus:
+            pass  # applied per-candidate below
+
+        for lb_name, fp in lb_fingerprints.items():
+            confidence = 0
+            evidence = []
+
+            # 1. Header matching (40 pts)
+            for h_pattern in fp.get('headers', []):
+                for h_name, h_val in response.headers.items():
+                    if re.search(h_pattern, f"{h_name}: {h_val}", re.IGNORECASE):
+                        confidence += 40
+                        evidence.append(f"Header: {h_name}")
+                        break
+                if confidence >= 40:
+                    break
+
+            # 2. Forwarding headers (20 pts)
+            if forwarding_bonus:
+                confidence += forwarding_bonus
+                evidence.append(f"Forwarding headers present")
+
+            # 3. Body patterns (20 pts)
+            body_text = response.text.lower()
+            for pattern in fp.get('body_patterns', []):
+                if pattern.lower() in body_text:
+                    confidence += 20
+                    evidence.append(f"Body: {pattern}")
+                    break
+
+            # 4. Behavioural paths (10 pts)
+            for path in fp.get('behavioral_paths', []):
+                try:
+                    self.rate_limiter.wait()
+                    r = self.session.get(self.target_url + path, timeout=5)
+                    if r.status_code in [200, 401, 403]:
+                        confidence += 10
+                        evidence.append(f"Path: {path}")
+                        break
+                except Exception:
+                    pass
+
+            if confidence >= 40:
+                detected.append({
+                    'name': lb_name,
+                    'confidence': min(confidence, 100),
+                    'evidence': evidence,
+                    'level': 'HIGH' if confidence >= 70 else 'MEDIUM' if confidence >= 50 else 'LOW'
+                })
+
+        detected.sort(key=lambda x: x['confidence'], reverse=True)
+
+        if detected:
+            best = detected[0]
+            self.stack['layers'].append({
+                'type': 'LOAD_BALANCER',
+                'component': best['name'],
+                'confidence': best['confidence'],
+                'level': best['level'],
+                'evidence': best['evidence']
+            })
+            self.log("LB", f"Detected: {best['name']} "
+                     f"(confidence: {best['confidence']}/100, {best['level']})", "SUCCESS")
+        else:
+            self.log("LB", "No Load Balancer detected or confidence too low", "INFO")
+
+    def deep_cache_fingerprinting(self, response: requests.Response):
+        """
+        Deep Cache layer analysis.
+
+        Confidence breakdown (100 pts max):
+          40 – Fingerprint header match (X-Cache, X-Varnish, CF-Cache-Status…)
+          20 – Cache directive headers (Age, Cache-Control with s-maxage)
+          20 – Body pattern match
+          20 – Repeat-request behaviour (same ETag / identical body = cached)
+        """
+        self.log("CACHE", "Deep fingerprinting (Cache Layer)...", "DISCOVERY")
+
+        cache_fingerprints = self.fingerprints.get('cache_layer_detection', {})
+        detected = []
+
+        # Pre-compute repeat-request evidence once (expensive but shared)
+        repeat_match = False
+        try:
+            self.rate_limiter.wait()
+            r2 = self.session.get(self.target_url, timeout=5)
+            etag1 = response.headers.get('ETag', '')
+            etag2 = r2.headers.get('ETag', '')
+            age = int(response.headers.get('Age', 0))
+            xcache = response.headers.get('X-Cache', '').lower()
+            if (etag1 and etag1 == etag2) or age > 0 or 'hit' in xcache:
+                repeat_match = True
+        except Exception:
+            pass
+
+        # Cache-control directive bonus (shared)
+        cc = response.headers.get('Cache-Control', '')
+        cache_control_bonus = 20 if ('s-maxage' in cc or 'public' in cc) else 0
+
+        for cache_name, fp in cache_fingerprints.items():
+            confidence = 0
+            evidence = []
+
+            # 1. Header matching (40 pts)
+            for h_pattern in fp.get('headers', []):
+                for h_name, h_val in response.headers.items():
+                    if re.search(h_pattern, f"{h_name}: {h_val}", re.IGNORECASE):
+                        confidence += 40
+                        evidence.append(f"Header: {h_name}")
+                        break
+                if confidence >= 40:
+                    break
+
+            # 2. Cache-Control directives (20 pts)
+            if cache_control_bonus:
+                confidence += cache_control_bonus
+                evidence.append(f"Cache-Control: {cc[:60]}")
+
+            # 3. Body patterns (20 pts)
+            body_text = response.text.lower()
+            for pattern in fp.get('body_patterns', []):
+                if pattern.lower() in body_text:
+                    confidence += 20
+                    evidence.append(f"Body: {pattern}")
+                    break
+
+            # 4. Repeat-request cache behaviour (20 pts)
+            if repeat_match:
+                confidence += 20
+                evidence.append("Repeated request shows cache behaviour (Age/ETag/HIT)")
+
+            if confidence >= 40:
+                detected.append({
+                    'name': cache_name,
+                    'confidence': min(confidence, 100),
+                    'evidence': evidence,
+                    'level': 'HIGH' if confidence >= 70 else 'MEDIUM' if confidence >= 50 else 'LOW'
+                })
+
+        detected.sort(key=lambda x: x['confidence'], reverse=True)
+
+        if detected:
+            best = detected[0]
+            self.stack['layers'].append({
+                'type': 'CACHE',
+                'component': best['name'],
+                'confidence': best['confidence'],
+                'level': best['level'],
+                'evidence': best['evidence']
+            })
+            self.log("CACHE", f"Detected: {best['name']} "
+                     f"(confidence: {best['confidence']}/100, {best['level']})", "SUCCESS")
+        else:
+            self.log("CACHE", "No Cache layer detected or confidence too low", "INFO")
+
+    def deep_api_gateway_fingerprinting(self, response: requests.Response):
+        """
+        Deep API Gateway analysis.
+
+        Confidence breakdown (100 pts max):
+          40 – Fingerprint header match
+          30 – API path responds (behavioural)
+          20 – Body pattern match
+          10 – JSON error format / auth-token clues in response
+        """
+        self.log("API_GW", "Deep fingerprinting (API Gateway)...", "DISCOVERY")
+
+        gw_fingerprints = self.fingerprints.get('api_gateway_detection', {})
+        detected = []
+
+        # Pre-compute JSON-error bonus (shared)
+        json_bonus = 0
+        try:
+            import json as _json
+            _json.loads(response.text)
+            # If the baseline is already JSON it might be an API response
+            if any(k in response.text.lower() for k in
+                   ['missing authentication', 'unauthorized', 'forbidden', 'api key']):
+                json_bonus = 10
+        except Exception:
+            pass
+
+        for gw_name, fp in gw_fingerprints.items():
+            confidence = 0
+            evidence = []
+
+            # 1. Header matching (40 pts)
+            for h_pattern in fp.get('headers', []):
+                for h_name, h_val in response.headers.items():
+                    if re.search(h_pattern, f"{h_name}: {h_val}", re.IGNORECASE):
+                        confidence += 40
+                        evidence.append(f"Header: {h_name}")
+                        break
+                if confidence >= 40:
+                    break
+
+            # 2. API behavioural paths (30 pts)
+            for path in fp.get('behavioral_paths', []) or ['/api/', '/v1/', '/v2/', '/graphql']:
+                try:
+                    self.rate_limiter.wait()
+                    r = self.session.get(self.target_url + path, timeout=5)
+                    if r.status_code in [200, 401, 403, 404]:
+                        confidence += 30
+                        evidence.append(f"API path reachable: {path} ({r.status_code})")
+                        break
+                except Exception:
+                    pass
+
+            # 3. Body patterns (20 pts)
+            body_text = response.text.lower()
+            for pattern in fp.get('body_patterns', []):
+                if pattern.lower() in body_text:
+                    confidence += 20
+                    evidence.append(f"Body: {pattern}")
+                    break
+
+            # 4. JSON / auth error clues (10 pts)
+            if json_bonus:
+                confidence += json_bonus
+                evidence.append("JSON auth-error response detected")
+
+            if confidence >= 40:
+                detected.append({
+                    'name': gw_name,
+                    'confidence': min(confidence, 100),
+                    'evidence': evidence,
+                    'level': 'HIGH' if confidence >= 70 else 'MEDIUM' if confidence >= 50 else 'LOW'
+                })
+
+        detected.sort(key=lambda x: x['confidence'], reverse=True)
+
+        if detected:
+            best = detected[0]
+            self.stack['layers'].append({
+                'type': 'API_GATEWAY',
+                'component': best['name'],
+                'confidence': best['confidence'],
+                'level': best['level'],
+                'evidence': best['evidence']
+            })
+            self.log("API_GW", f"Detected: {best['name']} "
+                     f"(confidence: {best['confidence']}/100, {best['level']})", "SUCCESS")
+        else:
+            self.log("API_GW", "No API Gateway detected or confidence too low", "INFO")
+
+    def deep_service_mesh_fingerprinting(self, response: requests.Response):
+        """
+        Deep Service Mesh analysis (Istio, Linkerd, Envoy, Consul…).
+
+        Confidence breakdown (100 pts max):
+          40 – Fingerprint header match
+          30 – Distributed tracing headers (x-b3-*, x-request-id, traceparent)
+          20 – Body pattern match
+          10 – Behavioural health/stats endpoint responds
+        """
+        self.log("MESH", "Deep fingerprinting (Service Mesh)...", "DISCOVERY")
+
+        mesh_fingerprints = self.fingerprints.get('service_mesh_detection', {})
+        detected = []
+
+        # Distributed tracing bonus (shared)
+        _trace_headers = ['x-b3-traceid', 'x-b3-spanid', 'x-b3-parentspanid',
+                          'traceparent', 'tracestate', 'x-request-id', 'x-correlation-id']
+        tracing_bonus = min(
+            sum(10 for h in _trace_headers if h.lower() in
+                {k.lower() for k in response.headers}),
+            30
+        )
+
+        for mesh_name, fp in mesh_fingerprints.items():
+            confidence = 0
+            evidence = []
+
+            # 1. Header matching (40 pts)
+            for h_pattern in fp.get('headers', []):
+                for h_name, h_val in response.headers.items():
+                    if re.search(h_pattern, f"{h_name}: {h_val}", re.IGNORECASE):
+                        confidence += 40
+                        evidence.append(f"Header: {h_name}")
+                        break
+                if confidence >= 40:
+                    break
+
+            # 2. Tracing headers (30 pts)
+            if tracing_bonus:
+                confidence += tracing_bonus
+                evidence.append(f"Distributed tracing headers present")
+
+            # 3. Body patterns (20 pts)
+            body_text = response.text.lower()
+            for pattern in fp.get('body_patterns', []):
+                if pattern.lower() in body_text:
+                    confidence += 20
+                    evidence.append(f"Body: {pattern}")
+                    break
+
+            # 4. Health / stats behavioural paths (10 pts)
+            for path in fp.get('behavioral_paths', []):
+                try:
+                    self.rate_limiter.wait()
+                    r = self.session.get(self.target_url + path, timeout=5)
+                    if r.status_code in [200, 401, 403]:
+                        confidence += 10
+                        evidence.append(f"Mesh path: {path}")
+                        break
+                except Exception:
+                    pass
+
+            if confidence >= 40:
+                detected.append({
+                    'name': mesh_name,
+                    'confidence': min(confidence, 100),
+                    'evidence': evidence,
+                    'level': 'HIGH' if confidence >= 70 else 'MEDIUM' if confidence >= 50 else 'LOW'
+                })
+
+        detected.sort(key=lambda x: x['confidence'], reverse=True)
+
+        if detected:
+            best = detected[0]
+            self.stack['layers'].append({
+                'type': 'SERVICE_MESH',
+                'component': best['name'],
+                'confidence': best['confidence'],
+                'level': best['level'],
+                'evidence': best['evidence']
+            })
+            self.log("MESH", f"Detected: {best['name']} "
+                     f"(confidence: {best['confidence']}/100, {best['level']})", "SUCCESS")
+        else:
+            self.log("MESH", "No Service Mesh detected or confidence too low", "INFO")
+
+    def deep_framework_fingerprinting(self, response: requests.Response):
+        """
+        Deep Application Framework / Microservice analysis
+        (Django, Flask, Rails, Spring Boot, Express, FastAPI…).
+
+        Confidence breakdown (100 pts max):
+          40 – X-Powered-By / Server header match
+          30 – Framework body pattern
+          20 – Framework-specific behavioural path
+          10 – Tech-specific response headers
+        """
+        self.log("FRAMEWORK", "Deep fingerprinting (App Framework)...", "DISCOVERY")
+
+        fw_fingerprints = self.fingerprints.get('microservice_detection', {})
+        detected = []
+
+        for fw_name, fp in fw_fingerprints.items():
+            confidence = 0
+            evidence = []
+
+            # 1. X-Powered-By / Server header (40 pts)
+            powered = response.headers.get('X-Powered-By', '').lower()
+            server  = response.headers.get('Server', '').lower()
+            for h_pattern in fp.get('headers', []):
+                target = f"x-powered-by: {powered} server: {server}"
+                if re.search(h_pattern, target, re.IGNORECASE):
+                    confidence += 40
+                    evidence.append(f"Header match: {h_pattern}")
+                    break
+
+            # 2. Body patterns (30 pts)
+            body_text = response.text.lower()
+            for pattern in fp.get('body_patterns', []):
+                if pattern.lower() in body_text:
+                    confidence += 30
+                    evidence.append(f"Body: {pattern}")
+                    break
+
+            # 3. Behavioural paths (20 pts)
+            for path in fp.get('behavioral_paths', []):
+                try:
+                    self.rate_limiter.wait()
+                    r = self.session.get(self.target_url + path, timeout=5)
+                    if r.status_code in [200, 401, 403]:
+                        confidence += 20
+                        evidence.append(f"Framework path: {path} ({r.status_code})")
+                        break
+                except Exception:
+                    pass
+
+            # 4. Technology-specific response headers (10 pts)
+            for h_name, expected in fp.get('tech_headers', {}).items():
+                if h_name in response.headers and expected.lower() in response.headers[h_name].lower():
+                    confidence += 10
+                    evidence.append(f"Tech header: {h_name}")
+                    break
+
+            if confidence >= 40:
+                detected.append({
+                    'name': fw_name,
+                    'confidence': min(confidence, 100),
+                    'evidence': evidence,
+                    'level': 'HIGH' if confidence >= 70 else 'MEDIUM' if confidence >= 50 else 'LOW'
+                })
+
+        detected.sort(key=lambda x: x['confidence'], reverse=True)
+
+        if detected:
+            best = detected[0]
+            self.stack['layers'].append({
+                'type': 'FRAMEWORK',
+                'component': best['name'],
+                'confidence': best['confidence'],
+                'level': best['level'],
+                'evidence': best['evidence']
+            })
+            self.log("FRAMEWORK", f"Detected: {best['name']} "
+                     f"(confidence: {best['confidence']}/100, {best['level']})", "SUCCESS")
+        else:
+            self.log("FRAMEWORK", "No App Framework detected or confidence too low", "INFO")
+
     def test_behavioral_paths(self):
         """
         Actively test behavioral paths defined in fingerprints.
@@ -1829,58 +2389,56 @@ class ProgressiveStackAnalyzer:
     def detect_hidden_layers(self):
         """
         Detect layers that don't leave obvious headers.
-        Uses timing analysis, behavioral testing, and edge cases.
+
+        Runs deep fingerprinting for API Gateway and Service Mesh (which are
+        typically not announced in the header timeline) and falls back to
+        timing-based heuristics for transparent proxies / load balancers.
         """
         self.log("HIDDEN", "Searching for hidden layers (API Gateway, Service Mesh, etc.)...", "DISCOVERY")
-        
-        # Check for API Gateway patterns
-        api_paths = ['/api/', '/v1/', '/graphql', '/rest/']
-        for path in api_paths:
+
+        # Existing layer types – avoid duplicating what progressive_fingerprinting found
+        existing_types = {layer['type'] for layer in self.stack['layers']}
+
+        # --- API Gateway ---
+        if 'API_GATEWAY' not in existing_types:
             try:
-                test_url = self.target_url + path
-                test_response = self.session.get(test_url, timeout=5)
-                
-                # API Gateways often add specific headers on API paths
-                gateway_headers = ['X-Kong-', 'X-Amzn-', 'X-Gateway-']
-                for header_pattern in gateway_headers:
-                    for header_name in test_response.headers.keys():
-                        if header_pattern in header_name:
-                            self.stack['layers'].append({
-                                'type': 'API_GATEWAY',
-                                'component': 'detected_via_api_path',
-                                'confidence': 60,
-                                'level': 'MEDIUM',
-                                'evidence': [f'Header on {path}: {header_name}']
-                            })
-                            self.log("HIDDEN", f"API Gateway detected via {path}", "SUCCESS")
-                            return
-            except:
+                # Use a lightweight probe response for the deep fingerprinter
+                probe = self.session.get(self.target_url, timeout=5)
+                self.deep_api_gateway_fingerprinting(probe)
+            except Exception:
                 pass
-        
-        # Timing-based detection for transparent proxies
-        latencies = []
-        for _ in range(3):
-            start = time.time()
+
+        # --- Service Mesh ---
+        if 'SERVICE_MESH' not in existing_types:
             try:
-                self.session.get(self.target_url, timeout=5)
-                latencies.append((time.time() - start) * 1000)
-            except:
+                probe = self.session.get(self.target_url, timeout=5)
+                self.deep_service_mesh_fingerprinting(probe)
+            except Exception:
                 pass
-        
-        if latencies:
-            avg_latency = sum(latencies) / len(latencies)
-            jitter = max(latencies) - min(latencies)
-            
-            # High jitter might indicate load balancing
-            if jitter > 100:
-                self.stack['layers'].append({
-                    'type': 'LOAD_BALANCER',
-                    'component': 'hidden_lb_via_timing',
-                    'confidence': 50,
-                    'level': 'LOW',
-                    'evidence': [f'High jitter: {jitter:.2f}ms']
-                })
-                self.log("HIDDEN", f"Possible hidden load balancer (jitter: {jitter:.2f}ms)", "WARNING")
+
+        # --- Timing-based heuristic for transparent load balancers ---
+        if 'LOAD_BALANCER' not in {layer['type'] for layer in self.stack['layers']}:
+            latencies = []
+            for _ in range(3):
+                start = time.time()
+                try:
+                    self.session.get(self.target_url, timeout=5)
+                    latencies.append((time.time() - start) * 1000)
+                except Exception:
+                    pass
+
+            if latencies:
+                jitter = max(latencies) - min(latencies)
+                if jitter > 100:
+                    self.stack['layers'].append({
+                        'type': 'LOAD_BALANCER',
+                        'component': 'hidden_lb_via_timing',
+                        'confidence': 40,
+                        'level': 'LOW',
+                        'evidence': [f'Timing jitter: {jitter:.2f}ms (threshold: 100ms)'],
+                        'source': 'timing_heuristic',
+                    })
+                    self.log("HIDDEN", f"Possible hidden load balancer (jitter: {jitter:.2f}ms)", "WARNING")
     
     def _measure_latency(self) -> float:
         """Measure average latency for timing analysis"""
@@ -1902,7 +2460,10 @@ class ProgressiveStackAnalyzer:
         self.log("CORRELATION", "Building enhanced stack relationships...", "INFO")
 
         # Sort layers by typical order
-        order_priority = {'CDN': 1, 'WAF': 2, 'API_GATEWAY': 3, 'LOAD_BALANCER': 4, 'PROXY': 5, 'BACKEND': 6}
+        order_priority = {
+            'CDN': 1, 'WAF': 2, 'API_GATEWAY': 3, 'LOAD_BALANCER': 4,
+            'SERVICE_MESH': 5, 'PROXY': 6, 'CACHE': 7, 'FRAMEWORK': 8, 'BACKEND': 9,
+        }
         self.stack['layers'].sort(key=lambda x: order_priority.get(x['type'], 99))
 
         # Measure timing per layer (simplified - estimate based on position)
@@ -1943,19 +2504,36 @@ class ProgressiveStackAnalyzer:
             self.log("CORRELATION", f"Total latency: {total_latency:.2f}ms", "INFO")
 
     def _estimate_layer_latencies(self, total_latency: float) -> Dict[str, float]:
-        """Estimate latency contribution per layer type"""
-        # Typical latency distribution
+        """Estimate latency contribution per layer type.
+
+        Percentages are empirical estimates for a typical production stack.
+        They are normalised so the sum across actually-present layers equals
+        total_latency (unknown layers fall back to a small residual share).
+        """
         distribution = {
-            'CDN': 0.25,  # 25% - edge network
-            'WAF': 0.10,  # 10% - inspection
-            'LOAD_BALANCER': 0.15,  # 15% - routing
-            'PROXY': 0.10,  # 10% - forwarding
-            'BACKEND': 0.40   # 40% - application processing
+            'CDN':          0.20,  # edge PoP network overhead
+            'WAF':          0.08,  # payload inspection
+            'API_GATEWAY':  0.07,  # auth + routing
+            'LOAD_BALANCER': 0.10, # connection routing
+            'SERVICE_MESH': 0.05,  # sidecar proxy overhead
+            'PROXY':        0.08,  # reverse proxy forwarding
+            'CACHE':        0.02,  # cache lookup (very fast on HIT)
+            'FRAMEWORK':    0.10,  # app framework middleware
+            'BACKEND':      0.30,  # application processing
         }
 
-        latencies = {}
-        for layer_type, percentage in distribution.items():
-            latencies[layer_type] = total_latency * percentage
+        # Normalise to the actual layers present so totals are consistent
+        present = {layer['type'] for layer in self.stack['layers']}
+        subset = {k: v for k, v in distribution.items() if k in present}
+        total_share = sum(subset.values()) or 1.0
+
+        latencies = {
+            k: total_latency * (v / total_share)
+            for k, v in subset.items()
+        }
+        # Any type not in distribution gets a proportional residual
+        for layer_type in present - set(distribution):
+            latencies[layer_type] = total_latency * 0.05
 
         return latencies
 
@@ -2494,6 +3072,7 @@ class DiscrepancyTester:
             self.test_protocol_confusion,
             self.test_encoding_confusion,
             self.test_content_type_confusion,
+            self.test_anchor_tag_mutations,            # <a> tag mutation points (WAF bypass)
             self.test_host_header_attacks,
             # === v4.0 REVOLUTIONARY ADVANCED TESTS ===
             self.test_advanced_response_differential,  # Bayesian + Statistical
@@ -2638,20 +3217,24 @@ class DiscrepancyTester:
                 # Analyze results for potential bypass or leakage
                 status = response.status_code
                 content_len = len(response.content)
-                
+
                 # Check for bypass (status code change)
                 if status not in [400, 401, 403, 429]:
-                    severity = 'CRITICAL' if status == 200 else 'HIGH'
+                    is_confirmed_bypass = status in [200, 201, 202, 204]
+                    severity = 'CRITICAL' if is_confirmed_bypass else 'LOW'
+                    disc_type = 'Header Confusion Bypass' if is_confirmed_bypass else 'Header Confusion Discrepancy'
+                    label = '[!] Bypass Confirmed' if is_confirmed_bypass else '[~] Discrepancy (not a bypass)'
                     self.discrepancies.append({
-                        'type': 'Header Confusion Bypass',
+                        'type': disc_type,
                         'test_name': test['name'],
                         'forbidden_url': self.forbidden_endpoint,
                         'headers': test['headers'],
                         'response_code': status,
                         'severity': severity,
-                        'evidence': f"Bypassed 403 with status {status}"
+                        'is_confirmed_bypass': is_confirmed_bypass,
+                        'evidence': f"Status changed from 403 to {status}"
                     })
-                    print(f"    [!] Potential Bypass: {test['name']} -> {status}")
+                    print(f"    {label}: {test['name']} -> {status}")
                 
                 # Check for Information Leakage (different response body length)
                 # (Note: self.baseline_forbidden_size should be defined during discovery)
@@ -2685,14 +3268,17 @@ class DiscrepancyTester:
                 
                 # If any method bypasses forbidden
                 if response.status_code not in [401, 403, 405, 429]:
+                    is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
                     self.discrepancies.append({
                         'type': 'Method Confusion',
                         'method': method,
                         'forbidden_url': self.forbidden_endpoint,
                         'response_code': response.status_code,
-                        'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM'
+                        'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
+                        'is_confirmed_bypass': is_confirmed_bypass,
                     })
-                    print(f"    ✅ Discrepancy found: {method} → {response.status_code}")
+                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    print(f"    {label}: {method} → {response.status_code}")
             except Exception as e:
                 results[method] = f"Error: {str(e)}"
     
@@ -2765,15 +3351,18 @@ class DiscrepancyTester:
                 response = self.session.get(test_url, timeout=5, allow_redirects=False)
                 
                 if response.status_code not in [400, 401, 403, 404, 429]:
+                    is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
                     self.discrepancies.append({
                         'type': 'Path Normalization',
                         'original_path': base_path,
                         'variant': variant,
                         'test_url': test_url,
                         'response_code': response.status_code,
-                        'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM'
+                        'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
+                        'is_confirmed_bypass': is_confirmed_bypass,
                     })
-                    print(f"    ✅ Discrepancy found: {variant} → {response.status_code}")
+                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    print(f"    {label}: {variant} → {response.status_code}")
             except Exception as e:
                 pass
     
@@ -2792,14 +3381,17 @@ class DiscrepancyTester:
             response = conn.getresponse()
             
             if response.status not in [403, 401]:
+                is_confirmed_bypass = response.status in [200, 201, 202, 204]
                 self.discrepancies.append({
                     'type': 'Protocol Confusion',
                     'test': 'HTTP/1.0 vs HTTP/1.1',
                     'forbidden_url': self.forbidden_endpoint,
                     'response_code': response.status,
-                    'severity': 'MEDIUM'
+                    'severity': 'MEDIUM' if is_confirmed_bypass else 'LOW',
+                    'is_confirmed_bypass': is_confirmed_bypass,
                 })
-                print(f"    ✅ Discrepancy found: HTTP/1.0 → {response.status}")
+                label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                print(f"    {label}: HTTP/1.0 → {response.status}")
             
             conn.close()
         except Exception as e:
@@ -2845,15 +3437,18 @@ class DiscrepancyTester:
                 response = self.session.get(test_url, timeout=5)
                 
                 if response.status_code not in [403, 401, 400, 429]:
+                    is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
                     self.discrepancies.append({
                         'type': 'Encoding Confusion',
                         'original_path': base_path,
                         'encoded_variant': variant,
                         'test_url': test_url,
                         'response_code': response.status_code,
-                        'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM'
+                        'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
+                        'is_confirmed_bypass': is_confirmed_bypass,
                     })
-                    print(f"    ✅ Discrepancy found: encoding bypass → {response.status_code}")
+                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    print(f"    {label}: encoding → {response.status_code}")
             except Exception as e:
                 pass
 
@@ -2915,14 +3510,17 @@ class DiscrepancyTester:
                 response = self.session.post(self.forbidden_endpoint, headers=headers, data='test', timeout=5)
 
                 if response.status_code not in [403, 401, 405, 429]:
+                    is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
                     self.discrepancies.append({
                         'type': 'Content-Type Confusion',
-                        'content_type': headers['Content-Type'],
+                        'content_type': headers.get('Content-Type', ''),
                         'forbidden_url': self.forbidden_endpoint,
                         'response_code': response.status_code,
-                        'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM'
+                        'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
+                        'is_confirmed_bypass': is_confirmed_bypass,
                     })
-                    print(f"    ✅ Discrepancy found: {headers['Content-Type']} → {response.status_code}")
+                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    print(f"    {label}: {headers.get('Content-Type', '')} → {response.status_code}")
             except Exception as e:
                 pass
 
@@ -4001,7 +4599,7 @@ class DiscrepancyTester:
 
     def test_timing_race_conditions(self):
         """Test timing-based parser race conditions"""
-        print("  ⏱️ Testing Timing Race Conditions...")
+        print("  ⏱️  Testing Timing Race Conditions...")
 
         try:
             import threading
@@ -4045,6 +4643,116 @@ class DiscrepancyTester:
                 self.log_discovery("Discrepancy", "Timing Race", f"Timing-dependent responses: {len(set(status_codes))}")
         except:
             pass
+
+    def test_anchor_tag_mutations(self):
+        """
+        Test WAF bypass using <a> tag mutation points.
+
+        Sends mutated <a href> payloads to the forbidden endpoint as POST body
+        parameters and query parameters. WAFs that pattern-match on fixed strings
+        like '<a href="javascript:' may miss mutations at specific points inside
+        the tag. A 200 response is a confirmed bypass; other status changes are
+        discrepancies worth investigating.
+        """
+        print("  🔗 Testing Anchor Tag Mutation Points...")
+
+        if not ADVANCED_MODULES_AVAILABLE:
+            print("    ⚠ AnchorTagMutationEngine not available (advanced modules missing)")
+            return
+
+        try:
+            engine = AnchorTagMutationEngine()
+        except Exception as e:
+            print(f"    ⚠ Could not initialise AnchorTagMutationEngine: {e}")
+            return
+
+        mutations = engine.generate_all()
+        confirmed = 0
+        discrepancies = 0
+
+        for mutation in mutations:
+            payload = mutation['payload']
+            mp = mutation['mutation_point']
+            desc = mutation['description']
+
+            # Test as POST body parameter
+            try:
+                response = self.session.post(
+                    self.forbidden_endpoint,
+                    data={'input': payload, 'q': payload},
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                    timeout=5,
+                    allow_redirects=False
+                )
+                status = response.status_code
+                if status not in [400, 401, 403, 429]:
+                    is_confirmed_bypass = status in [200, 201, 202, 203, 204, 205, 206]
+                    if status in [200, 201]:
+                        sev = 'CRITICAL'
+                    elif status in [202, 203, 204, 205, 206]:
+                        sev = 'HIGH'
+                    else:
+                        sev = 'LOW'
+                    self.discrepancies.append({
+                        'type': 'Anchor Tag Mutation',
+                        'mutation_point': mp,
+                        'description': desc,
+                        'payload': payload,
+                        'method': 'POST',
+                        'forbidden_url': self.forbidden_endpoint,
+                        'response_code': status,
+                        'severity': sev,
+                        'is_confirmed_bypass': is_confirmed_bypass,
+                        'evidence': f'POST body: status changed 403 → {status}',
+                    })
+                    if is_confirmed_bypass:
+                        confirmed += 1
+                        print(f"    ✅ Bypass Confirmed [{mp}] {desc} → {status}")
+                    else:
+                        discrepancies += 1
+            except Exception:
+                pass
+
+            # Test as GET query parameter
+            try:
+                import urllib.parse as _up
+                test_url = self.forbidden_endpoint + '?q=' + _up.quote(payload, safe='')
+                response = self.session.get(
+                    test_url,
+                    timeout=5,
+                    allow_redirects=False
+                )
+                status = response.status_code
+                if status not in [400, 401, 403, 429]:
+                    is_confirmed_bypass = status in [200, 201, 202, 203, 204, 205, 206]
+                    if status in [200, 201]:
+                        sev = 'CRITICAL'
+                    elif status in [202, 203, 204, 205, 206]:
+                        sev = 'HIGH'
+                    else:
+                        sev = 'LOW'
+                    self.discrepancies.append({
+                        'type': 'Anchor Tag Mutation',
+                        'mutation_point': mp,
+                        'description': desc,
+                        'payload': payload,
+                        'method': 'GET',
+                        'forbidden_url': test_url,
+                        'response_code': status,
+                        'severity': sev,
+                        'is_confirmed_bypass': is_confirmed_bypass,
+                        'evidence': f'GET param: status changed 403 → {status}',
+                    })
+                    if is_confirmed_bypass:
+                        confirmed += 1
+                        print(f"    ✅ Bypass Confirmed [{mp}] {desc} (GET) → {status}")
+                    else:
+                        discrepancies += 1
+            except Exception:
+                pass
+
+        print(f"    📊 Anchor Tag Mutations: {confirmed} confirmed bypasses, "
+              f"{discrepancies} discrepancies out of {len(mutations)} mutations tested")
 
     # ========================================================================
     # ADVANCED BYPASS DISCOVERY METHODS (v4.0 - Revolutionary Techniques)
@@ -4798,6 +5506,10 @@ class BypassGenerator:
                 self._generate_protocol_bypass(discrepancy)
             elif bypass_type == 'Encoding Confusion':
                 self._generate_encoding_bypass(discrepancy)
+            elif bypass_type == 'Anchor Tag Mutation':
+                # Only generate actionable bypass entries for confirmed bypasses
+                if discrepancy.get('is_confirmed_bypass'):
+                    self._generate_anchor_tag_bypass(discrepancy)
         
         print(f"\n  ✅ Generated {len(self.bypasses)} bypass techniques")
         return self.bypasses
@@ -4876,7 +5588,46 @@ class BypassGenerator:
             'curl_command': self._generate_curl(discrepancy['test_url'], 'GET', {})
         }
         self.bypasses.append(bypass)
-    
+
+    def _generate_anchor_tag_bypass(self, discrepancy: Dict):
+        """Generate anchor tag mutation bypass (only called for confirmed bypasses)."""
+        import urllib.parse as _up
+        import shlex as _shlex
+        method = discrepancy.get('method', 'POST')
+        url = discrepancy.get('forbidden_url', '')
+        payload = discrepancy.get('payload', '')
+        mp = discrepancy.get('mutation_point', '')
+
+        if method == 'GET':
+            bypass_url = url  # already contains ?q=... from tester
+            curl_cmd = f"curl -i {_shlex.quote(bypass_url)}"
+            curl_data = {'method': 'GET', 'path': _up.urlparse(bypass_url).path,
+                         'query': _up.urlparse(bypass_url).query}
+        else:
+            bypass_url = url
+            encoded = _up.urlencode({'input': payload, 'q': payload})
+            curl_cmd = (f"curl -i -X POST "
+                        f"-H 'Content-Type: application/x-www-form-urlencoded' "
+                        f"-d {_shlex.quote(encoded)} {_shlex.quote(bypass_url)}")
+            curl_data = {'method': 'POST', 'data': encoded,
+                         'headers': {'Content-Type': 'application/x-www-form-urlencoded'}}
+
+        bypass = {
+            'id': f"bypass_{len(self.bypasses) + 1}",
+            'type': 'Anchor Tag Mutation',
+            'discrepancy': discrepancy,
+            'severity': discrepancy.get('severity', 'CRITICAL'),
+            'method': method,
+            'url': bypass_url,
+            'headers': curl_data.get('headers', {}),
+            'payload': payload,
+            'description': (f"WAF bypass via <a> tag mutation [{mp}]: "
+                            f"{discrepancy.get('description', '')}"),
+            'curl_command': curl_cmd,
+            'curl_data': curl_data,
+        }
+        self.bypasses.append(bypass)
+
     def _generate_curl(self, url: str, method: str, headers: Dict) -> str:
         """Generate curl command"""
         cmd = ['curl', '-i']
@@ -5053,7 +5804,12 @@ class BypassValidator:
         return self.validated
     
     def _validate_bypass(self, bypass: Dict) -> bool:
-        """Validate a single bypass"""
+        """Validate a single bypass.
+
+        A bypass is confirmed only when the server returns a 2xx response.
+        Other non-block responses (3xx, 4xx different from 403/401) are
+        interesting discrepancies but do NOT constitute a confirmed bypass.
+        """
         try:
             response = self.session.request(
                 method=bypass['method'],
@@ -5061,16 +5817,26 @@ class BypassValidator:
                 headers=bypass.get('headers', {}),
                 timeout=10
             )
-            
-            # Success if we get anything other than 403/401
-            if response.status_code not in [403, 401]:
+
+            # Only 2xx confirms a real bypass
+            if response.status_code in [200, 201, 202, 203, 204, 205, 206]:
                 bypass['validation'] = {
                     'status': 'CONFIRMED',
                     'response_code': response.status_code,
                     'validated_at': datetime.now().isoformat()
                 }
                 return True
-            
+
+            # Different from baseline but not a bypass
+            # 401/403/429/503 are common WAF block responses – not discrepancies
+            if response.status_code not in [401, 403, 429, 503]:
+                bypass['validation'] = {
+                    'status': 'DISCREPANCY',
+                    'response_code': response.status_code,
+                    'validated_at': datetime.now().isoformat(),
+                    'note': f'Response differs ({response.status_code}) but is not a confirmed bypass (requires 2xx)'
+                }
+
             return False
         except Exception as e:
             bypass['validation'] = {

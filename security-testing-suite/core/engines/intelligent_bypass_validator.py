@@ -469,10 +469,13 @@ class IntelligentBypassValidator:
         )
 
     def _is_successful_bypass(self, status_code: int) -> bool:
-        """Determine if status code indicates successful bypass"""
-        # Success: 200, 201, 202, 204, 301, 302, 307, 308
-        # Failure: 401, 403, 404, 405, 406, 429, 500+
-        success_codes = [200, 201, 202, 204, 301, 302, 303, 307, 308]
+        """Determine if status code indicates successful bypass.
+
+        Only 2xx responses are confirmed bypasses - the WAF was bypassed and the
+        backend responded successfully. Redirects (3xx) and other non-block codes
+        are interesting discrepancies but do NOT confirm a bypass.
+        """
+        success_codes = [200, 201, 202, 203, 204, 205, 206]
         return status_code in success_codes
 
     def _perform_differential_analysis(self, response, strategy: str) -> List[ValidationEvidence]:

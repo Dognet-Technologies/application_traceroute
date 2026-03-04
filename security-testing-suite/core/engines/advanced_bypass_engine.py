@@ -606,34 +606,44 @@ class ResponseDifferentialAnalyzer:
         }
 
     def _assess_status_change_severity(self, baseline: int, observed: int) -> int:
-        """Assess severity of status code change (0-10 scale)"""
+        """Assess severity of status code change (0-10 scale).
+
+        Only 2xx responses are confirmed bypasses. Redirects and other codes are
+        discrepancies worth reporting but do NOT confirm a bypass.
+        """
         if observed == 200:
-            return 10  # Full bypass
-        elif observed in [201, 202, 204]:
-            return 9   # Successful request
-        elif observed in [301, 302, 307, 308]:
-            return 7   # Redirect (possible bypass)
-        elif observed == 304:
-            return 6   # Not modified (cache hit)
-        elif observed in [400, 404]:
-            return 5   # Different error
+            return 10  # Full bypass confirmed
+        elif observed in [201, 202, 203, 204, 205, 206]:
+            return 9   # Successful request - confirmed bypass
         elif observed in [500, 502, 503]:
-            return 8   # Backend error (backend reached!)
+            return 6   # Backend error - WAF bypassed but backend failed
+        elif observed in [301, 302, 307, 308]:
+            return 3   # Redirect - discrepancy only, NOT a confirmed bypass
+        elif observed == 304:
+            return 2   # Not modified - low signal
+        elif observed in [400, 404]:
+            return 3   # Different error - discrepancy, not bypass
         else:
-            return 3   # Other change
+            return 2   # Other discrepancy
 
     def _calculate_status_likelihood_ratio(self, baseline: int, observed: int) -> float:
-        """Calculate likelihood ratio for status code change"""
+        """Calculate likelihood ratio for status code change.
+
+        Only 2xx responses provide strong bypass evidence. Redirects and other
+        codes are discrepancies but not confirmed bypasses.
+        """
         if observed == 200:
-            return 100.0  # Very strong evidence
+            return 100.0  # Very strong evidence - confirmed bypass
+        elif observed in [201, 202, 203, 204, 205, 206]:
+            return 80.0   # Strong evidence - confirmed bypass
         elif observed in [500, 502, 503]:
-            return 50.0   # Backend error = strong evidence
-        elif observed in [301, 302]:
-            return 30.0   # Redirect = medium-strong
+            return 35.0   # Backend error - WAF bypassed but backend failed
+        elif observed in [301, 302, 307, 308]:
+            return 8.0    # Redirect - discrepancy, not a bypass
         elif observed in [400, 404]:
-            return 10.0   # Different error = weak-medium
+            return 3.0    # Different error - discrepancy, weak evidence
         else:
-            return 5.0    # Other changes
+            return 2.0    # Other discrepancy
 
     def _interpret_entropy_change(self, entropy_diff: float) -> str:
         """Interpret entropy change"""
