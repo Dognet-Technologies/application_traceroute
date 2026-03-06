@@ -4685,7 +4685,10 @@ class SmartCrawler:
         return urls
     
     def _queue_url(self, url, depth):
-        """Non-blocking queue add. Skips if queue is full to prevent deadlock."""
+        """Non-blocking queue add. Skips already-visited or queued URLs."""
+        normalized = self.normalize_url(url)
+        if normalized in self.visited_urls:
+            return False
         try:
             self.url_queue.put_nowait((url, depth))
             return True
@@ -7896,9 +7899,7 @@ class SmartCrawler:
             except Exception:
                 pass
 
-        # Continue crawling with stall detection
-        _stall_counter = 0
-        _last_visited_count = len(self.visited_urls)
+        # Continue crawling from queue
         _progress_interval = 50  # Print progress every N URLs
         _abort_reason = None
 
@@ -7923,27 +7924,17 @@ class SmartCrawler:
                 logger.info("Queue drained, crawl complete")
                 break
 
+            # Skip already-visited URLs (dedup at dequeue time)
+            normalized_url = self.normalize_url(url)
+            if normalized_url in self.visited_urls:
+                continue
+
             if self.verbose:
                 print(f"\n📄 Processing from queue: {url} (depth: {depth})")
             self.crawl_page(url, depth)
 
-            # Stall detection: if visited count hasn't changed in 50 iterations,
-            # the crawler is spinning on already-visited URLs
-            current_count = len(self.visited_urls)
-            if current_count == _last_visited_count:
-                _stall_counter += 1
-                if _stall_counter >= 50:
-                    logger.info(f"Stall detected: no new pages in 50 iterations, "
-                                f"draining queue ({self.url_queue.qsize()} remaining)")
-                    if self.verbose:
-                        print(f"\n⚠️  Stall detected: no new pages in 50 iterations, "
-                              f"moving on ({self.url_queue.qsize()} URLs skipped)")
-                    break
-            else:
-                _stall_counter = 0
-                _last_visited_count = current_count
-
             # Progress log con tempo trascorso
+            current_count = len(self.visited_urls)
             if current_count % _progress_interval == 0 and current_count > 0:
                 elapsed = time.time() - self._scan_start_time
                 remaining = self.max_runtime - elapsed
@@ -7952,8 +7943,8 @@ class SmartCrawler:
                             f"{self.performance_monitor.http_requests} HTTP requests, "
                             f"{elapsed:.0f}s elapsed ({remaining:.0f}s remaining)")
 
-            # Small delay between requests
-            time.sleep(random.uniform(0.5, 1.5))
+            # Small delay between requests (rate_limiter in crawl_page handles main throttling)
+            time.sleep(random.uniform(0.1, 0.3))
 
         # Log abort reason se presente
         if _abort_reason:
