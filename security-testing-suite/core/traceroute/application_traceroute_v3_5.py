@@ -67,27 +67,72 @@ warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
 
 class RateLimiter:
-    """Rate limiter to prevent overwhelming target servers"""
+    """Rate limiter with jitter to prevent overwhelming target servers and avoid WAF detection"""
 
-    def __init__(self, requests_per_second: float = 2.0):
+    def __init__(self, requests_per_second: float = 2.0, jitter: float = 0.3):
         self.delay = 1.0 / requests_per_second
+        self.jitter = jitter  # Random jitter factor (0.0 - 1.0)
         self.last_request = 0
         self.lock = threading.Lock()
 
+    def _jittered_delay(self) -> float:
+        """Calculate delay with random jitter to avoid detection patterns"""
+        base = self.delay
+        if self.jitter > 0:
+            base += random.uniform(0, self.delay * self.jitter)
+        return base
+
     def wait(self):
-        """Wait if necessary to respect rate limit"""
+        """Wait if necessary to respect rate limit with jitter"""
         with self.lock:
             elapsed = time.time() - self.last_request
-            if elapsed < self.delay:
-                time.sleep(self.delay - elapsed)
+            target_delay = self._jittered_delay()
+            if elapsed < target_delay:
+                time.sleep(target_delay - elapsed)
             self.last_request = time.time()
 
     async def await_async(self):
-        """Async version of wait"""
+        """Async version of wait with jitter"""
         elapsed = time.time() - self.last_request
-        if elapsed < self.delay:
-            await asyncio.sleep(self.delay - elapsed)
+        target_delay = self._jittered_delay()
+        if elapsed < target_delay:
+            await asyncio.sleep(target_delay - elapsed)
         self.last_request = time.time()
+
+
+# Expanded User-Agent pool for rotation (modern browsers across platforms)
+USER_AGENT_POOL = [
+    # Chrome - Windows
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    # Chrome - macOS
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    # Chrome - Linux
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    # Firefox - Windows
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+    # Firefox - macOS
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.2; rv:121.0) Gecko/20100101 Firefox/121.0',
+    # Firefox - Linux
+    'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+    # Edge
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+    # Safari - macOS
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+    # Safari - iOS
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+]
+
+
+def get_random_user_agent() -> str:
+    """Get a random User-Agent string from the pool"""
+    return random.choice(USER_AGENT_POOL)
 
 
 class ProgressiveStackAnalyzer:
@@ -1033,7 +1078,7 @@ class ProgressiveStackAnalyzer:
     def send_baseline_request(self) -> requests.Response:
         """Send initial request to analyze raw stack response"""
         headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+            'User-Agent': get_random_user_agent(),
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -1042,7 +1087,7 @@ class ProgressiveStackAnalyzer:
             'Upgrade-Insecure-Requests': '1'
         }
 
-        # Apply rate limiting
+        # Apply rate limiting with jitter
         self.rate_limiter.wait()
 
         response = self.session.get(self.target_url, headers=headers, timeout=15)
@@ -2220,7 +2265,7 @@ class ForbiddenEndpointFinder:
         """Check if URL returns true 403/401 (not redirect)"""
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+                'User-Agent': get_random_user_agent(),
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
             }
             

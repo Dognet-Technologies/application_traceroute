@@ -88,6 +88,8 @@ class PayloadMutationEngine:
             'case_swap': self._mutate_case,
             'url_encode': self._mutate_url_encode,
             'double_encode': self._mutate_double_encode,
+            'html_entity': self._mutate_html_entity,
+            'mixed_encoding': self._mutate_mixed_encoding,
             'unicode': self._mutate_unicode,
             'whitespace': self._mutate_whitespace,
             'null_byte': self._mutate_null_byte,
@@ -170,15 +172,33 @@ class PayloadMutationEngine:
         mutations = []
         # Full encode
         mutations.append(urllib.parse.quote(payload, safe=''))
+        # Full encode preserving slashes
+        mutations.append(urllib.parse.quote(payload, safe='/'))
         # Selective encode (special chars only)
-        special = ['<', '>', '"', "'", '/', '\\', '&', ';', '|', ' ']
+        special = ['<', '>', '"', "'", '/', '\\', '&', ';', '|', ' ', '(', ')', '=', '{', '}']
         for char in special:
             if char in payload:
                 mutations.append(payload.replace(char, urllib.parse.quote(char)))
+        # Hex encoding (lowercase %xx)
+        hex_encoded = ''.join(f'%{ord(c):02x}' if not c.isalnum() else c for c in payload)
+        mutations.append(hex_encoded)
+        # Hex encoding (uppercase %XX)
+        hex_upper = ''.join(f'%{ord(c):02X}' if not c.isalnum() else c for c in payload)
+        mutations.append(hex_upper)
+        # Mixed case hex encoding (%xX alternating)
+        mixed_hex = ''.join(
+            f'%{ord(c):02x}'.upper() if i % 2 == 0 else f'%{ord(c):02x}'
+            if not c.isalnum() else c
+            for i, c in enumerate(payload)
+        )
+        mutations.append(mixed_hex)
+        # Full hex encode (ALL characters including alphanum)
+        full_hex = ''.join(f'%{ord(c):02x}' for c in payload)
+        mutations.append(full_hex)
         return [m for m in mutations if m != payload]
 
     def _mutate_double_encode(self, payload: str) -> List[str]:
-        """Double/triple URL encoding"""
+        """Double/triple URL encoding and advanced encoding bypasses"""
         mutations = []
         # Double encode
         encoded = urllib.parse.quote(payload, safe='')
@@ -189,6 +209,86 @@ class PayloadMutationEngine:
         mutations.append(triple)
         # Encode just the %
         mutations.append(encoded.replace('%', '%25'))
+        # Double encode only special characters (selective double encode)
+        special = ['<', '>', '"', "'", '/', '\\', '&', ';', '|', ' ', '(', ')']
+        for char in special:
+            if char in payload:
+                single = urllib.parse.quote(char, safe='')
+                double_char = urllib.parse.quote(single, safe='')
+                mutations.append(payload.replace(char, double_char))
+        # Overlong UTF-8 style encoding (e.g., %c0%af for /)
+        overlong_map = {
+            '/': '%c0%af',
+            '\\': '%c1%9c',
+            '.': '%c0%ae',
+            '<': '%c0%bc',
+            '>': '%c0%be',
+        }
+        for char, overlong in overlong_map.items():
+            if char in payload:
+                mutations.append(payload.replace(char, overlong))
+        return [m for m in mutations if m != payload]
+
+    def _mutate_html_entity(self, payload: str) -> List[str]:
+        """HTML entity encoding variations"""
+        mutations = []
+        # Named HTML entities
+        html_entities = {
+            '<': ['&lt;', '&#60;', '&#x3c;', '&#x3C;', '&#060;'],
+            '>': ['&gt;', '&#62;', '&#x3e;', '&#x3E;', '&#062;'],
+            '"': ['&quot;', '&#34;', '&#x22;', '&#034;'],
+            "'": ['&apos;', '&#39;', '&#x27;', '&#039;'],
+            '&': ['&amp;', '&#38;', '&#x26;'],
+            '/': ['&#47;', '&#x2f;', '&#x2F;', '&#047;'],
+            ' ': ['&#32;', '&#x20;', '&nbsp;'],
+            '(': ['&#40;', '&#x28;'],
+            ')': ['&#41;', '&#x29;'],
+            '=': ['&#61;', '&#x3d;'],
+        }
+        for char, entities in html_entities.items():
+            if char in payload:
+                for entity in entities:
+                    mutations.append(payload.replace(char, entity))
+        # Full decimal entity encoding
+        decimal_full = ''.join(f'&#{ord(c)};' for c in payload)
+        mutations.append(decimal_full)
+        # Full hex entity encoding
+        hex_full = ''.join(f'&#x{ord(c):x};' for c in payload)
+        mutations.append(hex_full)
+        # Zero-padded decimal entities
+        padded_full = ''.join(f'&#{ord(c):06d};' for c in payload)
+        mutations.append(padded_full)
+        return [m for m in mutations if m != payload]
+
+    def _mutate_mixed_encoding(self, payload: str) -> List[str]:
+        """Mixed encoding strategies - combine URL, HTML, and Unicode"""
+        mutations = []
+        # Mix URL encode + HTML entity (alternate chars)
+        mixed1 = ''
+        for i, c in enumerate(payload):
+            if not c.isalnum():
+                if i % 2 == 0:
+                    mixed1 += urllib.parse.quote(c, safe='')
+                else:
+                    mixed1 += f'&#{ord(c)};'
+            else:
+                mixed1 += c
+        mutations.append(mixed1)
+        # JavaScript Unicode escapes (for XSS contexts)
+        js_unicode = ''.join(f'\\u{ord(c):04x}' if not c.isalnum() else c for c in payload)
+        mutations.append(js_unicode)
+        # Full JavaScript Unicode escapes
+        js_unicode_full = ''.join(f'\\u{ord(c):04x}' for c in payload)
+        mutations.append(js_unicode_full)
+        # JavaScript hex escapes
+        js_hex = ''.join(f'\\x{ord(c):02x}' if not c.isalnum() else c for c in payload)
+        mutations.append(js_hex)
+        # CSS escape sequences (for CSS injection contexts)
+        css_escape = ''.join(f'\\{ord(c):x} ' if not c.isalnum() else c for c in payload)
+        mutations.append(css_escape)
+        # Octal encoding
+        octal_enc = ''.join(f'\\{ord(c):03o}' if not c.isalnum() else c for c in payload)
+        mutations.append(octal_enc)
         return [m for m in mutations if m != payload]
 
     def _mutate_unicode(self, payload: str) -> List[str]:

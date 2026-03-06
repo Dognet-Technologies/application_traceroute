@@ -390,12 +390,25 @@ class WordlistLoader:
     - Custom wordlists
     """
 
-    # Default base paths
+    # Default base paths (well-known sources)
     DEFAULT_PATHS = {
         'payloads_all_the_things': '/usr/share/wordlists/PayloadsAllTheThings',
         'fuzzdb': '/usr/share/wordlists/fuzzdb',
         'seclists': '/usr/share/wordlists/SecLists',
     }
+
+    @classmethod
+    def _auto_discover_paths(cls, base_dir: str) -> Dict[str, str]:
+        """Auto-discover all wordlist directories under a base path"""
+        discovered = {}
+        if not os.path.isdir(base_dir):
+            return discovered
+        for d in sorted(os.listdir(base_dir)):
+            full = os.path.join(base_dir, d)
+            if os.path.isdir(full) and not d.startswith('.'):
+                key = d.lower().replace('-', '_').replace(' ', '_')
+                discovered[key] = full
+        return discovered
 
     # Wordlist mapping: vuln_type → list of paths
     WORDLIST_MAP = {
@@ -543,7 +556,14 @@ class WordlistLoader:
 
     def __init__(self, base_paths: Dict[str, str] = None):
         """Initialize wordlist loader"""
-        self.base_paths = base_paths or self.DEFAULT_PATHS
+        self.base_paths = base_paths if base_paths is not None else self.DEFAULT_PATHS.copy()
+        # If a single base directory is passed, auto-discover all subdirs
+        # Also auto-discover from common system paths
+        for system_base in ['/usr/share/wordlists', os.path.expanduser('~/wordlists')]:
+            extra = self._auto_discover_paths(system_base)
+            for k, v in extra.items():
+                if k not in self.base_paths:
+                    self.base_paths[k] = v
         self._cache = {}  # Cache loaded payloads
         self._available_paths = self._check_available_paths()
 
