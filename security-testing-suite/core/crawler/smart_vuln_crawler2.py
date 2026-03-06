@@ -4135,20 +4135,20 @@ class SmartCrawler:
         self._url_circuit_broken = set()  # URLs to skip entirely
         self._CIRCUIT_BREAKER_THRESHOLD = 3  # Skip URL after N consecutive errors
 
-        # Global scan timeout (default: 30 minuti)
-        self.max_runtime = 1800  # seconds
+        # Global scan timeout (default: 60 minuti)
+        self.max_runtime = 3600  # seconds
         self._scan_start_time = None
 
-        # WAF/block detection globale
+        # WAF/block detection globale (solo crawling, NON payload testing)
         self._consecutive_blocks = 0  # contatore 403/429 consecutivi
-        self._BLOCK_DETECTION_THRESHOLD = 10  # dopo N blocchi consecutivi → rallenta
-        self._BLOCK_ABORT_THRESHOLD = 30  # dopo N blocchi consecutivi → abort
+        self._BLOCK_DETECTION_THRESHOLD = 25  # dopo N blocchi consecutivi → rallenta
+        self._BLOCK_ABORT_THRESHOLD = 80  # dopo N blocchi consecutivi → abort
         self._total_blocks = 0  # totale blocchi nella sessione
         self._waf_detected = False
 
         # Global error tracking per abort automatico
         self._global_error_count = 0
-        self._GLOBAL_ERROR_ABORT_THRESHOLD = 100  # abort dopo N errori totali
+        self._GLOBAL_ERROR_ABORT_THRESHOLD = 300  # abort dopo N errori totali
 
         # ⚡ REGEX PRECOMPILATE per evitare ricompilazione ripetuta
         self._compile_regex_patterns()
@@ -6702,9 +6702,16 @@ class SmartCrawler:
                 # Incrementa contatore HTTP requests
                 self.performance_monitor.increment_requests()
 
-                # WAF/block tracking globale
-                if not self._track_response_status(response.status_code):
-                    return False  # target sta bloccando
+                # NON tracciare 403/429 come blocchi WAF durante il payload testing:
+                # è normale ricevere 403 da WAF/IDS quando si testano payload di attacco.
+                # Il WAF tracking globale resta attivo solo nel crawling (crawl_page).
+                # Tracciamo solo 429 (rate limit) e 503 (service unavailable) come segnali
+                # che il server è sovraccarico e dobbiamo rallentare.
+                if response.status_code in (429, 503):
+                    self._total_blocks += 1
+                    if response.status_code == 429:
+                        # Rate limited: rallenta un po' ma non abortire
+                        time.sleep(2)
 
                 # Reset error count on success (circuit breaker)
                 if base_url in self._url_error_counts:
@@ -7905,11 +7912,8 @@ class SmartCrawler:
                             f"{self.performance_monitor.http_requests} HTTP requests, "
                             f"{elapsed:.0f}s elapsed ({remaining:.0f}s remaining)")
 
-            # Small delay between requests (aumentato se WAF detected)
-            base_delay = random.uniform(0.5, 1.5)
-            if self._waf_detected:
-                base_delay *= 2  # raddoppia delay se WAF attivo
-            time.sleep(base_delay)
+            # Small delay between requests
+            time.sleep(random.uniform(0.5, 1.5))
 
         # Log abort reason se presente
         if _abort_reason:
