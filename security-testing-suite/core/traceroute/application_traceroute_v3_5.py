@@ -2651,7 +2651,7 @@ class ForbiddenEndpointFinder:
             # System directories
             '/pages', '/root', '/home', '/var', '/etc', '/tmp',
             '/uploads', '/upload', '/files', '/documents', '/media',
-            '/images', '/assets', '/static', '/resources',
+            '/images', 'Images',  '/assets', '/static', '/resources',
             '/includes', '/lib', '/libraries', '/vendor',
             '/cgi-bin', '/cgi', '/bin', '/scripts',
             
