@@ -226,31 +226,39 @@ class RateLimiter:
     per secondo, distribuendo uniformemente le richieste nel tempo.
     """
 
-    def __init__(self, requests_per_second=5):
+    def __init__(self, requests_per_second=5, jitter=0.3):
         """
-        Inizializza il rate limiter.
+        Inizializza il rate limiter con jitter per evitare pattern detection dai WAF.
 
         Args:
             requests_per_second: Numero massimo di richieste per secondo (default: 5)
+            jitter: Fattore di jitter random (0.0 - 1.0, default: 0.3)
         """
         self.rate = requests_per_second
         self.min_interval = 1.0 / self.rate
+        self.jitter = jitter
         self.last_request_time = 0
         self.lock = threading.Lock()
 
     def wait(self):
         """
-        Aspetta il tempo necessario per rispettare il rate limit.
+        Aspetta il tempo necessario per rispettare il rate limit con jitter.
         Thread-safe. Non tiene il lock durante sleep() per evitare
         di bloccare altri thread inutilmente.
+        Il jitter aggiunge un ritardo casuale per evitare pattern regolari
+        che i WAF possono rilevare come scanning automatico.
         """
         sleep_time = 0
         with self.lock:
             current_time = time.time()
             elapsed = current_time - self.last_request_time
+            # Add random jitter to the interval
+            jittered_interval = self.min_interval
+            if self.jitter > 0:
+                jittered_interval += random.uniform(0, self.min_interval * self.jitter)
 
-            if elapsed < self.min_interval:
-                sleep_time = self.min_interval - elapsed
+            if elapsed < jittered_interval:
+                sleep_time = jittered_interval - elapsed
             self.last_request_time = current_time + sleep_time
 
         if sleep_time > 0:
@@ -4161,7 +4169,7 @@ class SmartCrawler:
         # vuln_logger already initialized at top of __init__
 
         # Inizializza rate limiter e performance monitor
-        self.rate_limiter = RateLimiter(requests_per_second=5)
+        self.rate_limiter = RateLimiter(requests_per_second=3, jitter=0.4)
         self.performance_monitor = PerformanceMonitor()
 
         # Hash set per payload validation (evita test duplicati)
@@ -4172,20 +4180,20 @@ class SmartCrawler:
         self._url_circuit_broken = set()  # URLs to skip entirely
         self._CIRCUIT_BREAKER_THRESHOLD = 3  # Skip URL after N consecutive errors
 
-        # Global scan timeout (default: 30 minuti)
-        self.max_runtime = 1800  # seconds
+        # Global scan timeout (default: 60 minuti)
+        self.max_runtime = 3600  # seconds
         self._scan_start_time = None
 
-        # WAF/block detection globale
+        # WAF/block detection globale (solo crawling, NON payload testing)
         self._consecutive_blocks = 0  # contatore 403/429 consecutivi
-        self._BLOCK_DETECTION_THRESHOLD = 10  # dopo N blocchi consecutivi → rallenta
-        self._BLOCK_ABORT_THRESHOLD = 30  # dopo N blocchi consecutivi → abort
+        self._BLOCK_DETECTION_THRESHOLD = 25  # dopo N blocchi consecutivi → rallenta
+        self._BLOCK_ABORT_THRESHOLD = 80  # dopo N blocchi consecutivi → abort
         self._total_blocks = 0  # totale blocchi nella sessione
         self._waf_detected = False
 
         # Global error tracking per abort automatico
         self._global_error_count = 0
-        self._GLOBAL_ERROR_ABORT_THRESHOLD = 100  # abort dopo N errori totali
+        self._GLOBAL_ERROR_ABORT_THRESHOLD = 300  # abort dopo N errori totali
 
         # ⚡ REGEX PRECOMPILATE per evitare ricompilazione ripetuta
         self._compile_regex_patterns()
@@ -4209,12 +4217,33 @@ class SmartCrawler:
         else:
             self.session = base_session
 
-        # Rotating User-Agents
+        # Rotating User-Agents - expanded pool to avoid WAF fingerprinting
         self.user_agents = [
+            # Chrome - Windows
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            # Chrome - macOS
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            # Chrome - Linux
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
+            # Firefox - Windows
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+            # Firefox - macOS
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.2; rv:121.0) Gecko/20100101 Firefox/121.0',
+            # Firefox - Linux
+            'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+            # Edge
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+            # Safari
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+            # Mobile Safari
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
         ]
         
         # Set initial headers
@@ -4224,12 +4253,21 @@ class SmartCrawler:
         self.tech_detector = TechnologyDetector()
         self.param_analyzer = ParameterAnalyzer()
         
-        # Set default base paths
+        # Set default base paths - auto-discover if default dir exists
         self.default_base_paths = {
             'fuzzdb': '/usr/share/wordlists/fuzzdb',
             'payloads': '/usr/share/wordlists/PayloadsAllTheThings',
             'seclists': '/usr/share/wordlists/SecLists'
         }
+        # Auto-discover additional wordlist directories from common base paths
+        for base_dir in ['/usr/share/wordlists', os.path.expanduser('~/wordlists')]:
+            if os.path.isdir(base_dir):
+                for d in os.listdir(base_dir):
+                    full = os.path.join(base_dir, d)
+                    if os.path.isdir(full) and not d.startswith('.'):
+                        key = d.lower().replace('-', '_').replace(' ', '_')
+                        if key not in self.default_base_paths:
+                            self.default_base_paths[key] = full
         
         self.wordlist_mapper = WordlistMapper(self.default_base_paths)
         self.discovery_mapper = DiscoveryWordlistMapper(self.default_base_paths)
@@ -4684,7 +4722,10 @@ class SmartCrawler:
         return urls
     
     def _queue_url(self, url, depth):
-        """Non-blocking queue add. Skips if queue is full to prevent deadlock."""
+        """Non-blocking queue add. Skips already-visited or queued URLs."""
+        normalized = self.normalize_url(url)
+        if normalized in self.visited_urls:
+            return False
         try:
             self.url_queue.put_nowait((url, depth))
             return True
@@ -4785,15 +4826,16 @@ class SmartCrawler:
             print(f"\n🕷️ Crawling page: {url} (depth: {depth}, visited: {len(self.visited_urls)})")
         
         try:
-            # Rotate user agent before each request
+            # Throttle and rotate user agent before each request
+            self.rate_limiter.wait()
             self._rotate_user_agent()
-            
+
             # Make request with dynamic timeout based on depth
             timeout = 15 if depth == 0 else 10
             # Always follow redirects - at depth > 0, not following redirects
             # causes empty response bodies when DVWA/apps redirect (session, HTTP→HTTPS)
             allow_redirects = True
-            
+
             # Try normal request first
             response = self.session.get(url, timeout=timeout, verify=False, allow_redirects=allow_redirects)
             
@@ -6739,9 +6781,16 @@ class SmartCrawler:
                 # Incrementa contatore HTTP requests
                 self.performance_monitor.increment_requests()
 
-                # WAF/block tracking globale
-                if not self._track_response_status(response.status_code):
-                    return False  # target sta bloccando
+                # NON tracciare 403/429 come blocchi WAF durante il payload testing:
+                # è normale ricevere 403 da WAF/IDS quando si testano payload di attacco.
+                # Il WAF tracking globale resta attivo solo nel crawling (crawl_page).
+                # Tracciamo solo 429 (rate limit) e 503 (service unavailable) come segnali
+                # che il server è sovraccarico e dobbiamo rallentare.
+                if response.status_code in (429, 503):
+                    self._total_blocks += 1
+                    if response.status_code == 429:
+                        # Rate limited: rallenta un po' ma non abortire
+                        time.sleep(2)
 
                 # Reset error count on success (circuit breaker)
                 if base_url in self._url_error_counts:
@@ -7644,9 +7693,10 @@ class SmartCrawler:
             return None
         
         try:
-            # Rotate user agent
+            # Throttle and rotate user agent
+            self.rate_limiter.wait()
             self._rotate_user_agent()
-            
+
             # Use HEAD first (faster)
             response = self.session.head(url, timeout=5, allow_redirects=False, verify=False)
             status = response.status_code
@@ -7886,9 +7936,7 @@ class SmartCrawler:
             except Exception:
                 pass
 
-        # Continue crawling with stall detection
-        _stall_counter = 0
-        _last_visited_count = len(self.visited_urls)
+        # Continue crawling from queue
         _progress_interval = 50  # Print progress every N URLs
         _abort_reason = None
 
@@ -7913,27 +7961,17 @@ class SmartCrawler:
                 logger.info("Queue drained, crawl complete")
                 break
 
+            # Skip already-visited URLs (dedup at dequeue time)
+            normalized_url = self.normalize_url(url)
+            if normalized_url in self.visited_urls:
+                continue
+
             if self.verbose:
                 print(f"\n📄 Processing from queue: {url} (depth: {depth})")
             self.crawl_page(url, depth)
 
-            # Stall detection: if visited count hasn't changed in 50 iterations,
-            # the crawler is spinning on already-visited URLs
-            current_count = len(self.visited_urls)
-            if current_count == _last_visited_count:
-                _stall_counter += 1
-                if _stall_counter >= 50:
-                    logger.info(f"Stall detected: no new pages in 50 iterations, "
-                                f"draining queue ({self.url_queue.qsize()} remaining)")
-                    if self.verbose:
-                        print(f"\n⚠️  Stall detected: no new pages in 50 iterations, "
-                              f"moving on ({self.url_queue.qsize()} URLs skipped)")
-                    break
-            else:
-                _stall_counter = 0
-                _last_visited_count = current_count
-
             # Progress log con tempo trascorso
+            current_count = len(self.visited_urls)
             if current_count % _progress_interval == 0 and current_count > 0:
                 elapsed = time.time() - self._scan_start_time
                 remaining = self.max_runtime - elapsed
@@ -7942,11 +7980,8 @@ class SmartCrawler:
                             f"{self.performance_monitor.http_requests} HTTP requests, "
                             f"{elapsed:.0f}s elapsed ({remaining:.0f}s remaining)")
 
-            # Small delay between requests (aumentato se WAF detected)
-            base_delay = random.uniform(0.5, 1.5)
-            if self._waf_detected:
-                base_delay *= 2  # raddoppia delay se WAF attivo
-            time.sleep(base_delay)
+            # Small delay between requests (rate_limiter in crawl_page handles main throttling)
+            time.sleep(random.uniform(0.1, 0.3))
 
         # Log abort reason se presente
         if _abort_reason:
@@ -8039,13 +8074,12 @@ def main():
         print(f"             --wordlist-base ~/SecLists")
         sys.exit(1)
 
-    # Check for expected subdirectories
-    expected_dirs = ['SecLists', 'PayloadsAllTheThings', 'fuzzdb']
-    found_dirs = [d for d in expected_dirs if os.path.isdir(os.path.join(wordlist_base, d))]
+    # Auto-discover ALL subdirectories in wordlist base (not just hardcoded ones)
+    found_dirs = [d for d in sorted(os.listdir(wordlist_base))
+                  if os.path.isdir(os.path.join(wordlist_base, d)) and not d.startswith('.')]
 
     if not found_dirs:
-        print(f"\n  ⚠ WARNING: No standard wordlist directories found in {wordlist_base}")
-        print(f"    Expected one of: {', '.join(expected_dirs)}")
+        print(f"\n  ⚠ WARNING: No wordlist directories found in {wordlist_base}")
         print(f"    Detection capabilities may be limited.")
         print(f"    Consider installing SecLists: git clone https://github.com/danielmiessler/SecLists.git")
     else:
@@ -8123,16 +8157,26 @@ def main():
         crawler.set_bypass_manager(bypass_manager)
 
     # Set wordlist base path (REQUIRED - already validated above)
-    crawler.wordlist_mapper.base_paths = {
-        'fuzzdb': f"{wordlist_base}/fuzzdb",
-        'payloads': f"{wordlist_base}/PayloadsAllTheThings",
-        'seclists': f"{wordlist_base}/SecLists"
+    # Auto-discover all subdirectories as wordlist sources
+    discovered_paths = {}
+    for d in sorted(os.listdir(wordlist_base)):
+        full = os.path.join(wordlist_base, d)
+        if os.path.isdir(full) and not d.startswith('.'):
+            # Use lowercase key for matching, preserve original path
+            key = d.lower().replace('-', '_').replace(' ', '_')
+            discovered_paths[key] = full
+    # Ensure well-known aliases exist for backward compatibility
+    alias_map = {
+        'payloadsallthethings': 'payloads',
+        'seclists': 'seclists',
+        'fuzzdb': 'fuzzdb',
     }
-    crawler.discovery_mapper.base_paths = {
-        'fuzzdb': f"{wordlist_base}/fuzzdb",
-        'payloads': f"{wordlist_base}/PayloadsAllTheThings",
-        'seclists': f"{wordlist_base}/SecLists"
-    }
+    for original, alias in alias_map.items():
+        if original in discovered_paths and alias not in discovered_paths:
+            discovered_paths[alias] = discovered_paths[original]
+
+    crawler.wordlist_mapper.base_paths = discovered_paths
+    crawler.discovery_mapper.base_paths = discovered_paths
     
     # Run crawler
     results = crawler.run(discovery_limit=args.discovery_limit, skip_discovery=args.skip_discovery)
