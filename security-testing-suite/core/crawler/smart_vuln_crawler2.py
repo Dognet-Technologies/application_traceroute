@@ -95,6 +95,8 @@ except ImportError:
     except ImportError:
         MUTATION_ENGINE_AVAILABLE = False
         logger.warning("PayloadMutationEngine not available - using static payloads only")
+if MUTATION_ENGINE_AVAILABLE:
+    print("✅ Payload mutation engine enabled")
 
 # Optional import for vulnerability verification
 try:
@@ -112,6 +114,8 @@ except ImportError:
     except ImportError:
         VERIFIER_AVAILABLE = False
         logger.warning("vulnerability_verifier not available - using basic detection")
+if VERIFIER_AVAILABLE:
+    print("✅ Vulnerability verifier enabled with auto-learning")
 
 # Optional import for taxonomy/classification
 try:
@@ -147,6 +151,8 @@ except ImportError:
         NATIVE_DETECTOR_AVAILABLE = False
         PayloadDB = None
         logger.warning("native_detector not available - using basic detection only")
+if NATIVE_DETECTOR_AVAILABLE:
+    print("✅ Native detector enabled (time-based/boolean-based SQLi, XSS)")
 
 
 class SemanticResponseDiffer:
@@ -501,6 +507,23 @@ class VulnerabilityLogger:
             return f"tplmap -u '{endpoint}?{parameter}=test' --level=5"
         elif vuln_upper == 'LFI':
             return f"curl -s '{endpoint}?{parameter}=../../../etc/passwd' | head -5"
+        elif vuln_upper == 'CSRF':
+            # CSRF: test if server accepts cross-origin state-changing requests without a CSRF token.
+            # A meaningful test requires sending the request with a different Origin/Referer.
+            param_value = payload if payload else 'test'
+            if method.upper() == 'POST':
+                return (f"curl -X POST '{endpoint}' -d '{parameter}={param_value}' "
+                        f"-H 'Origin: https://evil.example.com' "
+                        f"-H 'Referer: https://evil.example.com/' -v")
+            else:
+                return (f"curl '{endpoint}?{parameter}={param_value}' "
+                        f"-H 'Origin: https://evil.example.com' "
+                        f"-H 'Referer: https://evil.example.com/' -v")
+        elif vuln_upper == 'XXE':
+            # XXE payloads must go in the request body as XML, never in a URL query string.
+            return (f"curl -X POST '{endpoint}' "
+                    f"-H 'Content-Type: application/xml' "
+                    f"-d '{payload}' -v")
         else:
             return f"curl -v '{endpoint}?{parameter}={payload[:30]}'"
 
@@ -4127,7 +4150,6 @@ class SmartCrawler:
         self.vuln_verifier = None
         if VERIFIER_AVAILABLE:
             self.vuln_verifier = VulnerabilityVerifier(enable_learning=True)
-            print("  🔬 Vulnerability verifier enabled with auto-learning")
         else:
             print("  ⚠ Vulnerability verifier not available - using basic detection")
 
@@ -4135,13 +4157,11 @@ class SmartCrawler:
         self.mutation_engine = None
         if MUTATION_ENGINE_AVAILABLE:
             self.mutation_engine = PayloadMutationEngine()
-            print("  🧬 Payload mutation engine enabled")
 
         # Initialize native detector (pure Python, no external tools)
         self.native_detector = None
         if NATIVE_DETECTOR_AVAILABLE:
             self.native_detector = VulnDetector(timeout=10, verify_ssl=False)
-            print("  🧪 Native detector enabled (time-based/boolean-based SQLi, XSS)")
         else:
             print("  ⚠ Native detector not available - using wordlist-based detection only")
 
@@ -8022,8 +8042,145 @@ class SmartCrawler:
                      f"in {elapsed:.0f}s ({self._total_blocks} blocks, "
                      f"{self._global_error_count} errors)")
 
+        # ===== POST-SCAN: SQLi CONFIRMATION VIA SQLMAP =====
+        # All SQLi findings detected during the crawl are heuristic (pattern-based).
+        # Run sqlmap on each unique endpoint+parameter to confirm or discard them.
+        self._confirm_sqli_with_sqlmap()
+
         return self.results
     
+    def _confirm_sqli_with_sqlmap(self):
+        """
+        Post-scan SQLi confirmation using sqlmap.
+
+        All SQLi findings from the heuristic scanner are passed through sqlmap
+        to eliminate false positives. Only sqlmap-confirmed findings are kept.
+        Unique (endpoint, parameter) pairs are tested once and the result is
+        applied to all matching entries in vulnerability_test_results.
+        """
+        sqli_results = [
+            r for r in self.results['vulnerability_test_results']
+            if r.get('vulnerability_type', '').lower() in ('sqli', 'sql_injection')
+        ]
+
+        if not sqli_results:
+            return
+
+        # Try to import SqlmapWrapper
+        SqlmapWrapper = None
+        try:
+            try:
+                from core.tools import SqlmapWrapper as _SqlmapWrapper
+            except ImportError:
+                from tools.sqlmap_wrapper import SqlmapWrapper as _SqlmapWrapper
+            SqlmapWrapper = _SqlmapWrapper
+        except ImportError:
+            logger.debug("SqlmapWrapper not importable - skipping SQLi confirmation")
+
+        if SqlmapWrapper is None:
+            logger.warning(
+                f"sqlmap wrapper unavailable - {len(sqli_results)} SQLi findings are UNCONFIRMED heuristic detections"
+            )
+            for r in sqli_results:
+                r['sqlmap_confirmed'] = None
+            return
+
+        try:
+            sqlmap = SqlmapWrapper(
+                cookies=dict(self.session.cookies),
+                verbose=self.verbose,
+                timeout=120,
+                level=1,
+                risk=1,
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize SqlmapWrapper: {e}")
+            for r in sqli_results:
+                r['sqlmap_confirmed'] = None
+            return
+
+        if not sqlmap.is_available():
+            logger.warning(
+                f"sqlmap not installed - {len(sqli_results)} SQLi findings are UNCONFIRMED. "
+                "Install sqlmap to enable automatic confirmation."
+            )
+            if self.verbose:
+                print(f"\n  ⚠️  sqlmap not installed - {len(sqli_results)} SQLi findings are UNCONFIRMED heuristic detections")
+                print(f"     Install: pip install sqlmap  or  sudo apt install sqlmap")
+            for r in sqli_results:
+                r['sqlmap_confirmed'] = None
+            return
+
+        # Deduplicate by (endpoint, parameter) and confirm each combo once
+        confirmed_combos = set()
+        rejected_combos = set()
+        seen_combos = set()
+
+        logger.info(f"Running sqlmap to confirm {len(sqli_results)} SQLi findings...")
+        if self.verbose:
+            print(f"\n🔍 Running sqlmap to confirm {len(sqli_results)} SQLi heuristic findings...")
+
+        for result in sqli_results:
+            combo = (result['endpoint'], result['parameter'])
+
+            if combo in seen_combos:
+                # Reuse previous sqlmap result for same endpoint+parameter
+                result['sqlmap_confirmed'] = combo in confirmed_combos
+                continue
+
+            seen_combos.add(combo)
+
+            try:
+                if self.verbose:
+                    print(f"  → Testing {result['parameter']} @ {result['endpoint']} ...")
+
+                sqlmap_result = sqlmap.scan(
+                    url=result['endpoint'],
+                    parameter=result['parameter'],
+                    method=result.get('method', 'GET'),
+                )
+
+                if sqlmap_result.is_vulnerable:
+                    result['sqlmap_confirmed'] = True
+                    confirmed_combos.add(combo)
+                    if self.verbose:
+                        print(f"    ✅ CONFIRMED ({sqlmap_result.technique})")
+                else:
+                    result['sqlmap_confirmed'] = False
+                    rejected_combos.add(combo)
+                    if self.verbose:
+                        print(f"    ❌ FALSE POSITIVE - removed")
+
+            except Exception as e:
+                logger.debug(f"sqlmap error for {combo}: {e}")
+                result['sqlmap_confirmed'] = None  # Unknown - keep it
+
+        # Remove entries that sqlmap explicitly rejected (confirmed=False)
+        before = len(self.results['vulnerability_test_results'])
+        self.results['vulnerability_test_results'] = [
+            r for r in self.results['vulnerability_test_results']
+            if r.get('vulnerability_type', '').lower() not in ('sqli', 'sql_injection')
+            or r.get('sqlmap_confirmed') is not False
+        ]
+        after = len(self.results['vulnerability_test_results'])
+
+        confirmed_count = len(confirmed_combos)
+        rejected_count = len(rejected_combos)
+        unknown_count = len(seen_combos) - confirmed_count - rejected_count
+
+        logger.info(
+            f"SQLi confirmation: {confirmed_count} confirmed, "
+            f"{rejected_count} false positives removed, "
+            f"{unknown_count} unknown (sqlmap error)"
+        )
+        if self.verbose or rejected_count > 0:
+            print(f"\n  SQLi Confirmation via sqlmap:")
+            print(f"    Heuristic detections: {len(sqli_results)}")
+            print(f"    Confirmed:            {confirmed_count}")
+            print(f"    False positives:      {rejected_count} (removed)")
+            if unknown_count:
+                print(f"    Unknown (error):      {unknown_count} (kept)")
+
     def export_results(self, filename='attack_surface.json'):
         """Export results to JSON file in results directory"""
         # Save in results directory
