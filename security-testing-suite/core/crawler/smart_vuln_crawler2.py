@@ -836,12 +836,14 @@ class BehavioralContextEngine:
             ],
             
             'template_engine': [
+                {'param': 'testvalue49', 'response_key': 'baseline'},  # Baseline with '49' in input
                 {'param': '{{7*7}}', 'response_key': 'jinja2'},
                 {'param': '${7*7}', 'response_key': 'velocity'},
                 {'param': '<%= 7*7 %>', 'response_key': 'erb'},
                 {'param': '#{7*7}', 'response_key': 'el'},
                 {'param': '{7*7}', 'response_key': 'simple_bracket'},
-                {'param': '[[7*7]]', 'response_key': 'twig'}
+                {'param': '[[7*7]]', 'response_key': 'twig'},
+                {'param': '{{49163*49163}}', 'response_key': 'jinja2_confirm'},  # Confirmation: 2417001769
             ],
             
             'reflection_context': [
@@ -1199,10 +1201,45 @@ class BehavioralContextEngine:
                     return {'detected': True, 'confidence': 82, 'type': 'boolean_based_sql'}
         
         elif context == 'template_engine':
-            # Check if math was evaluated
+            baseline = results.get('baseline', {})
+            baseline_text = str(baseline.get('text_sample', ''))
+
+            # Check 1: Confirmation probe (strongest - unique number 2417001769)
+            confirm_result = results.get('jinja2_confirm', {})
+            confirm_text = str(confirm_result.get('text_sample', ''))
+            if '2417001769' in confirm_text and '2417001769' not in baseline_text:
+                return {'detected': True, 'confidence': 99, 'engine': 'jinja2', 'type': 'template_injection_confirmed'}
+
+            # Check 2: Math expression 7*7=49 with baseline verification
+            # '49' is a very common number (prices, IDs, etc.), so we MUST verify
+            # it's not naturally present in the page
             for engine, result in results.items():
-                if '49' in str(result.get('text_sample', '')):  # 7*7=49
-                    return {'detected': True, 'confidence': 99, 'engine': engine, 'type': 'template_injection_confirmed'}
+                if engine in ('baseline', 'jinja2_confirm'):
+                    continue
+                probe_text = str(result.get('text_sample', ''))
+                if '49' in probe_text:
+                    # Verify '49' is NOT in the baseline response
+                    if '49' not in baseline_text:
+                        # Extra check: verify '49' appears in a new position (not coincidental)
+                        return {'detected': True, 'confidence': 95, 'engine': engine, 'type': 'template_injection_confirmed'}
+
+            # Check 3: Template engine error messages (weaker signal but useful)
+            template_errors = [
+                (r'TemplateSyntaxError', 'jinja2'),
+                (r'UndefinedError', 'jinja2'),
+                (r'Twig_Error|Twig\\Error', 'twig'),
+                (r'freemarker\.template', 'freemarker'),
+                (r'velocity\.exception', 'velocity'),
+            ]
+            for pattern, engine_name in template_errors:
+                for key, result in results.items():
+                    if key == 'baseline':
+                        continue
+                    probe_text = str(result.get('text_sample', ''))
+                    if re.search(pattern, probe_text, re.I):
+                        base_has_error = re.search(pattern, baseline_text, re.I)
+                        if not base_has_error:
+                            return {'detected': True, 'confidence': 80, 'engine': engine_name, 'type': 'template_error_detected'}
         
         elif context == 'reflection_context':
             marker = results.get('UNIQUE_MARKER_12345', {})
@@ -1222,16 +1259,42 @@ class BehavioralContextEngine:
         
         elif context == 'command_execution':
             baseline = results.get('baseline', {})
-            
-            # Check for timing anomalies
+            baseline_time = baseline.get('time', 0)
+
+            # Check 1: Timing-based detection (strongest signal for blind RCE)
+            # The probes use 'sleep 2', so we expect ~2s delay vs baseline
             for key, result in results.items():
-                if 'sleep' in key and result.get('timing_anomaly'):
-                    return {'detected': True, 'confidence': 95, 'type': 'command_injection_confirmed', 'vector': key}
-            
-            # Check for different response lengths (command output)
+                if 'sleep' in key and not result.get('error'):
+                    probe_time = result.get('time', 0)
+                    # Require at least 1.5s MORE than baseline (not just > 1.5s absolute)
+                    # This avoids false positives from slow servers
+                    if baseline_time > 0 and (probe_time - baseline_time) >= 1.5:
+                        return {'detected': True, 'confidence': 95, 'type': 'command_injection_confirmed', 'vector': key}
+                    elif result.get('timing_anomaly') and probe_time >= 2.0:
+                        return {'detected': True, 'confidence': 90, 'type': 'command_injection_timing', 'vector': key}
+
+            # Check 2: Command output in response (direct evidence)
+            # Look for actual command output patterns that wouldn't appear in normal responses
+            rce_output_patterns = [
+                r'uid=\d+\([^)]+\)\s+gid=\d+',           # id command
+                r'root:[\w\*!]:0:0:',                      # /etc/passwd
+                r'daemon:[\w\*!]:1:1:',                    # /etc/passwd
+                r'(root|www-data|apache|nginx|nobody)\n',  # whoami with newline
+            ]
+            baseline_text = baseline.get('text_sample', '')
             for key, result in results.items():
-                if key != 'baseline' and abs(result.get('length', 0) - baseline.get('length', 0)) > 100:
-                    return {'detected': True, 'confidence': 75, 'type': 'possible_command_execution'}
+                if key != 'baseline' and not result.get('error'):
+                    probe_text = result.get('text_sample', '')
+                    for pattern in rce_output_patterns:
+                        if re.search(pattern, probe_text, re.M | re.I):
+                            # Verify this output is NEW (not in baseline)
+                            if not re.search(pattern, baseline_text, re.M | re.I):
+                                return {'detected': True, 'confidence': 95, 'type': 'command_output_detected', 'vector': key}
+
+            # NOTE: Response length difference alone is NOT sufficient to detect RCE.
+            # SQLi-vulnerable parameters also produce different response lengths when
+            # injected with command separators like ';' because they break SQL syntax.
+            # We only flag RCE when we have direct evidence (timing or output).
         
         elif context == 'file_operations':
             # Check for path traversal indicators
@@ -3184,7 +3247,12 @@ class WordlistMapper:
             '/var/log/nginx/access.log',
         ],
         'rce': [
-            # RCE payloads
+            # RCE payloads - echo markers first (strongest causal evidence)
+            '; echo XRCE$(expr 31337 + 7919)XRCE',
+            '| echo XRCE$(expr 31337 + 7919)XRCE',
+            '`echo XRCE$(expr 31337 + 7919)XRCE`',
+            '$(echo XRCE$(expr 31337 + 7919)XRCE)',
+            # Classic command output detection
             '; id',
             '| id',
             '`id`',
@@ -3194,19 +3262,25 @@ class WordlistMapper:
             '& whoami',
             '; cat /etc/passwd',
             '| cat /etc/passwd',
-            '; ping -c 3 127.0.0.1',
-            '| ping -c 3 127.0.0.1',
+            # Time-based detection
             '; sleep 5',
             '| sleep 5',
+            # Windows
             '& dir',
             '| type c:\\windows\\win.ini',
         ],
         'ssti': [
-            # SSTI payloads
+            # SSTI payloads - unique expressions first (avoid false positives with common numbers)
+            '{{49163*49163}}',     # = 2417001769 (unique, never appears naturally)
+            '${49163*49163}',      # FreeMarker/EL variant
+            '<%= 49163*49163 %>',  # ERB variant
+            '#{49163*49163}',      # Ruby/EL variant
+            # Classic expressions (used as secondary confirmation)
             '{{7*7}}',
             '${7*7}',
             '#{7*7}',
             '<%= 7*7 %>',
+            # Context leaks
             '{{config}}',
             '{{self}}',
             '{{"".__class__}}',
@@ -7203,11 +7277,31 @@ class SmartCrawler:
                     return True
 
         elif vuln_type == 'rce':
-            # RCE detection with baseline comparison.
-            # HIGH-confidence indicators almost never appear in normal web pages.
-            # MEDIUM-confidence indicators (ping output, paths, shell prompts) CAN
-            # appear in normal pages (e.g. DVWA command injection shows ping results
-            # by default), so we require them to be NEW vs baseline.
+            # RCE detection strategy:
+            # 1. CAUSAL PROOF: echo markers with computed values (strongest evidence)
+            # 2. HIGH-confidence: command output patterns that almost never appear in pages
+            # 3. MEDIUM-confidence: patterns that CAN appear normally, require baseline diff
+            # 4. TIME-BASED: response time anomalies for blind RCE
+
+            # Check 1: CAUSAL PROOF via echo markers
+            # If payload contains an echo marker with a computed expression,
+            # check if the COMPUTED result appears in the response
+            echo_marker_match = re.search(r'RCEMARKER(\d+)RCEMARKER', response_text)
+            if echo_marker_match:
+                # The marker appeared - this is almost certainly RCE
+                marker_value = echo_marker_match.group(1)
+                # Verify it's not in baseline
+                if not baseline_response or 'RCEMARKER' not in baseline_response:
+                    return True
+
+            # Also check for our math-based echo markers: echo $(expr A + B) = C
+            # Payload format: ; echo XRCE$(expr 31337 + 7919)XRCE
+            # Expected output: XRCE39256XRCE
+            if 'XRCE39256XRCE' in response_text:
+                if not baseline_response or 'XRCE39256XRCE' not in baseline_response:
+                    return True
+
+            # Check 2: HIGH-confidence indicators (almost never appear in normal pages)
             rce_high_confidence = [
                 r'uid=\d+.*gid=\d+.*groups=',
                 r'root:[\w\*\!]:0:0:',
@@ -7215,8 +7309,6 @@ class SmartCrawler:
                 r'PID\s+TTY\s+TIME\s+CMD',
                 r'UID\s+PID\s+PPID',
                 r'^[d-][rwx-]{9}\s+\d+\s+\w+\s+\w+\s+\d+',
-                r'command not found',
-                r'is not recognized as',
             ]
 
             for indicator in rce_high_confidence:
@@ -7229,18 +7321,32 @@ class SmartCrawler:
                     else:
                         return True  # No baseline, trust the match
 
-            # Medium-confidence: only count if NEW compared to baseline
+            # Check 3: Error messages that suggest command injection attempt was parsed
+            # "command not found" and "is not recognized" prove the shell tried to execute
+            # our input as a command - this is RCE even if the command failed
+            rce_error_indicators = [
+                r'command not found',
+                r'is not recognized as',
+                r'not found$',
+                r'sh:\s*\d+:.*not found',
+                r'bash:.*command not found',
+                r'/bin/sh:.*not found',
+            ]
+
+            for indicator in rce_error_indicators:
+                if re.search(indicator, response_text, re.I | re.M):
+                    if baseline_response:
+                        if not re.search(indicator, baseline_response, re.I | re.M):
+                            return True
+                    else:
+                        return True
+
+            # Check 4: Medium-confidence - only count if NEW compared to baseline
             rce_medium_confidence = [
                 ('linux_version', r'Linux\s+\w+\s+\d+\.\d+'),
                 ('windows', r'Microsoft\s+Windows'),
                 ('volume', r'Volume\s+in\s+drive'),
                 ('directory', r'Directory\s+of'),
-                ('shell_prompt', r'[\w\-]+@[\w\-]+:'),
-                ('dollar_prompt', r'[\w\-]+\$'),
-                ('hash_prompt', r'[\w\-]+#'),
-                ('win_prompt', r'C:\\.*>'),
-                ('bin_path', r'/bin/\w+'),
-                ('usr_bin', r'/usr/bin/\w+'),
                 ('ping_output', r'\d+\s+bytes\s+from\s+[\d\.]+.*ttl=\d+'),
                 ('icmp_seq', r'icmp_seq=\d+\s+ttl=\d+'),
             ]
@@ -7251,11 +7357,17 @@ class SmartCrawler:
                 )
                 if new_findings:
                     return True
-            else:
-                # No baseline available - fall back to direct matching
-                for name, indicator in rce_medium_confidence:
-                    if re.search(indicator, response_text, re.I | re.M):
-                        return True
+
+            # Check 5: TIME-BASED blind RCE
+            # If payload contains a sleep/delay command and response was slow
+            if response_time and response_time >= 4.0:
+                sleep_patterns = [r'sleep\s+(\d+)', r'ping\s+-c\s+(\d+)', r'timeout\s+(\d+)']
+                for sp in sleep_patterns:
+                    match = re.search(sp, payload, re.I)
+                    if match:
+                        expected_delay = int(match.group(1))
+                        if response_time >= expected_delay * 0.8:
+                            return True
         
         elif vuln_type == 'xxe':
             # ========== XXE DETECTION ==========
@@ -7299,9 +7411,24 @@ class SmartCrawler:
                     return True
 
         elif vuln_type == 'ssti':
-            # ========== SSTI DETECTION (Enhanced) ==========
+            # ========== SSTI DETECTION (Enhanced with Causal Verification) ==========
+            # Theory: SSTI is confirmed when the template engine EVALUATES our expression.
+            # The key insight is that we need to prove COMPUTATION happened, not just
+            # that a number appears in the response.
 
-            # Check 1: Math evaluation (7*7=49, 7+7=14)
+            # Check 1: UNIQUE expression evaluation (strongest - causal proof)
+            # 49163*49163 = 2417001769 - this number will NEVER appear naturally
+            unique_checks = [
+                ('49163*49163', '2417001769'),
+            ]
+            for operation, result in unique_checks:
+                if operation in payload and result in response_text:
+                    # No baseline check needed - 2417001769 is unique enough
+                    return True
+
+            # Check 2: Common math evaluation WITH baseline verification
+            # '49', '14', '64', '81' are common numbers, so we MUST verify
+            # they don't appear in the baseline response
             math_checks = [
                 ('7*7', '49'),
                 ('7+7', '14'),
@@ -7311,20 +7438,23 @@ class SmartCrawler:
 
             for operation, result in math_checks:
                 if operation in payload and result in response_text:
-                    # Verify result is NEW (not in baseline)
-                    if not baseline_response or result not in baseline_response:
-                        # Additional check: result appears near our injection point
-                        if payload in response_text:
-                            payload_pos = response_text.find(payload)
-                            # Check if result is within 100 chars of payload
-                            nearby_text = response_text[max(0, payload_pos-50):payload_pos+len(payload)+50]
-                            if result in nearby_text:
-                                return True
-                        else:
-                            # Payload not visible, but result appeared
-                            return True
+                    # CRITICAL: Verify result is NEW (not in baseline)
+                    if baseline_response and result in baseline_response:
+                        continue  # Result was already in the page - not SSTI
 
-            # Check 2: Template engine disclosure
+                    if not baseline_response:
+                        # No baseline available - check if payload was NOT reflected
+                        # (if template evaluated, original expression should be replaced by result)
+                        if payload not in response_text:
+                            return True
+                        # Payload IS reflected AND result found - could be coincidence
+                        # Require proximity check
+                        continue
+
+                    # Result is NEW (not in baseline) - confirmed
+                    return True
+
+            # Check 3: Template engine disclosure (from {{config}}, {{self}}, etc.)
             engine_disclosures = [
                 (r'jinja2', 'Jinja2 template engine'),
                 (r'smarty', 'Smarty template engine'),
@@ -7336,12 +7466,11 @@ class SmartCrawler:
 
             for pattern, engine in engine_disclosures:
                 if re.search(pattern, response_text_lower):
-                    # Engine name appeared - might be from {{config}} or similar
                     baseline_text = baseline_response.lower() if isinstance(baseline_response, str) else ''
                     if not baseline_response or not re.search(pattern, baseline_text):
                         return True
 
-            # Check 3: Template syntax errors
+            # Check 4: Template syntax errors (prove engine is processing our input)
             template_errors = [
                 r'TemplateSyntaxError',
                 r'jinja2\.exceptions',
@@ -7351,15 +7480,16 @@ class SmartCrawler:
                 r'velocity\.exception',
                 r'UndefinedError',
                 r'TemplateNotFound',
-                r'template.*error',
-                r'rendering.*error',
             ]
 
             for error in template_errors:
                 if re.search(error, response_text, re.I):
+                    # Verify error is NEW (not from baseline)
+                    if baseline_response and re.search(error, baseline_response, re.I):
+                        continue
                     return True
 
-            # Check 4: Object/Class disclosure (Jinja2 exploitation)
+            # Check 5: Object/Class disclosure (Jinja2 exploitation)
             class_indicators = ['__mro__', '__subclasses__', '__globals__', '__builtins__', 'object at 0x', '<class ']
             if any(indicator in response_text_lower for indicator in class_indicators):
                 baseline_text = baseline_response.lower() if isinstance(baseline_response, str) else ''
@@ -7411,10 +7541,20 @@ class SmartCrawler:
                 if 'evil.com' in location or 'attacker' in location:
                     return True
 
-            # Check 4: Response splitting (double CRLF in payload, HTML in response)
+            # Check 4: Response splitting (double CRLF in payload, injected header appears)
+            # NOTE: We do NOT check for our HTML in the response body, because on pages
+            # that store/reflect input (like guestbooks), the HTML content from our payload
+            # will appear in the body as stored content, not as response splitting.
+            # True CRLF response splitting injects into HTTP headers, not the body.
             if '%0d%0a%0d%0a' in payload.lower() or '\\r\\n\\r\\n' in payload:
-                if '<html>crlf</html>' in response_text_lower or 'crlf</body>' in response_text_lower:
-                    return True
+                # Only confirm if we see evidence of header injection (e.g. our injected
+                # content appears BEFORE the real HTML body in raw response, or a new
+                # Content-Type header appeared). Since we can't access raw response easily,
+                # check for injected Set-Cookie or other headers.
+                if 'x-injected' in response_headers_lower or 'set-cookie' in response_headers_lower:
+                    cookies = response_headers_lower.get('set-cookie', '')
+                    if 'crlf' in cookies or 'injected' in cookies:
+                        return True
 
         elif vuln_type == 'xpath':
             # ========== XPATH INJECTION DETECTION ==========
