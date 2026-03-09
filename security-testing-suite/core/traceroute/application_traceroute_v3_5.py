@@ -6212,7 +6212,8 @@ class ApplicationTraceroute:
 
 def main():
     import argparse
-    
+    from core.license_manager import require_license, activate_license
+
     parser = argparse.ArgumentParser(
         description='Application Stack Traceroute v3.0 - Intelligent Stack Reconstruction',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -6221,10 +6222,11 @@ Examples:
   python app_traceroute_v3.py https://target.com
   python app_traceroute_v3.py https://target.com --forbidden-endpoint https://target.com/admin
   python app_traceroute_v3.py https://target.com --skip-forbidden-tests
+  python app_traceroute_v3.py --activate-license YOUR_LICENSE_KEY
         """
     )
-    
-    parser.add_argument('target', help='Target URL to analyze')
+
+    parser.add_argument('target', nargs='?', help='Target URL to analyze')
     parser.add_argument(
         '--forbidden-endpoint',
         help='Known 403/401 endpoint for bypass testing (e.g. https://target.com/admin)'
@@ -6234,16 +6236,39 @@ Examples:
         action='store_true',
         help='Skip tests requiring forbidden endpoint'
     )
-    
+    parser.add_argument(
+        '--activate-license',
+        metavar='KEY',
+        help='Activate a license key and exit'
+    )
+
     args = parser.parse_args()
-    
+
+    # Handle license activation mode
+    if args.activate_license:
+        info = activate_license(args.activate_license)
+        if info.valid:
+            print(f"License activated: {info.license_type} "
+                  f"(expires {info.expiration_date.strftime('%Y-%m-%d')})")
+        else:
+            print(f"Invalid license key: {info.error}")
+            raise SystemExit(1)
+        return
+
+    # Require target for normal operation
+    if not args.target:
+        parser.error("the following arguments are required: target")
+
+    # License check
+    require_license()
+
     # Run analysis
     tracer = ApplicationTraceroute(
         args.target,
         forbidden_endpoint=args.forbidden_endpoint,
         skip_forbidden_tests=args.skip_forbidden_tests
     )
-    
+
     # Use asyncio for async operations
     asyncio.run(tracer.run_full_analysis())
 

