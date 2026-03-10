@@ -8333,9 +8333,12 @@ class SmartCrawler:
 
 def main():
     import argparse
-    
+    from core.license_manager import require_license, activate_license
+
     parser = argparse.ArgumentParser(description='Smart Vulnerability Crawler with Bypass Integration and Behavioral Analysis')
-    parser.add_argument('target', help='Target URL to crawl')
+    parser.add_argument('target', nargs='?', help='Target URL to crawl')
+    parser.add_argument('--activate-license', metavar='KEY',
+                        help='Activate a license key and exit')
     parser.add_argument('--depth', type=int, default=3, help='Maximum crawl depth (default: 3)')
     parser.add_argument('--max-pages', type=int, default=1000, help='Maximum pages to crawl (default: 1000)')
     parser.add_argument('--output', default='attack_surface.json', help='Output JSON file')
@@ -8361,6 +8364,24 @@ def main():
     auth_group.add_argument('--auth-config', help='JSON file with auth configuration')
     
     args = parser.parse_args()
+
+    # Handle license activation mode
+    if args.activate_license:
+        info = activate_license(args.activate_license)
+        if info.valid:
+            print(f"License activated: {info.license_type} "
+                  f"(expires {info.expiration_date.strftime('%Y-%m-%d')})")
+        else:
+            print(f"Invalid license key: {info.error}")
+            sys.exit(1)
+        return
+
+    # Require target for normal operation
+    if not args.target:
+        parser.error("the following arguments are required: target")
+
+    # License check
+    require_license()
 
     # ========== VALIDATE WORDLIST-BASE (REQUIRED) ==========
     wordlist_base = os.path.expanduser(args.wordlist_base)  # Expand ~ if used
