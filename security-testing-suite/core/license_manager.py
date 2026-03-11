@@ -7,7 +7,7 @@ Handles license validation, storage and expiration for:
 - Annual licenses (365 days, suffix "yr")
 
 License formats:
-  Free:    DOGNETDA3-DAD-B3Dfree
+  Free:    DOGNETxxxx-xxxx-xxxx-xxxxfree  (x = alphanumeric uppercase)
   Monthly: ATXXX_XXX_XXX_XXXmo
   Annual:  ATXXX_XXX_XXX_XXXyr
   (X = character from: ABCDEFGHILMENOPQRSTUVZXWYJK1234567890)
@@ -53,10 +53,10 @@ except ImportError:
 # Valid characters for paid license chunks
 LICENSE_CHARSET = set("ABCDEFGHILMENOPQRSTUVZXWYJK1234567890")
 
-# Known free license keys
-FREE_LICENSE_KEYS = {
-    "DOGNETDA3-DAD-B3Dfree",
-}
+# Regex for free licenses: DOGNET + 4 chunks of 4 alphanumeric chars separated by - + free
+FREE_LICENSE_PATTERN = re.compile(
+    r'^DOGNET[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}free$'
+)
 
 # License file location
 LICENSE_DIR = Path.home() / ".application_traceroute"
@@ -244,14 +244,14 @@ def validate_license_key(key: str) -> LicenseInfo:
     Does NOT perform online validation — use activate_license() for that.
 
     Supported formats:
-    - Free:    DOGNETDA3-DAD-B3Dfree  (30 days)
-    - Monthly: ATXXX_XXX_XXX_XXXmo    (30 days)
-    - Annual:  ATXXX_XXX_XXX_XXXyr    (365 days)
+    - Free:    DOGNETxxxx-xxxx-xxxx-xxxxfree  (30 days)
+    - Monthly: ATXXX_XXX_XXX_XXXmo            (30 days)
+    - Annual:  ATXXX_XXX_XXX_XXXyr            (365 days)
     """
     key = key.strip()
 
     # Check free license
-    if key in FREE_LICENSE_KEYS:
+    if FREE_LICENSE_PATTERN.match(key):
         return LicenseInfo(
             key=key,
             license_type=LicenseType.FREE,
@@ -493,7 +493,12 @@ def _print_license_status(info: LicenseInfo) -> None:
         LicenseType.ANNUAL: "ANNUAL",
     }.get(info.license_type, info.license_type.upper())
 
-    online = " [online]" if info.activation_token else " [offline]"
+    if info.license_type == LicenseType.FREE:
+        online = " [local]"
+    elif info.activation_token:
+        online = " [online]"
+    else:
+        online = " [offline]"
     print(f"\n  License: {type_label}{online} | "
           f"Expires: {info.expiration_date.strftime('%Y-%m-%d')} | "
           f"Days remaining: {info.days_remaining}")

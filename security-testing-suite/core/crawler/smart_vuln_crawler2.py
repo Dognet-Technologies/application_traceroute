@@ -17,6 +17,7 @@ Features:
 - Comprehensive JSON output for exploit orchestration
 """
 
+import sys
 import requests
 import re
 import json
@@ -46,6 +47,9 @@ from functools import lru_cache
 # Disabilita SSL warnings per security testing
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+_LICENSE_CMDS = ('--license-status', '--activate-license', '--deactivate-license')
+_LICENSE_ONLY_MODE = any(a in sys.argv for a in _LICENSE_CMDS)
 
 # Configure logging
 logging.basicConfig(
@@ -95,7 +99,7 @@ except ImportError:
     except ImportError:
         MUTATION_ENGINE_AVAILABLE = False
         logger.warning("PayloadMutationEngine not available - using static payloads only")
-if MUTATION_ENGINE_AVAILABLE:
+if MUTATION_ENGINE_AVAILABLE and not _LICENSE_ONLY_MODE:
     print("✅ Payload mutation engine enabled")
 
 # Optional import for vulnerability verification
@@ -114,7 +118,7 @@ except ImportError:
     except ImportError:
         VERIFIER_AVAILABLE = False
         logger.warning("vulnerability_verifier not available - using basic detection")
-if VERIFIER_AVAILABLE:
+if VERIFIER_AVAILABLE and not _LICENSE_ONLY_MODE:
     print("✅ Vulnerability verifier enabled with auto-learning")
 
 # Optional import for taxonomy/classification
@@ -151,7 +155,7 @@ except ImportError:
         NATIVE_DETECTOR_AVAILABLE = False
         PayloadDB = None
         logger.warning("native_detector not available - using basic detection only")
-if NATIVE_DETECTOR_AVAILABLE:
+if NATIVE_DETECTOR_AVAILABLE and not _LICENSE_ONLY_MODE:
     print("✅ Native detector enabled (time-based/boolean-based SQLi, XSS)")
 
 
@@ -8457,7 +8461,12 @@ either tool is sufficient.
         else:
             type_label = {"free": "FREE TRIAL", "monthly": "MONTHLY", "annual": "ANNUAL"}.get(
                 info.license_type, info.license_type.upper())
-            online = "[online]" if info.activation_token else "[offline]"
+            if info.license_type == "free":
+                online = "[local]"
+            elif info.activation_token:
+                online = "[online]"
+            else:
+                online = "[offline]"
             print(f"License: {type_label} {online}")
             print(f"  Key:      {info.key}")
             print(f"  Expires:  {info.expiration_date.strftime('%Y-%m-%d')}")

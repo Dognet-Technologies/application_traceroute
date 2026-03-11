@@ -34,7 +34,8 @@ try:
         ResponseFingerprint
     )
     ADVANCED_VALIDATION = True
-    print("✅ Intelligent Bypass Validator loaded successfully")
+    if not any(a in sys.argv for a in ('--license-status', '--activate-license', '--deactivate-license')):
+        print("✅ Intelligent Bypass Validator loaded successfully")
 except ImportError:
     try:
         from core.engines.advanced_bypass_engine import (
@@ -45,6 +46,7 @@ except ImportError:
             ResponseFingerprint
         )
         ADVANCED_VALIDATION = True
+        if not any(a in sys.argv for a in ('--license-status', '--activate-license', '--deactivate-license')):
         print("✅ Intelligent Bypass Validator loaded successfully")
     except ImportError as e:
         ADVANCED_VALIDATION = False

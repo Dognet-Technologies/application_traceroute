@@ -6293,7 +6293,12 @@ either tool is sufficient.
         else:
             type_label = {"free": "FREE TRIAL", "monthly": "MONTHLY", "annual": "ANNUAL"}.get(
                 info.license_type, info.license_type.upper())
-            online = "[online]" if info.activation_token else "[offline]"
+            if info.license_type == "free":
+                online = "[local]"
+            elif info.activation_token:
+                online = "[online]"
+            else:
+                online = "[offline]"
             print(f"License: {type_label} {online}")
             print(f"  Key:      {info.key}")
             print(f"  Expires:  {info.expiration_date.strftime('%Y-%m-%d')}")

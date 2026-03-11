@@ -20,6 +20,7 @@ THEORETICAL FOUNDATIONS:
 AUTHOR: MIT-Level Engineering | Revolutionary Approach
 """
 
+import sys
 import heapq
 from typing import Dict, List, Tuple, Set, Optional, Any
 from dataclasses import dataclass, field
@@ -727,4 +728,6 @@ class GraphAttackPlanner:
         return self.plan_attack_sequence()
 
 
-print("✅ Graph-Based Attack Planner loaded successfully")
+_LICENSE_CMDS = ('--license-status', '--activate-license', '--deactivate-license')
+if not any(a in sys.argv for a in _LICENSE_CMDS):
+    print("✅ Graph-Based Attack Planner loaded successfully")

@@ -19,6 +19,7 @@ AUTHOR: MIT-Level Engineering | Silicon Valley Innovation
 LICENSE: Authorized security research only
 """
 
+import sys
 import hashlib
 import statistics
 import math
@@ -691,4 +692,6 @@ class ResponseDifferentialAnalyzer:
             return f"⚪ UNCERTAIN ({confidence.name}): Weak evidence"
 
 
-print("✅ Advanced Bypass Engine loaded successfully")
+_LICENSE_CMDS = ('--license-status', '--activate-license', '--deactivate-license')
+if not any(a in sys.argv for a in _LICENSE_CMDS):
+    print("✅ Advanced Bypass Engine loaded successfully")

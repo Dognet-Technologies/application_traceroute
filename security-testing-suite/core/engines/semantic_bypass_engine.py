@@ -17,6 +17,7 @@ Techniques:
 AUTHOR: MIT-Level Engineering
 """
 
+import sys
 import re
 import hashlib
 from typing import Dict, List, Tuple, Set, Optional
@@ -789,4 +790,6 @@ class AnchorTagMutationEngine:
         ]
 
 
-print("✅ Semantic Bypass Engine loaded successfully")
+_LICENSE_CMDS = ('--license-status', '--activate-license', '--deactivate-license')
+if not any(a in sys.argv for a in _LICENSE_CMDS):
+    print("✅ Semantic Bypass Engine loaded successfully")
