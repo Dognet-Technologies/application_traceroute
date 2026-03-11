@@ -8392,7 +8392,7 @@ def main():
     from core.license_manager import require_license, activate_license, deactivate_license, check_license
 
     parser = argparse.ArgumentParser(
-        description='Smart Vulnerability Crawler with Bypass Integration and Behavioral Analysis',
+        description='Smart Vulnerability Crawler v4.0.1 with Bypass Integration and Behavioral Analysis',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -8400,7 +8400,7 @@ Examples:
   python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists --max-pages 500 --verbose
   python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists --bypass-file bypasses.json
 
-License management (shared with application_traceroute_v3_5.py):
+License management (shared with application_traceroute_v4.py):
   python smart_vuln_crawler2.py --license-status
       Show current license type, key, expiration date and days remaining.
 

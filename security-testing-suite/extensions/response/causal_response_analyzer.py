@@ -1274,7 +1274,7 @@ def create_mock_response(
 
 def example_integration():
     """
-    Example of how to integrate in application_traceroute_v3_5.py
+    Example of how to integrate in application_traceroute_v4.py
 
     BEFORE (in test_header_confusion):
 

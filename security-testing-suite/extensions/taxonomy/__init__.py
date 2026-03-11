@@ -1,7 +1,7 @@
 """
 extensions/taxonomy/__init__.py
 
-Self-learning taxonomy package for Security Testing Suite v4.0
+Self-learning taxonomy package for Security Testing Suite v4.0.1
 
 Provides intelligent vulnerability classification with:
 - CWE/OWASP mapping
@@ -41,4 +41,4 @@ __all__ = [
     'ClassificationResult'
 ]
 
-__version__ = "4.0.0"
+__version__ = "4.0.1"
