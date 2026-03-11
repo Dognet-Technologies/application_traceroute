@@ -21,6 +21,8 @@ import requests
 import re
 import json
 import time
+import sys
+import difflib
 import urllib.parse
 from urllib.parse import urlparse, urljoin, parse_qs
 from bs4 import BeautifulSoup
@@ -50,54 +52,414 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class VulnerabilityLogger: 
+# Optional: psutil per memory monitoring
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
+class SemanticResponseDiffer:
+    """
+    Semantic response comparison that ignores dynamic content.
+
+    Standard difflib.SequenceMatcher treats timestamps, CSRF tokens, session IDs,
+    and random nonces as real differences, inflating diff ratios and hiding actual
+    vulnerability-induced changes. This class normalizes responses before comparison.
+    """
+
+    DYNAMIC_PATTERNS = [
+        # CSRF tokens / nonces
+        (re.compile(r'(name=["\']?(?:csrf|token|nonce|_token|user_token|csrfmiddlewaretoken)["\']?\s+value=["\']?)([^"\'>\s]+)', re.I),
+         r'\1[DYNAMIC_TOKEN]'),
+        # Session IDs in HTML
+        (re.compile(r'(PHPSESSID|JSESSIONID|ASP\.NET_SessionId|session_id|sid)=([a-zA-Z0-9]{16,})', re.I),
+         r'\1=[DYNAMIC_SESSION]'),
+        # Timestamps (various formats)
+        (re.compile(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}'), '[DYNAMIC_TIME]'),
+        (re.compile(r'\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}'), '[DYNAMIC_TIME]'),
+        # Unix timestamps
+        (re.compile(r'(?<=[=:"\s])\d{10,13}(?=[&"\s,;])'), '[DYNAMIC_TIMESTAMP]'),
+        # Random hex/base64 strings in values (likely tokens)
+        (re.compile(r'(value=["\'])([a-f0-9]{32,}|[A-Za-z0-9+/]{32,}={0,2})(["\'])', re.I),
+         r'\1[DYNAMIC_VALUE]\3'),
+        # Cache busters, version hashes
+        (re.compile(r'(\?v=|&v=|_=)\d+'), r'\1[DYNAMIC_VERSION]'),
+    ]
+
+    @classmethod
+    def normalize(cls, text):
+        """Strip dynamic content from response text for comparison."""
+        for pattern, replacement in cls.DYNAMIC_PATTERNS:
+            text = pattern.sub(replacement, text)
+        return text
+
+    @classmethod
+    def similarity(cls, response_a, response_b):
+        """
+        Semantic similarity between two responses.
+        Returns float 0.0-1.0 (1.0 = identical after normalization).
+        """
+        if response_a is None or response_b is None:
+            return 0.0
+        norm_a = cls.normalize(response_a)
+        norm_b = cls.normalize(response_b)
+        return difflib.SequenceMatcher(None, norm_a, norm_b).ratio()
+
+    @classmethod
+    def has_new_content(cls, baseline, response, patterns):
+        """
+        Check if response contains NEW matches for any regex pattern
+        not present in baseline.
+
+        Returns list of (pattern_name, new_match) tuples.
+        """
+        new_findings = []
+        for name, pattern in patterns:
+            resp_matches = set(m.group() for m in re.finditer(pattern, response, re.I | re.M))
+            if baseline:
+                base_matches = set(m.group() for m in re.finditer(pattern, baseline, re.I | re.M))
+                new_matches = resp_matches - base_matches
+            else:
+                new_matches = resp_matches
+            for match in new_matches:
+                new_findings.append((name, match))
+        return new_findings
+
+
+class RateLimiter:
+    """
+    Token bucket rate limiter per evitare blocchi IP/WAF.
+
+    Distribuisce le richieste uniformemente nel tempo, con jitter randomico
+    per evitare pattern detection da parte dei WAF.
+    """
+
+    def __init__(self, requests_per_second=5, jitter=0.3):
+        self.rate = requests_per_second
+        self.min_interval = 1.0 / self.rate
+        self.jitter = jitter
+        self.last_request_time = 0
+        self.lock = threading.Lock()
+
+    def wait(self):
+        """Thread-safe wait con jitter randomico."""
+        sleep_time = 0
+        with self.lock:
+            current_time = time.time()
+            elapsed = current_time - self.last_request_time
+            jittered_interval = self.min_interval
+            if self.jitter > 0:
+                jittered_interval += random.uniform(0, self.min_interval * self.jitter)
+            if elapsed < jittered_interval:
+                sleep_time = jittered_interval - elapsed
+            self.last_request_time = current_time + sleep_time
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+
+    def set_rate(self, requests_per_second):
+        """Modifica il rate limit dinamicamente."""
+        with self.lock:
+            self.rate = requests_per_second
+            self.min_interval = 1.0 / self.rate
+
+
+class PerformanceMonitor:
+    """
+    Monitora performance e risorse durante la scansione.
+    Traccia richieste HTTP, payload testati, vulnerabilità trovate e memoria.
+    """
+
+    def __init__(self):
+        self.start_time = time.time()
+        self.payloads_tested = 0
+        self.vulnerabilities_found = 0
+        self.http_requests = 0
+        self.errors = 0
+        self.lock = threading.Lock()
+
+    def increment_payloads(self, count=1):
+        with self.lock:
+            self.payloads_tested += count
+
+    def increment_vulnerabilities(self, count=1):
+        with self.lock:
+            self.vulnerabilities_found += count
+
+    def increment_requests(self, count=1):
+        with self.lock:
+            self.http_requests += count
+
+    def increment_errors(self, count=1):
+        with self.lock:
+            self.errors += count
+
+    def get_stats(self):
+        elapsed = time.time() - self.start_time
+        stats = {
+            'elapsed_seconds': elapsed,
+            'elapsed_formatted': self._format_time(elapsed),
+            'payloads_tested': self.payloads_tested,
+            'vulnerabilities_found': self.vulnerabilities_found,
+            'http_requests': self.http_requests,
+            'errors': self.errors,
+            'requests_per_second': self.http_requests / elapsed if elapsed > 0 else 0,
+            'payloads_per_second': self.payloads_tested / elapsed if elapsed > 0 else 0,
+        }
+        if PSUTIL_AVAILABLE:
+            try:
+                process = psutil.Process()
+                memory_info = process.memory_info()
+                stats['memory_mb'] = memory_info.rss / 1024 / 1024
+                stats['memory_percent'] = process.memory_percent()
+            except Exception:
+                pass
+        return stats
+
+    def log_stats(self, prefix="Final Stats"):
+        stats = self.get_stats()
+        log_msg = (
+            f"{prefix}: {stats['elapsed_formatted']} elapsed, "
+            f"{stats['http_requests']} HTTP requests ({stats['requests_per_second']:.1f}/s), "
+            f"{stats['payloads_tested']} payloads tested ({stats['payloads_per_second']:.1f}/s), "
+            f"{stats['vulnerabilities_found']} vulnerabilities found"
+        )
+        if 'memory_mb' in stats:
+            log_msg += f", Memory: {stats['memory_mb']:.1f}MB ({stats['memory_percent']:.1f}%)"
+        if stats['errors'] > 0:
+            log_msg += f", Errors: {stats['errors']}"
+        logger.info(log_msg)
+
+    def _format_time(self, seconds):
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+        elif seconds < 3600:
+            return f"{seconds / 60:.1f}m"
+        else:
+            return f"{seconds / 3600:.1f}h"
+
+
+class LRUCache:
+    """
+    LRU Cache con limite di dimensione per evitare memory leak su scansioni lunghe.
+    """
+
+    def __init__(self, maxsize=1000):
+        self.maxsize = maxsize
+        self.cache = {}
+        self.access_order = []
+        self.lock = threading.Lock()
+
+    def __contains__(self, key):
+        with self.lock:
+            return key in self.cache
+
+    def __getitem__(self, key):
+        with self.lock:
+            if key in self.cache:
+                self.access_order.remove(key)
+                self.access_order.append(key)
+                return self.cache[key]
+            raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        with self.lock:
+            if key in self.cache:
+                self.access_order.remove(key)
+            elif len(self.cache) >= self.maxsize:
+                oldest = self.access_order.pop(0)
+                del self.cache[oldest]
+            self.cache[key] = value
+            self.access_order.append(key)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
+class VulnerabilityLogger:
     """Gestisce il salvataggio immediato delle vulnerabilità rilevate"""
-    
+
+    # Mapping vulnerabilità → CWE/OWASP/Severity
+    VULN_METADATA = {
+        'SQLI': {
+            'cwe_id': 'CWE-89', 'cwe_name': 'SQL Injection',
+            'owasp': 'A03:2021 - Injection', 'cvss': 9.8, 'severity': 'CRITICAL',
+            'verify_tool': 'sqlmap',
+        },
+        'XSS': {
+            'cwe_id': 'CWE-79', 'cwe_name': 'Cross-Site Scripting',
+            'owasp': 'A03:2021 - Injection', 'cvss': 6.5, 'severity': 'MEDIUM',
+            'verify_tool': 'xsstrike/dalfox',
+        },
+        'RCE': {
+            'cwe_id': 'CWE-78', 'cwe_name': 'OS Command Injection',
+            'owasp': 'A03:2021 - Injection', 'cvss': 10.0, 'severity': 'CRITICAL',
+            'verify_tool': 'commix',
+        },
+        'LFI': {
+            'cwe_id': 'CWE-98', 'cwe_name': 'Local File Inclusion',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 8.0, 'severity': 'HIGH',
+            'verify_tool': 'manual/curl',
+        },
+        'RFI': {
+            'cwe_id': 'CWE-99', 'cwe_name': 'Remote File Inclusion',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 9.0, 'severity': 'CRITICAL',
+            'verify_tool': 'manual/curl',
+        },
+        'SSTI': {
+            'cwe_id': 'CWE-1336', 'cwe_name': 'Server-Side Template Injection',
+            'owasp': 'A03:2021 - Injection', 'cvss': 9.0, 'severity': 'CRITICAL',
+            'verify_tool': 'tplmap',
+        },
+        'XXE': {
+            'cwe_id': 'CWE-611', 'cwe_name': 'XML External Entity',
+            'owasp': 'A03:2021 - Injection', 'cvss': 8.5, 'severity': 'HIGH',
+            'verify_tool': 'manual/curl',
+        },
+        'SSRF': {
+            'cwe_id': 'CWE-918', 'cwe_name': 'Server-Side Request Forgery',
+            'owasp': 'A10:2021 - SSRF', 'cvss': 8.0, 'severity': 'HIGH',
+            'verify_tool': 'manual/curl',
+        },
+        'IDOR': {
+            'cwe_id': 'CWE-639', 'cwe_name': 'Insecure Direct Object Reference',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 7.0, 'severity': 'HIGH',
+            'verify_tool': 'manual/burp',
+        },
+        'OPEN_REDIRECT': {
+            'cwe_id': 'CWE-601', 'cwe_name': 'Open Redirect',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 5.0, 'severity': 'MEDIUM',
+            'verify_tool': 'manual/curl',
+        },
+        'CSRF': {
+            'cwe_id': 'CWE-352', 'cwe_name': 'Cross-Site Request Forgery',
+            'owasp': 'A01:2021 - Broken Access Control', 'cvss': 5.0, 'severity': 'MEDIUM',
+            'verify_tool': 'manual/burp',
+        },
+    }
+
+    SEVERITY_ICONS = {
+        'CRITICAL': '🔴',
+        'HIGH':     '🟠',
+        'MEDIUM':   '🟡',
+        'LOW':      '🟢',
+    }
+
+    @staticmethod
+    def confidence_bar(confidence, width=10):
+        """Genera barra visuale di confidenza: [████████░░] 75%"""
+        filled = int((confidence / 100) * width)
+        empty = width - filled
+        return f"[{'█' * filled}{'░' * empty}] {confidence}%"
+
+    @classmethod
+    def get_vuln_metadata(cls, vuln_type):
+        """Ritorna metadata CWE/OWASP/severity per un tipo di vulnerabilità."""
+        key = vuln_type.upper()
+        return cls.VULN_METADATA.get(key, {
+            'cwe_id': 'N/A', 'cwe_name': key,
+            'owasp': 'N/A', 'cvss': 5.0, 'severity': 'MEDIUM',
+            'verify_tool': 'manual',
+        })
+
+    @staticmethod
+    def detect_false_positive_indicators(status_code, payload, vuln_type):
+        """Rileva indicatori di possibili falsi positivi."""
+        indicators = []
+        if status_code == 403:
+            indicators.append("HTTP 403 may indicate WAF/firewall blocking, not actual vulnerability")
+        if status_code == 404:
+            indicators.append("HTTP 404 - endpoint may not exist or parameter is ignored")
+        if status_code in (301, 302):
+            indicators.append("Redirect response - payload may not have been processed")
+        if vuln_type.upper() == 'SQLI' and 'UNION' in payload.upper() and status_code != 200:
+            indicators.append("UNION-based SQLi with non-200 status - verify data extraction manually")
+        if vuln_type.upper() == 'XSS' and status_code != 200:
+            indicators.append("XSS with non-200 status - reflection may not reach the browser")
+        return indicators
+
+    @staticmethod
+    def generate_verification_hint(vuln_type, endpoint, parameter, method='GET', payload=''):
+        """Genera suggerimento per tool di verifica."""
+        vuln_upper = vuln_type.upper()
+        if vuln_upper == 'SQLI':
+            if method.upper() == 'POST':
+                return f"sqlmap -u '{endpoint}' --data='{parameter}=test' -p {parameter} --technique=U --level=3 --risk=2 --batch"
+            return f"sqlmap -u '{endpoint}?{parameter}=test' -p {parameter} --technique=U --level=3 --risk=2 --batch"
+        elif vuln_upper == 'XSS':
+            return f"dalfox url '{endpoint}?{parameter}=test' -p {parameter} --silence"
+        elif vuln_upper == 'RCE':
+            if method.upper() == 'POST':
+                return f"commix -u '{endpoint}' --data='{parameter}=test' -p {parameter} --batch"
+            return f"commix -u '{endpoint}?{parameter}=test' -p {parameter} --batch"
+        elif vuln_upper == 'SSTI':
+            return f"tplmap -u '{endpoint}?{parameter}=test' --level=5"
+        elif vuln_upper == 'LFI':
+            return f"curl -s '{endpoint}?{parameter}=../../../etc/passwd' | head -5"
+        elif vuln_upper == 'CSRF':
+            param_value = payload if payload else 'test'
+            if method.upper() == 'POST':
+                return (f"curl -X POST '{endpoint}' -d '{parameter}={param_value}' "
+                        f"-H 'Origin: https://evil.example.com' "
+                        f"-H 'Referer: https://evil.example.com/' -v")
+            return (f"curl '{endpoint}?{parameter}={param_value}' "
+                    f"-H 'Origin: https://evil.example.com' "
+                    f"-H 'Referer: https://evil.example.com/' -v")
+        elif vuln_upper == 'XXE':
+            return (f"curl -X POST '{endpoint}' "
+                    f"-H 'Content-Type: application/xml' "
+                    f"-d '{payload}' -v")
+        else:
+            return f"curl -v '{endpoint}?{parameter}={payload[:30]}'"
+
     def __init__(self, target_url):
         """Inizializza il logger"""
         parsed_url = urlparse(target_url)
-        self.target_domain = parsed_url.netloc. replace(':', '_').replace('.', '_')
-        
+        self.target_domain = parsed_url.netloc.replace(':', '_').replace('.', '_')
+
         self.scan_timestamp = int(time.time())
         self.scan_time_str = time.strftime('%Y-%m-%d %H:%M:%S')
-        
+
         self.results_base = "results"
         self.scan_dir = f"{self.target_domain}_{self.scan_timestamp}"
         self.output_dir = os.path.join(self.results_base, self.scan_dir)
-        
+
         os.makedirs(self.output_dir, exist_ok=True)
-        
+
         self.vuln_file = os.path.join(
             self.output_dir,
             f"vulnerabilities_{self.target_domain}_{self.scan_timestamp}.json"
         )
-        
+
         self.vulnerabilities_data = {
-            'target':  target_url,
+            'target': target_url,
             'scan_start': self.scan_time_str,
             'vulnerabilities': [],
             'total_vulnerabilities': 0,
             'total_by_type': {},
             'last_updated': self.scan_time_str
         }
-        
+
         self.lock = threading.Lock()
         self._save_to_file()
-        
-        logger.info(f"✅ VulnerabilityLogger initialized at:  {self.output_dir}")
-    
+
+        logger.info(f"✅ VulnerabilityLogger initialized at: {self.output_dir}")
+
     def _save_to_file(self):
         """Salva i dati in JSON"""
         try:
-            with open(self. vuln_file, 'w') as f:
+            with open(self.vuln_file, 'w') as f:
                 json.dump(self.vulnerabilities_data, f, indent=2, default=str)
         except Exception as e:
             logger.error(f"Error saving vulnerability file: {e}")
-    
-    def log_vulnerability(self, 
-                         endpoint, 
-                         parameter, 
-                         payload, 
+
+    def log_vulnerability(self,
+                         endpoint,
+                         parameter,
+                         payload,
                          vulnerability_type,
                          bypass_used=None,
                          response_status=None,
@@ -105,26 +467,12 @@ class VulnerabilityLogger:
                          method='GET',
                          headers=None,
                          confidence=None):
-        """
-        Registra una vulnerabilità rilevata
-        
-        Args:
-            endpoint: URL dell'endpoint
-            parameter: Nome del parametro vulnerabile
-            payload: Payload utilizzato
-            vulnerability_type:  NOME SPECIFICO della vulnerabilità (XSS, SQLI, LFI, RCE, etc.)
-            bypass_used: Tipo di bypass utilizzato (se applicato)
-            response_status: HTTP status code della risposta
-            response_length: Lunghezza della risposta
-            method: HTTP method (GET, POST, PUT, DELETE, etc.)
-            headers: Dictionary degli headers della richiesta
-            confidence:  Livello di confidenza (0-100)
-        """
+        """Registra una vulnerabilità rilevata con metadata CWE/OWASP/severity."""
         with self.lock:
             # Prepara gli headers per il logging (evita informazioni sensibili)
             request_headers = {}
             if headers:
-                safe_headers = ['User-Agent', 'Content-Type', 'Accept', 'Accept-Encoding', 
+                safe_headers = ['User-Agent', 'Content-Type', 'Accept', 'Accept-Encoding',
                                'Accept-Language', 'Referer', 'Origin', 'X-Requested-With']
                 for key, value in headers.items():
                     if key in safe_headers:
@@ -132,131 +480,97 @@ class VulnerabilityLogger:
                     elif key == 'Authorization':
                         auth_type = value.split()[0] if ' ' in value else 'Bearer'
                         request_headers['Authorization'] = f"{auth_type} [REDACTED]"
-                    elif key == 'Cookie': 
+                    elif key == 'Cookie':
                         request_headers['Cookie'] = "[REDACTED - Contains session data]"
-            
+
+            meta = self.get_vuln_metadata(vulnerability_type)
+            conf = confidence if confidence is not None else 75
+            fp_indicators = self.detect_false_positive_indicators(
+                response_status if response_status else 0, payload, vulnerability_type
+            )
+            verify_hint = self.generate_verification_hint(
+                vulnerability_type, endpoint, parameter, method, payload
+            )
+
             vuln_entry = {
                 'id': len(self.vulnerabilities_data['vulnerabilities']) + 1,
-                'vulnerability_type': vulnerability_type. upper(),
+                'vulnerability_type': vulnerability_type.upper(),
+                'severity': meta['severity'],
+                'cvss_score': meta['cvss'],
+                'cwe_id': meta['cwe_id'],
+                'cwe_name': meta['cwe_name'],
+                'owasp_category': meta['owasp'],
                 'endpoint': endpoint,
                 'parameter': parameter,
                 'payload': payload,
-                'confidence': confidence if confidence is not None else 75,
+                'confidence': conf,
                 'request': {
-                    'method': method. upper(),
-                    'headers':  request_headers,
+                    'method': method.upper(),
+                    'headers': request_headers,
                     'body_parameter': parameter
                 },
                 'response': {
-                    'status_code':  response_status,
+                    'status_code': response_status,
                     'content_length': response_length
                 },
                 'bypass': {
                     'used': bypass_used is not None,
                     'type': bypass_used if bypass_used else None
                 },
-                'timestamps':  {
+                'false_positive_indicators': fp_indicators,
+                'verification_hint': verify_hint,
+                'timestamps': {
                     'detected_at': time.strftime('%Y-%m-%d %H:%M:%S'),
-                    'unix_timestamp':  int(time.time())
+                    'unix_timestamp': int(time.time())
                 }
             }
-            
+
             self.vulnerabilities_data['vulnerabilities'].append(vuln_entry)
-            
-            self. vulnerabilities_data['total_vulnerabilities'] = len(
+            self.vulnerabilities_data['total_vulnerabilities'] = len(
                 self.vulnerabilities_data['vulnerabilities']
             )
-            
+
             if vulnerability_type not in self.vulnerabilities_data['total_by_type']:
                 self.vulnerabilities_data['total_by_type'][vulnerability_type] = 0
             self.vulnerabilities_data['total_by_type'][vulnerability_type] += 1
-            
-            self. vulnerabilities_data['last_updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
-            
+
+            self.vulnerabilities_data['last_updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
             self._save_to_file()
-            
-            logger.info(f"🚨 [{vulnerability_type. upper()}] {endpoint} ? {parameter}={payload[: 30]}")
-    
+
+            sev_icon = self.SEVERITY_ICONS.get(meta['severity'], '⚪')
+            logger.info(
+                f"🚨 [{vulnerability_type.upper()}] {sev_icon} {meta['severity']} "
+                f"(CVSS {meta['cvss']}) {endpoint} ? {parameter}={payload[:30]}"
+            )
+
     def get_output_dir(self):
         """Ritorna la directory di output"""
         return self.output_dir
-    
+
     def get_summary(self):
         """Ritorna un riepilogo delle vulnerabilità trovate"""
         return {
-            'total':  self.vulnerabilities_data['total_vulnerabilities'],
+            'total': self.vulnerabilities_data['total_vulnerabilities'],
             'by_type': self.vulnerabilities_data['total_by_type']
         }
 
     def _detect_method_confusion(self, headers, method):
-        """
-        Rileva possibili indicatori di Method Confusion
-        
-        Args:
-            headers: Dictionary degli header
-            method: Metodo HTTP utilizzato
-        
-        Returns: 
-            Dictionary con i dettagli rilevati
-        """
+        """Rileva possibili indicatori di Method Confusion."""
         if not headers:
             return {'detected': False}
-        
         confusion_indicators = {}
-        
-        # Controlla per header di method override
-        if 'X-HTTP-Method-Override' in headers: 
-            override_method = headers['X-HTTP-Method-Override']
-            confusion_indicators['X-HTTP-Method-Override'] = {
-                'original_method': method,
-                'override_method': override_method,
-                'potential_bypass': method != override_method
-            }
-        
-        if 'X-Original-Method' in headers:
-            original_method = headers['X-Original-Method']
-            confusion_indicators['X-Original-Method'] = {
-                'original_method': original_method,
-                'used_method': method,
-                'potential_bypass': method != original_method
-            }
-        
-        if 'X-Method' in headers:
-            x_method = headers['X-Method']
-            confusion_indicators['X-Method'] = {
-                'x_method': x_method,
-                'used_method': method,
-                'potential_bypass': method != x_method
-            }
-        
-        # Controlla per POST con query string (Method Confusion comune)
+        for h in ('X-HTTP-Method-Override', 'X-Original-Method', 'X-Method'):
+            if h in headers:
+                confusion_indicators[h] = {
+                    'original_method': method,
+                    'override_method': headers[h],
+                    'potential_bypass': method != headers[h]
+                }
         if method and method.upper() == 'POST' and 'Content-Type' not in headers:
             confusion_indicators['post_without_content_type'] = True
-        
         return {
             'detected': len(confusion_indicators) > 0,
             'indicators': confusion_indicators
-        }
-    
-    def get_output_dir(self):
-        """Ritorna la directory di output"""
-        return self.output_dir
-    
-    def get_summary(self):
-        """Ritorna un riepilogo delle vulnerabilità trovate"""
-        return {
-            'total':  self.vulnerabilities_data['total_vulnerabilities'],
-            'by_type': self.vulnerabilities_data['total_by_type']
-        }    
-    def get_output_dir(self):
-        """Ritorna la directory di output"""
-        return self.output_dir
-    
-    def get_summary(self):
-        """Ritorna un riepilogo delle vulnerabilità trovate"""
-        return {
-            'total':  self.vulnerabilities_data['total_vulnerabilities'],
-            'by_type': self.vulnerabilities_data['total_by_type']
         }
     
 
@@ -1904,15 +2218,20 @@ class SmartCrawler:
         
         # Initialize behavioral engine
         self.behavioral_engine = BehavioralContextEngine()
-        
+
         # Initialize authentication
         self.auth_manager = AuthenticationManager()
         if auth_config:
             self.auth_manager.setup_authentication(self.session, auth_config)
-        
+
         # Bypass manager - will be set if bypass file provided
         self.bypass_manager = None
-        
+
+        # Performance monitoring, rate limiting, and deduplication cache
+        self.perf_monitor = PerformanceMonitor()
+        self.rate_limiter = RateLimiter(requests_per_second=5)
+        self._tested_params = LRUCache(maxsize=5000)
+
         # Results storage
         self.results = {
             'target': target_url,
@@ -1930,6 +2249,23 @@ class SmartCrawler:
             'behavioral_analysis_results': []  # Store behavioral analysis results
         }
     
+    def should_test_parameter(self, endpoint_url, param_name, vuln_type):
+        """
+        Verifica se questo (endpoint, parametro, vuln_type) è già stato testato.
+        Evita test ridondanti su parametri equivalenti visti su pagine diverse.
+
+        Returns True se il test dovrebbe procedere, False se è un duplicato.
+        """
+        norm_url = endpoint_url.split('?')[0].rstrip('/')
+        key = hashlib.md5(f"{norm_url}|{param_name}|{vuln_type}".encode()).hexdigest()
+        return key not in self._tested_params
+
+    def mark_parameter_tested(self, endpoint_url, param_name, vuln_type):
+        """Registra (endpoint, parametro, vuln_type) come già testato."""
+        norm_url = endpoint_url.split('?')[0].rstrip('/')
+        key = hashlib.md5(f"{norm_url}|{param_name}|{vuln_type}".encode()).hexdigest()
+        self._tested_params[key] = True
+
     def set_bypass_manager(self, bypass_manager):
         """Set the bypass manager for the crawler"""
         self.bypass_manager = bypass_manager
@@ -2830,27 +3166,34 @@ class SmartCrawler:
         """Test vulnerabilities immediately when found"""
         if not vulnerabilities:
             return
-        
+
         if self.verbose:
             print(f"\n🎯 IMMEDIATE TESTING: {endpoint['url']} parameter '{param['name']}'")
-        
+
         for vuln in vulnerabilities:
             vuln_type = vuln.get('type', vuln.get('vulnerability', 'unknown'))
             confidence = vuln.get('confidence', 'unknown')
-            
+
+            # Skip if this (endpoint, param, vuln_type) combo was already tested
+            if not self.should_test_parameter(endpoint['url'], param['name'], vuln_type):
+                if self.verbose:
+                    print(f"  ⏭️  Skipping {vuln_type.upper()} for '{param['name']}' - already tested")
+                continue
+            self.mark_parameter_tested(endpoint['url'], param['name'], vuln_type)
+
             if self.verbose:
                 print(f"  🔍 Testing {vuln_type.upper()} (confidence: {confidence})")
-            
+
             # Get appropriate wordlists
             wordlists = self.wordlist_mapper.get_wordlists_for_vulnerability(
                 vuln_type, self.results['technologies']
             )
-            
+
             if not wordlists:
                 if self.verbose:
                     print(f"    ⚠️ No wordlists found for {vuln_type}")
                 continue
-            
+
             # Test with payloads from wordlists
             self.test_with_wordlists(endpoint, param, vuln_type, wordlists)
     
@@ -3541,7 +3884,8 @@ class SmartCrawler:
         self.results['emails'] = list(set(self.results['emails']))
         
         logger.info(f"Crawl complete. Found {len(self.results['endpoints'])} endpoints")
-        
+        self.perf_monitor.log_stats()
+
         return self.results
     
     def export_results(self, filename='attack_surface.json'):
