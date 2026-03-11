@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Smart Vulnerability Crawler & Predictor
+Smart Vulnerability Crawler v3.5.5
 Advanced Web Application Security Analysis Tool with Bypass Integration
 
 Features:
@@ -11,11 +11,17 @@ Features:
 - Priority scoring for attack vectors
 - Bypass integration from application_traceroute
 - Extended parameter recognition (hash, path, JS, forms)
-- Immediate vulnerability testing
+- Immediate vulnerability testing with parameter deduplication
 - Behavioral Context Analysis
-- Multi-type Authentication Support
+- Multi-type Authentication Support (Basic, Bearer, Cookie, Form, CSRF-aware)
+- Semantic response diffing (CSRF/session token normalization)
+- Rate limiting with WAF-evasion jitter
+- Performance monitoring with memory tracking
+- CWE/OWASP/CVSS metadata in all vulnerability findings
 - Comprehensive JSON output for exploit orchestration
 """
+
+__version__ = "3.5.5"
 
 import requests
 import re
@@ -3898,7 +3904,20 @@ class SmartCrawler:
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description='Smart Vulnerability Crawler with Bypass Integration and Behavioral Analysis')
+    parser = argparse.ArgumentParser(
+        description='Smart Vulnerability Crawler v3.5.5 - Bypass Integration, Behavioral Analysis & Extended Detection',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python smart_vuln_crawler2.py https://target.com --wordlist-base /usr/share/wordlists
+  python smart_vuln_crawler2.py https://target.com --bypass-file bypasses_target_1234.json --wordlist-base ~/wordlists -v
+  python smart_vuln_crawler2.py https://target.com --depth 2 --max-pages 50 --skip-discovery --wordlist-base /tmp
+
+Typical workflow:
+  1. python Application_tracereout_3.5/application_traceroute_v3.5.py https://target.com --forbidden-endpoint https://target.com/admin
+  2. python SmartCrawler/smart_vuln_crawler2.py https://target.com --bypass-file results/<target>/bypasses_<target>_<ts>.json --wordlist-base ~/wordlists
+"""
+    )
     parser.add_argument('target', help='Target URL to crawl')
     parser.add_argument('--depth', type=int, default=3, help='Maximum crawl depth (default: 3)')
     parser.add_argument('--max-pages', type=int, default=1000, help='Maximum pages to crawl (default: 1000)')
