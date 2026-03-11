@@ -6244,7 +6244,6 @@ License management (shared with smart_vuln_crawler2.py):
       Activate or renew a license key. If a license is already active its
       online activation slot is released before the new one is registered.
       License types accepted:
-        Free trial  : DOGNETDA3-DAD-B3Dfree
         Monthly     : AT_XXX_XXX_XXX_XXXmo  (30 days)
         Annual      : AT_XXX_XXX_XXX_XXXyr  (365 days)
 
