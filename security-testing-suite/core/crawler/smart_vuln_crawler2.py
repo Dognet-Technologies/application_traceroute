@@ -6500,9 +6500,17 @@ class SmartCrawler:
                         logger.debug(f"WAF/IDS blocked raw payload: {resp.url}")
                         return None
 
-                    # Real session loss - login redirect
+                    # Redirect to login — distinguish session loss from payload-induced redirect
                     login_indicators = ['login.php', 'signin', '/auth']
                     if any(ind in final_url_lower for ind in login_indicators):
+                        auth_configured = bool(
+                            self.auth_manager and self.auth_manager.auth_config
+                        )
+                        if not auth_configured:
+                            logger.debug(
+                                f"App redirect to login (no auth configured, payload-induced): {resp.url}"
+                            )
+                            return resp
                         logger.warning(f"Session lost in raw payload: redirected to {resp.url}")
                         self._try_reauth()
                         return None
@@ -6901,15 +6909,44 @@ class SmartCrawler:
                         logger.debug(f"WAF/IDS blocked payload: {final_url}")
                         return False
 
-                    # Real session loss: redirect to login page
+                    # Redirect to login page — distinguish session loss from app behavior
                     login_indicators = ['login.php', 'signin', '/auth']
                     if any(ind in final_url_lower for ind in login_indicators):
+                        auth_configured = bool(
+                            self.auth_manager and self.auth_manager.auth_config
+                        )
+                        if not auth_configured:
+                            # No auth was configured: the app is reacting to the payload
+                            # itself (e.g. XPath/SQLi breaks app logic → PHP redirects).
+                            # This is a behavioural anomaly worth noting, not a session loss.
+                            logger.debug(
+                                f"App redirect to login (no auth configured, likely "
+                                f"payload-induced): {final_url}"
+                            )
+                            # Treat as a behavioural difference: return the response so
+                            # callers can count it as an anomaly signal.
+                            return response
+                        # Auth IS configured — verify the session is actually gone
+                        # before declaring loss (avoid false positives from app logic).
+                        auth_check_url = getattr(self.auth_manager, 'auth_check_url', None)
+                        if auth_check_url:
+                            try:
+                                probe = self.session.get(
+                                    auth_check_url, timeout=8, verify=False,
+                                    allow_redirects=True
+                                )
+                                if 'login' not in probe.url.lower():
+                                    # Session is actually still valid — payload caused redirect
+                                    logger.debug(
+                                        f"Payload-induced login redirect (session intact): {final_url}"
+                                    )
+                                    return response
+                            except Exception:
+                                pass  # Can't verify — fall through to session-loss handling
                         logger.warning(f"Session lost: redirected to {final_url}")
-                        # Try to re-authenticate
                         if self._try_reauth():
                             if self.verbose:
                                 print(f"      🔄 Session restored, retrying payload")
-                            # Don't retry the payload here - just let the loop continue
                         elif self.verbose:
                             print(f"      ⚠️ Session lost: redirected to {final_url}")
                         return False
@@ -8099,8 +8136,23 @@ class SmartCrawler:
         # Continue crawling from queue
         _progress_interval = 50  # Print progress every N URLs
         _abort_reason = None
+        _lic_check_interval = 50  # Periodic license + integrity check every N URLs
 
         while not self.url_queue.empty() and len(self.visited_urls) < self.max_pages:
+            # Periodic integrity + license re-validation
+            if len(self.visited_urls) % _lic_check_interval == 0 and len(self.visited_urls) > 0:
+                try:
+                    from core._security import runtime_check as _rtc
+                    _rtc()
+                    from core.license_manager import check_license as _cl
+                    if _cl() is None:
+                        logger.error("License validation failed. Stopping scan.")
+                        break
+                except SystemExit:
+                    raise
+                except Exception:
+                    pass
+
             # Global abort checks (timeout, WAF block, error threshold)
             if self._should_abort_scan():
                 elapsed = time.time() - self._scan_start_time
@@ -8333,17 +8385,50 @@ class SmartCrawler:
 
 def main():
     import argparse
-    from core.license_manager import require_license, activate_license
+    from core.license_manager import require_license, activate_license, deactivate_license, check_license
 
-    parser = argparse.ArgumentParser(description='Smart Vulnerability Crawler with Bypass Integration and Behavioral Analysis')
+    parser = argparse.ArgumentParser(
+        description='Smart Vulnerability Crawler with Bypass Integration and Behavioral Analysis',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists
+  python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists --max-pages 500 --verbose
+  python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists --bypass-file bypasses.json
+
+License management (shared with application_traceroute_v3_5.py):
+  python smart_vuln_crawler2.py --license-status
+      Show current license type, key, expiration date and days remaining.
+
+  python smart_vuln_crawler2.py --activate-license YOUR_LICENSE_KEY
+      Activate or renew a license key. If a license is already active its
+      online activation slot is released before the new one is registered.
+      License types accepted:
+        Free trial  : DOGNETDA3-DAD-B3Dfree
+        Monthly     : AT_XXX_XXX_XXX_XXXmo  (30 days)
+        Annual      : AT_XXX_XXX_XXX_XXXyr  (365 days)
+
+  python smart_vuln_crawler2.py --deactivate-license
+      Deactivate the current license online and remove the local license file.
+      Use this before moving the tool to a different machine.
+
+Note: the license is stored in ~/.application_traceroute/license.json and is
+shared between application_traceroute and smart_vuln_crawler2. Activating from
+either tool is sufficient.
+        """
+    )
     parser.add_argument('target', nargs='?', help='Target URL to crawl')
     parser.add_argument('--activate-license', metavar='KEY',
-                        help='Activate a license key and exit')
+                        help='Activate (or renew) a license key and exit')
+    parser.add_argument('--deactivate-license', action='store_true',
+                        help='Deactivate the current license and exit')
+    parser.add_argument('--license-status', action='store_true',
+                        help='Show current license status and exit')
     parser.add_argument('--depth', type=int, default=3, help='Maximum crawl depth (default: 3)')
     parser.add_argument('--max-pages', type=int, default=1000, help='Maximum pages to crawl (default: 1000)')
     parser.add_argument('--output', default='attack_surface.json', help='Output JSON file')
-    parser.add_argument('--wordlist-base', required=True,
-                        help='Base path for wordlists (REQUIRED). Example: /usr/share/wordlists or ~/wordlists')
+    parser.add_argument('--wordlist-base',
+                        help='Base path for wordlists (required for scanning). Example: /usr/share/wordlists or ~/wordlists')
     parser.add_argument('--discovery-limit', type=int, default=1000, help='Max paths to test')
     parser.add_argument('--skip-discovery', action='store_true', help='Skip wordlist discovery')
     parser.add_argument('--bypass-file', help='JSON file with bypasses')
@@ -8365,7 +8450,31 @@ def main():
     
     args = parser.parse_args()
 
-    # Handle license activation mode
+    # Handle license status
+    if args.license_status:
+        info = check_license()
+        if info is None:
+            print("No valid license found.")
+        else:
+            type_label = {"free": "FREE TRIAL", "monthly": "MONTHLY", "annual": "ANNUAL"}.get(
+                info.license_type, info.license_type.upper())
+            online = "[online]" if info.activation_token else "[offline]"
+            print(f"License: {type_label} {online}")
+            print(f"  Key:      {info.key}")
+            print(f"  Expires:  {info.expiration_date.strftime('%Y-%m-%d')}")
+            print(f"  Remaining: {info.days_remaining} days")
+        return
+
+    # Handle license deactivation
+    if args.deactivate_license:
+        ok = deactivate_license()
+        if ok:
+            print("License deactivated successfully.")
+        else:
+            print("No active license to deactivate.")
+        return
+
+    # Handle license activation / renewal
     if args.activate_license:
         info = activate_license(args.activate_license)
         if info.valid:
@@ -8383,7 +8492,9 @@ def main():
     # License check
     require_license()
 
-    # ========== VALIDATE WORDLIST-BASE (REQUIRED) ==========
+    # ========== VALIDATE WORDLIST-BASE (REQUIRED for scanning) ==========
+    if not args.wordlist_base:
+        parser.error("the following arguments are required: --wordlist-base")
     wordlist_base = os.path.expanduser(args.wordlist_base)  # Expand ~ if used
     if not os.path.isdir(wordlist_base):
         print(f"\n  ✗ ERROR: Wordlist base path does not exist: {wordlist_base}")

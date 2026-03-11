@@ -3125,7 +3125,20 @@ class DiscrepancyTester:
             self.test_graph_optimized_attack_chain     # Graph Theory + Game Theory
         ]
 
-        for test in discrepancy_tests:
+        for _test_idx, test in enumerate(discrepancy_tests):
+            # Periodic integrity + license re-validation every 5 tests
+            if _test_idx > 0 and _test_idx % 5 == 0:
+                try:
+                    from core._security import runtime_check as _rtc
+                    _rtc()
+                    from core.license_manager import check_license as _cl
+                    if _cl() is None:
+                        print("  [!] License validation failed. Stopping analysis.")
+                        break
+                except SystemExit:
+                    raise
+                except Exception:
+                    pass
             try:
                 test()
             except Exception as e:
@@ -6212,7 +6225,7 @@ class ApplicationTraceroute:
 
 def main():
     import argparse
-    from core.license_manager import require_license, activate_license
+    from core.license_manager import require_license, activate_license, deactivate_license, check_license
 
     parser = argparse.ArgumentParser(
         description='Application Stack Traceroute v3.0 - Intelligent Stack Reconstruction',
@@ -6222,7 +6235,26 @@ Examples:
   python app_traceroute_v3.py https://target.com
   python app_traceroute_v3.py https://target.com --forbidden-endpoint https://target.com/admin
   python app_traceroute_v3.py https://target.com --skip-forbidden-tests
+
+License management (shared with smart_vuln_crawler2.py):
+  python app_traceroute_v3.py --license-status
+      Show current license type, key, expiration date and days remaining.
+
   python app_traceroute_v3.py --activate-license YOUR_LICENSE_KEY
+      Activate or renew a license key. If a license is already active its
+      online activation slot is released before the new one is registered.
+      License types accepted:
+        Free trial  : DOGNETDA3-DAD-B3Dfree
+        Monthly     : AT_XXX_XXX_XXX_XXXmo  (30 days)
+        Annual      : AT_XXX_XXX_XXX_XXXyr  (365 days)
+
+  python app_traceroute_v3.py --deactivate-license
+      Deactivate the current license online and remove the local license file.
+      Use this before moving the tool to a different machine.
+
+Note: the license is stored in ~/.application_traceroute/license.json and is
+shared between application_traceroute and smart_vuln_crawler2. Activating from
+either tool is sufficient.
         """
     )
 
@@ -6239,12 +6271,46 @@ Examples:
     parser.add_argument(
         '--activate-license',
         metavar='KEY',
-        help='Activate a license key and exit'
+        help='Activate (or renew) a license key and exit'
+    )
+    parser.add_argument(
+        '--deactivate-license',
+        action='store_true',
+        help='Deactivate the current license and exit'
+    )
+    parser.add_argument(
+        '--license-status',
+        action='store_true',
+        help='Show current license status and exit'
     )
 
     args = parser.parse_args()
 
-    # Handle license activation mode
+    # Handle license status
+    if args.license_status:
+        info = check_license()
+        if info is None:
+            print("No valid license found.")
+        else:
+            type_label = {"free": "FREE TRIAL", "monthly": "MONTHLY", "annual": "ANNUAL"}.get(
+                info.license_type, info.license_type.upper())
+            online = "[online]" if info.activation_token else "[offline]"
+            print(f"License: {type_label} {online}")
+            print(f"  Key:      {info.key}")
+            print(f"  Expires:  {info.expiration_date.strftime('%Y-%m-%d')}")
+            print(f"  Remaining: {info.days_remaining} days")
+        return
+
+    # Handle license deactivation
+    if args.deactivate_license:
+        ok = deactivate_license()
+        if ok:
+            print("License deactivated successfully.")
+        else:
+            print("No active license to deactivate.")
+        return
+
+    # Handle license activation / renewal
     if args.activate_license:
         info = activate_license(args.activate_license)
         if info.valid:
