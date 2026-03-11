@@ -9,7 +9,7 @@
 
 **Advanced Web Application Security Testing Suite for Bug Bounty Hunters**
 
-[Features](#features) • [Installation](#installation) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Examples](#examples)
+[Features](#features) • [Installation](#installation) • [Quick Start](#quick-start) • [License Management](#license-management) • [Documentation](#documentation) • [Examples](#examples)
 
 </div>
 
@@ -129,6 +129,88 @@ python3 smart_vuln_crawler2.py https://target.com \
 
 ---
 
+## 🔑 License Management
+
+Both tools share a **single license file** stored at `~/.application_traceroute/license.json`. Activating or deactivating a license from either tool affects both.
+
+### License Types
+
+| Type | Key Format | Duration |
+|---|---|---|
+| Free Trial | `DOGNETDA3-DAD-B3Dfree` | 30 days |
+| Monthly | `AT_XXX_XXX_XXX_XXXmo` | 30 days |
+| Annual | `AT_XXX_XXX_XXX_XXXyr` | 365 days |
+
+> `X` = character from `ABCDEFGHILMENOPQRSTUVZXWYJK1234567890`
+
+Licenses are validated online against **dognet.tech**. An activation token is returned by the server and stored locally. Each subsequent run performs an online token validation; on network failure the tool falls back to the locally cached expiration date.
+
+### Check Current License
+
+```bash
+python3 application_traceroute.py --license-status
+# or
+python3 smart_vuln_crawler2.py --license-status
+```
+
+Output:
+```
+License: ANNUAL [online]
+  Key:       AT_ABC_DEF_GHI_JKLyr
+  Expires:   2027-03-10
+  Remaining: 365 days
+```
+
+### Activate or Renew a License
+
+```bash
+python3 application_traceroute.py --activate-license YOUR_LICENSE_KEY
+# or
+python3 smart_vuln_crawler2.py --activate-license YOUR_LICENSE_KEY
+```
+
+If a license is already active its **online activation slot is released automatically** before the new key is registered. This means you can renew mid-subscription without manual steps.
+
+```bash
+# Renew before expiry — old slot released, new one registered
+python3 application_traceroute.py --activate-license AT_NEW_KEY_HEREyr
+# License activated: annual (expires 2027-03-10)
+```
+
+### Deactivate a License
+
+Use this before moving the tool to a different machine so the activation slot is freed on the server:
+
+```bash
+python3 application_traceroute.py --deactivate-license
+# or
+python3 smart_vuln_crawler2.py --deactivate-license
+```
+
+Output:
+```
+License deactivated successfully.
+```
+
+### First Run Without a License
+
+If no valid license is found the tool prompts interactively:
+
+```
+============================================================
+  SECURITY TESTING SUITE v4.0 - LICENSE REQUIRED
+============================================================
+
+  License types:
+    - Free trial (30 days)
+    - Monthly   (30 days)  - suffix 'mo'
+    - Annual    (365 days) - suffix 'yr'
+
+  Enter license key: _
+```
+
+---
+
 ## 📖 Documentation
 
 ### Command Line Options
@@ -143,27 +225,35 @@ Required:
 
 Scanning Options:
   --max-pages N         Maximum pages to crawl (default: 100)
-  --max-depth N         Maximum crawl depth (default: 3)
+  --depth N             Maximum crawl depth (default: 3)
   --discovery-limit N   Endpoint discovery limit (default: 1000)
-  --threads N           Concurrent threads (default: 10)
-  
+
 Authentication:
-  --auth-type TYPE      Authentication type: form, basic, bearer, custom
-  --auth-url URL        Login URL for form authentication
-  --auth-data DATA      Authentication credentials
-  --auth-check URL      URL to verify session validity
-  
+  --auth-type TYPE      Authentication type: form, basic, bearer, cookie, custom_header
+  --auth-username USER  Username for authentication
+  --auth-password PASS  Password for authentication
+  --auth-token TOKEN    Bearer token
+  --auth-login-url URL  Login URL for form authentication
+  --auth-cookies STR    Cookies: name1=value1;name2=value2
+  --auth-headers STR    Headers: Header1:Value1;Header2:Value2
+  --auth-config FILE    JSON file with auth configuration
+
 Wordlists:
-  --wordlist-base PATH  Base directory for wordlists
-                        (default: looks for fuzzdb, SecLists, PayloadsAllTheThings)
-  
+  --wordlist-base PATH  Base directory for wordlists (REQUIRED)
+                        e.g. /usr/share/wordlists or ~/wordlists
+
 Bypass:
   --bypass-file FILE    Load bypasses from Application Traceroute output
-  
+
 Output:
-  --output DIR          Output directory (default: results/)
-  --verbose            Enable detailed logging
-  --debug              Enable debug mode with full HTTP traces
+  --output FILE         Output JSON file (default: attack_surface.json)
+  --verbose             Enable detailed logging
+  --debug               Log all I/O, headers and data flows to debug_*.json
+
+License:
+  --license-status      Show current license status and exit
+  --activate-license KEY  Activate or renew a license key and exit
+  --deactivate-license  Deactivate the current license and exit
 ```
 
 #### Application Traceroute
@@ -172,13 +262,17 @@ Output:
 python3 application_traceroute.py <target> [options]
 
 Required:
-  target                Target URL
+  target                      Target URL
 
 Options:
-  --output FILE        Output JSON file (default: auto-generated)
-  --threads N          Concurrent tests (default: 5)
-  --timeout N          Request timeout in seconds (default: 10)
-  --verbose           Detailed output
+  --forbidden-endpoint URL    Known 403/401 endpoint for bypass testing
+  --skip-forbidden-tests      Skip tests requiring a forbidden endpoint
+  --verbose                   Detailed output
+
+License:
+  --license-status            Show current license status and exit
+  --activate-license KEY      Activate or renew a license key and exit
+  --deactivate-license        Deactivate the current license and exit
 ```
 
 ---
@@ -446,7 +540,17 @@ pip3 install -r requirements-dev.txt
 
 ## 📝 Changelog
 
-### v4.0.0 (2026-02-18) - CURRENT
+### v4.0.1 (2026-03-10) - CURRENT
+
+**License Management:**
+- Online license activation via dognet.tech REST API
+- Activation token stored locally; each run performs online token validation
+- Automatic online deactivation of old slot when renewing with `--activate-license`
+- New CLI flags in both tools: `--license-status`, `--deactivate-license`
+- Graceful offline fallback: if the server is unreachable, locally cached expiration is used
+- License file shared between both tools (`~/.application_traceroute/license.json`)
+
+### v4.0.0 (2026-02-18)
 
 **Major Features:**
 - 🎯 Unified security testing suite
