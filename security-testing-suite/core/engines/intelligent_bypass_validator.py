@@ -47,7 +47,7 @@ except ImportError:
         )
         ADVANCED_VALIDATION = True
         if not any(a in sys.argv for a in ('--license-status', '--activate-license', '--deactivate-license')):
-        print("✅ Intelligent Bypass Validator loaded successfully")
+            print("✅ Intelligent Bypass Validator loaded successfully")
     except ImportError as e:
         ADVANCED_VALIDATION = False
         print(f"⚠️  Advanced validation modules not available, falling back to basic mode ({e})")

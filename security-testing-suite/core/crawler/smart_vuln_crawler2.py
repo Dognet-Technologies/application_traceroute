@@ -7161,6 +7161,12 @@ class SmartCrawler:
                 # but the dangerous construct could still be present.
                 # Fall through to dangerous_patterns check below instead of returning False.
                 pass
+            elif vuln_type in ['crlf', 'xpath', 'nosqli', 'ldapi', 'open_redirect', 'ssrf']:
+                # These types never require literal payload reflection:
+                # - crlf/open_redirect: evidence is in response headers or JS/meta redirects
+                # - xpath/nosqli/ldapi: evidence is in error messages or behavioral diff
+                # - ssrf: evidence is internal IP/cloud metadata content in response body
+                pass
             else:
                 # Per altri tipi, se payload non riflesso → probabilmente non vulnerabile
                 return False
@@ -7668,6 +7674,167 @@ class SmartCrawler:
                 size_diff = abs(len(response_text) - len(baseline_response))
                 if size_diff > 50 and status_code == 200:
                     return True
+
+        elif vuln_type == 'open_redirect':
+            # ========== OPEN REDIRECT DETECTION ==========
+            # Evidence is in:
+            # 1. Location header pointing to attacker domain (301/302/307)
+            # 2. Meta-refresh tag targeting attacker domain
+            # 3. JavaScript window.location / location.href redirect
+
+            # Check 1: HTTP redirect to external domain
+            if status_code in [301, 302, 303, 307, 308]:
+                response_headers = dict(response.headers) if hasattr(response, 'headers') else {}
+                location = response_headers.get('Location', response_headers.get('location', ''))
+                if location:
+                    # Extract domain from payload to verify it's OUR redirect, not a normal one
+                    domain_match = re.search(r'https?://([^/\s:]+)', payload, re.I) or \
+                                   re.search(r'//([^/\s:]+)', payload, re.I)
+                    if domain_match:
+                        payload_domain = domain_match.group(1).lower()
+                        if payload_domain in location.lower():
+                            return True
+                    # Also check common canary domains in payloads
+                    if any(d in location.lower() for d in ['evil.com', 'attacker.com', 'example.com']):
+                        return True
+
+            # Check 2: Meta-refresh to external domain
+            meta_refresh = re.search(
+                r'<meta[^>]*http-equiv=["\']?refresh["\']?[^>]*content=["\']?\d+;\s*url=([^"\'>\s]+)',
+                response_text, re.I
+            )
+            if meta_refresh:
+                redirect_url = meta_refresh.group(1)
+                if re.search(r'https?://(?!(?:' + re.escape(self.target_url.split('/')[2]) + r'))', redirect_url, re.I):
+                    return True
+
+            # Check 3: JavaScript redirect to external domain
+            js_redirect_patterns = [
+                re.compile(r'window\.location\s*=\s*["\']https?://(?!localhost)([^"\']+)["\']', re.I),
+                re.compile(r'location\.href\s*=\s*["\']https?://(?!localhost)([^"\']+)["\']', re.I),
+                re.compile(r'location\.replace\s*\(\s*["\']https?://(?!localhost)([^"\']+)["\']', re.I),
+            ]
+            for pattern in js_redirect_patterns:
+                match = pattern.search(response_text)
+                if match:
+                    redirect_target = match.group(0)
+                    if payload.split('/')[2] if '//' in payload else payload in redirect_target:
+                        return True
+
+        elif vuln_type == 'nosqli':
+            # ========== NOSQL INJECTION DETECTION ==========
+            # Evidence is in:
+            # 1. NoSQL-specific error messages (MongoDB, Redis, Elasticsearch, etc.)
+            # 2. Response size differential with NoSQL operator payloads (boolean-based)
+            # 3. $where JavaScript execution indicators
+
+            # Check 1: Error-based — DB-specific error messages
+            nosql_error_patterns = [
+                r'MongoError|MongoServerError|BSONObj',
+                r'not\s+authorized.*collection|\$operator\s+is\s+not\s+allowed',
+                r'SearchParseException|QueryParsingException|search_phase_execution_exception',
+                r'SyntaxError.*Cypher|Neo\.ClientError|org\.neo4j',
+                r'WRONGTYPE|NOAUTH\s+Authentication|ERR\s+unknown\s+command',
+                r'bad_request.*selector|couchdb',
+                r'SyntaxError.*JSON|JSON\.parse\s+error',
+                r'illegal_argument_exception|ValidationException.*dynamodb',
+            ]
+            for pattern in nosql_error_patterns:
+                if re.search(pattern, response_text, re.I):
+                    if not (baseline_response and re.search(pattern, baseline_response, re.I)):
+                        return True
+
+            # Check 2: Boolean-based — operator payload causes size differential
+            nosql_operators = ['$ne', '$gt', '$lt', '$gte', '$lte', '$eq', '$in', '$nin',
+                               '$or', '$and', '$where', '$regex', '$exists']
+            if any(op in payload for op in nosql_operators):
+                if baseline_response and isinstance(baseline_response, str):
+                    size_diff = abs(len(response_text) - len(baseline_response))
+                    if size_diff > len(baseline_response) * 0.20 and status_code == 200:
+                        return True
+
+            # Check 3: $where JS execution — response expands significantly
+            if '$where' in payload or 'function(' in payload:
+                if baseline_response and len(response_text) > len(baseline_response) * 1.5:
+                    return True
+
+        elif vuln_type == 'ldapi':
+            # ========== LDAP INJECTION DETECTION ==========
+            # Evidence is in:
+            # 1. LDAP-specific error messages (ldap_search, Invalid DN, etc.)
+            # 2. Wildcard injection returning more data than baseline
+            # 3. Filter bypass patterns causing auth bypass
+
+            # Check 1: Error-based
+            ldap_error_patterns = [
+                r'LDAP\s+error|Invalid\s+DN\s+syntax|Bad\s+search\s+filter',
+                r'ldap_search|ldap_bind|ldap_connect',
+                r'Size\s+limit\s+exceeded|Operations\s+error|No\s+such\s+object',
+                r'javax\.naming\.(ldap|directory)',
+            ]
+            for pattern in ldap_error_patterns:
+                if re.search(pattern, response_text, re.I):
+                    if not (baseline_response and re.search(pattern, baseline_response, re.I)):
+                        return True
+
+            # Check 2: Wildcard injection returning extra data
+            if '*' in payload and baseline_response and isinstance(baseline_response, str):
+                if len(response_text) > len(baseline_response) * 2:
+                    return True
+
+            # Check 3: Boolean filter bypass — auth bypass indicators
+            bypass_patterns = ['*)(', '))(', '*)(&', '*))%00', "*)(%00"]
+            if any(bp in payload for bp in bypass_patterns):
+                auth_bypass_indicators = [r'welcome', r'logged.*in', r'dashboard', r'logout']
+                if any(re.search(ind, response_text_lower) for ind in auth_bypass_indicators):
+                    if not baseline_response or not any(
+                        re.search(ind, baseline_response.lower()) for ind in auth_bypass_indicators
+                    ):
+                        return True
+
+        elif vuln_type == 'ssrf':
+            # ========== SSRF DETECTION (in-band only) ==========
+            # Evidence is content from internal resources appearing in the response.
+            # Out-of-band SSRF (DNS callback) is not detectable here.
+
+            # Check 1: Cloud metadata service responses
+            cloud_metadata_patterns = [
+                r'ami-id|instance-id|security-groups|placement',          # AWS EC2
+                r'compute\.googleapis\.com|metadata\.google\.internal',    # GCP
+                r'azure\.com.*metadata|imds',                             # Azure
+                r'100\.100\.100\.200',                                     # Alibaba
+            ]
+            for pattern in cloud_metadata_patterns:
+                if re.search(pattern, response_text, re.I):
+                    return True
+
+            # Check 2: Internal service banners / responses
+            internal_service_patterns = [
+                r'redis_version|connected_clients|used_memory',           # Redis INFO
+                r'cluster_name.*cluster_uuid',                            # Elasticsearch
+                r'STAT\s+pid\s+\d+|STAT\s+uptime',                      # Memcached
+                r'mysql.*server.*version|mariadb.*server',                # MySQL/MariaDB
+                r'PostgreSQL.*accepting\s+connections',                   # PostgreSQL
+                r'kubernetes\.default\.svc|kube-apiserver',               # K8s
+                r'docker\.sock',                                          # Docker socket
+            ]
+            for pattern in internal_service_patterns:
+                if re.search(pattern, response_text, re.I):
+                    return True
+
+            # Check 3: Network error messages that reveal SSRF behavior
+            # (server tried to fetch the URL and got a network error)
+            if re.search(r'169\.254\.169\.254|127\.0\.0\.1|localhost', payload, re.I):
+                ssrf_error_patterns = [
+                    r'Connection\s+refused|Connection\s+timed?\s*out',
+                    r'No\s+route\s+to\s+host|java\.net\.ConnectException',
+                    r'Failed\s+to\s+connect|ECONNREFUSED|ETIMEDOUT',
+                    r'getaddrinfo\s+ENOTFOUND',
+                ]
+                for pattern in ssrf_error_patterns:
+                    if re.search(pattern, response_text, re.I):
+                        if not (baseline_response and re.search(pattern, baseline_response, re.I)):
+                            return True
 
         elif vuln_type == 'csrf':
             # ========== CSRF DETECTION ==========
