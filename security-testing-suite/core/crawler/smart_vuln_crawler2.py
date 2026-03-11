@@ -7698,14 +7698,18 @@ class SmartCrawler:
                     if any(d in location.lower() for d in ['evil.com', 'attacker.com', 'example.com']):
                         return True
 
-            # Check 2: Meta-refresh to external domain
+            # Check 2: Meta-refresh to our payload's domain
             meta_refresh = re.search(
                 r'<meta[^>]*http-equiv=["\']?refresh["\']?[^>]*content=["\']?\d+;\s*url=([^"\'>\s]+)',
                 response_text, re.I
             )
             if meta_refresh:
-                redirect_url = meta_refresh.group(1)
-                if re.search(r'https?://(?!(?:' + re.escape(self.target_url.split('/')[2]) + r'))', redirect_url, re.I):
+                redirect_url = meta_refresh.group(1).lower()
+                domain_match = re.search(r'https?://([^/\s:]+)', payload, re.I) or \
+                               re.search(r'//([^/\s:]+)', payload, re.I)
+                if domain_match and domain_match.group(1).lower() in redirect_url:
+                    return True
+                if any(d in redirect_url for d in ['evil.com', 'attacker.com', 'example.com']):
                     return True
 
             # Check 3: JavaScript redirect to external domain
@@ -7801,7 +7805,7 @@ class SmartCrawler:
             cloud_metadata_patterns = [
                 r'ami-id|instance-id|security-groups|placement',          # AWS EC2
                 r'compute\.googleapis\.com|metadata\.google\.internal',    # GCP
-                r'azure\.com.*metadata|imds',                             # Azure
+                r'azure\.com.*metadata|\bimds\b',                         # Azure
                 r'100\.100\.100\.200',                                     # Alibaba
             ]
             for pattern in cloud_metadata_patterns:
