@@ -8457,8 +8457,9 @@ class SmartCrawler:
                 cookies=dict(self.session.cookies),
                 verbose=self.verbose,
                 timeout=120,
-                level=1,
-                risk=1,
+                level=3,
+                risk=2,
+                threads=3,
             )
         except Exception as e:
             logger.error(f"Failed to initialize SqlmapWrapper: {e}")
