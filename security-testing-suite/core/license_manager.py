@@ -308,13 +308,10 @@ def activate_license(key: str) -> LicenseInfo:
     """
     Validate and activate a license key.
 
-    For paid licenses:
+    For all license types (free, monthly, annual):
       1. Validates the key format locally.
       2. Calls the online activation API to obtain an activation token.
       3. Stores the token and API-provided expiration date locally.
-
-    For free licenses:
-      - Skips online activation and stores locally only.
 
     Returns LicenseInfo (check .valid and .error for outcome).
     """
@@ -327,12 +324,6 @@ def activate_license(key: str) -> LicenseInfo:
     if existing and existing.activation_token:
         _online_deactivate(existing.activation_token)
 
-    # Free licenses — no online activation needed
-    if info.license_type == LicenseType.FREE:
-        save_license(info)
-        return info
-
-    # Paid license — try online activation
     api_data = _online_activate(key)
     if api_data is not None:
         token = api_data.get("token") or api_data.get("activationToken")
@@ -368,7 +359,7 @@ def check_license() -> 'LicenseInfo | None':
     if not info.valid:
         return None
 
-    # Online validation for paid licenses that have a token
+    # Online validation for all licenses that have a token
     if info.activation_token:
         api_data = _online_validate(info.activation_token)
         if api_data is not None:
@@ -398,7 +389,7 @@ def check_license() -> 'LicenseInfo | None':
             # Network unavailable — fall back to local expiration check
             pass
 
-    # Local expiration check (free licenses or offline fallback)
+    # Local expiration check (offline fallback)
     if info.is_expired:
         info.valid = False
         info.error = "License has expired"

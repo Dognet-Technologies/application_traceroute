@@ -47,7 +47,7 @@ def get_api_auth_params() -> dict:
 # Expected SHA-256 digest of core/license_manager.py
 # Computed at release time — do not edit manually.
 # ---------------------------------------------------------------------------
-_CORE_DIGEST = "7774b8cdb94dffdbddb08236ff94c6f11bb07187a62314d2faa1c4c4f0a7f85c"
+_CORE_DIGEST = "d481151a8e33c4471121dae0db4a072a9025f301730378e1c78d0955da98f582"
 
 
 def _module_path() -> Path:
