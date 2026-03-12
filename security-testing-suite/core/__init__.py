@@ -13,4 +13,4 @@ from .license_manager import (
 )
 from ._security import runtime_check
 
-__version__ = "4.0.0"
+__version__ = "4.0.1"

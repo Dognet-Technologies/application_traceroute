@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "security-testing-suite"
-version = "4.0.0"
+version = "4.0.1"
 description = "Advanced Security Testing Suite with Causal Inference"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-security-traceroute = "core.traceroute.application_traceroute_v3_5:main"
+security-traceroute = "core.traceroute.application_traceroute_v4:main"
 security-crawler = "core.crawler.smart_vuln_crawler2:main"
 
 [tool.setuptools.packages.find]
