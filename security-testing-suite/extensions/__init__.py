@@ -1,5 +1,5 @@
 """
-Extensions module - Enhanced analysis capabilities for Security Testing Suite v4.0
+Extensions module - Enhanced analysis capabilities for Security Testing Suite v4.0.1
 
 Packages:
 - response: CausalResponseAnalyzer for bypass verification
@@ -100,4 +100,4 @@ __all__ = [
     'ACTIVE_SCANNER_AVAILABLE'
 ]
 
-__version__ = "4.0.0"
+__version__ = "4.0.1"

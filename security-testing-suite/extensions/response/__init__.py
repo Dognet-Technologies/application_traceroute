@@ -1,7 +1,7 @@
 """
 extensions/response/__init__.py
 
-Response analysis package for Security Testing Suite v4.0
+Response analysis package for Security Testing Suite v4.0.1
 
 Provides multi-level bypass verification with:
 - Content semantic classification
@@ -46,4 +46,4 @@ __all__ = [
     'create_mock_response'
 ]
 
-__version__ = "4.0.0"
+__version__ = "4.0.1"

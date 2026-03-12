@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Application Stack Traceroute v3.5-dev | Intelligent Reconstruction
+Application Stack Traceroute v4.0.1 | Intelligent Reconstruction
 Next-Generation Infrastructure Analysis with Progressive Discovery
 
 FEATURES:
@@ -5920,7 +5920,7 @@ class ReportGenerator:
         """Generate human-readable text report"""
         report = f"""
 {'=' * 80}
-APPLICATION STACK TRACEROUTE v3.5-Dev - INTELLIGENT RECONSTRUCTION
+APPLICATION STACK TRACEROUTE v4.0.1 - INTELLIGENT RECONSTRUCTION
 {'=' * 80}
 
 🎯 TARGET: {self.target_url}
@@ -6131,7 +6131,7 @@ class ApplicationTraceroute:
     async def run_full_analysis(self):
         """Run complete analysis workflow"""
         print("\n" + "=" * 80)
-        print("🔬 APPLICATION STACK TRACEROUTE v3.5-Dev Version")
+        print("🔬 APPLICATION STACK TRACEROUTE v4.0.1")
         print("🎯 Intelligent Stack Reconstruction & Bypass Generation")
         print("=" * 80)
         print(f"\n🎯 Target: {self.target_url}\n")
@@ -6228,26 +6228,26 @@ def main():
     from core.license_manager import require_license, activate_license, deactivate_license, check_license
 
     parser = argparse.ArgumentParser(
-        description='Application Stack Traceroute v3.0 - Intelligent Stack Reconstruction',
+        description='Application Stack Traceroute v4.0.1 - Intelligent Stack Reconstruction',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python app_traceroute_v3.py https://target.com
-  python app_traceroute_v3.py https://target.com --forbidden-endpoint https://target.com/admin
-  python app_traceroute_v3.py https://target.com --skip-forbidden-tests
+  python application_traceroute_v4.py https://target.com
+  python application_traceroute_v4.py https://target.com --forbidden-endpoint https://target.com/admin
+  python application_traceroute_v4.py https://target.com --skip-forbidden-tests
 
 License management (shared with smart_vuln_crawler2.py):
-  python app_traceroute_v3.py --license-status
+  python application_traceroute_v4.py --license-status
       Show current license type, key, expiration date and days remaining.
 
-  python app_traceroute_v3.py --activate-license YOUR_LICENSE_KEY
+  python application_traceroute_v4.py --activate-license YOUR_LICENSE_KEY
       Activate or renew a license key. If a license is already active its
       online activation slot is released before the new one is registered.
       License types accepted:
         Monthly     : AT_XXX_XXX_XXX_XXXmo  (30 days)
         Annual      : AT_XXX_XXX_XXX_XXXyr  (365 days)
 
-  python app_traceroute_v3.py --deactivate-license
+  python application_traceroute_v4.py --deactivate-license
       Deactivate the current license online and remove the local license file.
       Use this before moving the tool to a different machine.
 
