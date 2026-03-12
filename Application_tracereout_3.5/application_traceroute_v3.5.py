@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Application Stack Traceroute v3.5-dev | Intelligent Reconstruction
+Application Stack Traceroute v3.5.5 | Intelligent Reconstruction
 Next-Generation Infrastructure Analysis with Progressive Discovery
 
 FEATURES:
@@ -5105,7 +5105,7 @@ class ReportGenerator:
         """Generate human-readable text report"""
         report = f"""
 {'=' * 80}
-APPLICATION STACK TRACEROUTE v3.5-Dev - INTELLIGENT RECONSTRUCTION
+APPLICATION STACK TRACEROUTE v3.5.5 - INTELLIGENT RECONSTRUCTION
 {'=' * 80}
 
 🎯 TARGET: {self.target_url}
@@ -5316,7 +5316,7 @@ class ApplicationTraceroute:
     async def run_full_analysis(self):
         """Run complete analysis workflow"""
         print("\n" + "=" * 80)
-        print("🔬 APPLICATION STACK TRACEROUTE v3.5-Dev Version")
+        print("🔬 APPLICATION STACK TRACEROUTE v3.5.5")
         print("🎯 Intelligent Stack Reconstruction & Bypass Generation")
         print("=" * 80)
         print(f"\n🎯 Target: {self.target_url}\n")
@@ -5412,7 +5412,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description='Application Stack Traceroute v3.0 - Intelligent Stack Reconstruction',
+        description='Application Stack Traceroute v3.5.5 - Intelligent Stack Reconstruction',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
