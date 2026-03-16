@@ -37,6 +37,7 @@ from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse, urljoin
 from typing import Dict, List, Optional, Tuple, Set, Any
+from core.paths import RESULTS_BASE_STR, ensure_results_base
 import urllib3
 import warnings
 
@@ -6468,12 +6469,11 @@ APPLICATION STACK TRACEROUTE v4.0.1 - INTELLIGENT RECONSTRUCTION
         domain = urlparse(self.target_url).netloc.replace(':', '_').replace('.', '_')
         timestamp = int(time.time())
 
-        # Create organized directory structure
-        results_base = "results"
+        # Create organized directory structure under the project-wide results dir
+        ensure_results_base()
         scan_dir = f"{domain}_{timestamp}"
-        output_dir = os.path.join(results_base, scan_dir)
+        output_dir = os.path.join(RESULTS_BASE_STR, scan_dir)
 
-        # Create directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
 
         # Generate filename if not provided

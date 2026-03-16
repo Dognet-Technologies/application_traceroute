@@ -43,6 +43,7 @@ import difflib
 import os
 import itertools
 from functools import lru_cache
+from core.paths import RESULTS_BASE_STR, ensure_results_base
 
 # Disabilita SSL warnings per security testing
 import urllib3
@@ -539,10 +540,10 @@ class VulnerabilityLogger:
         self.scan_timestamp = int(time.time())
         self.scan_time_str = time.strftime('%Y-%m-%d %H:%M:%S')
         
-        self.results_base = "results"
+        ensure_results_base()
         self.scan_dir = f"{self.target_domain}_{self.scan_timestamp}"
-        self.output_dir = os.path.join(self.results_base, self.scan_dir)
-        
+        self.output_dir = os.path.join(RESULTS_BASE_STR, self.scan_dir)
+
         os.makedirs(self.output_dir, exist_ok=True)
         
         self.vuln_file = os.path.join(
