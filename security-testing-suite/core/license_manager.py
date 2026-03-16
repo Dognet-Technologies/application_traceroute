@@ -319,10 +319,9 @@ def activate_license(key: str) -> LicenseInfo:
     if not info.valid:
         return info
 
-    # Deactivate any previously stored license before activating the new one
+    # Try to activate the new key FIRST, before touching the existing license.
+    # This prevents losing a valid annual license if the new activation fails.
     existing = load_license()
-    if existing and existing.activation_token:
-        _online_deactivate(existing.activation_token)
 
     api_data = _online_activate(key)
     if api_data is not None:
@@ -334,6 +333,10 @@ def activate_license(key: str) -> LicenseInfo:
             info.activation_token = token
         if expires_at:
             info._expires_at_override = expires_at
+
+        # New activation succeeded — now it's safe to deactivate the old one.
+        if existing and existing.activation_token:
+            _online_deactivate(existing.activation_token)
     else:
         # Network unavailable — accept local format validation but mark as offline
         print("  [WARNING] Could not reach license server. "
