@@ -2766,10 +2766,18 @@ class ProgressiveStackAnalyzer:
 
         # Log the enhanced chain
         if self.stack['layers']:
+            # When multiple layers share the same type (e.g. two FRAMEWORK detections),
+            # divide that type's allocated latency evenly so each shows a distinct value
+            # instead of both printing the same number.
+            type_counts: Dict[str, int] = {}
+            for layer in self.stack['layers']:
+                type_counts[layer['type']] = type_counts.get(layer['type'], 0) + 1
+
             chain_parts = []
             for layer in self.stack['layers']:
-                timing = estimated_latencies.get(layer['type'], 0)
-                chain_parts.append(f"{layer['type']}({layer['component']},{timing:.0f}ms)")
+                t = layer['type']
+                timing = estimated_latencies.get(t, 0) / type_counts[t]
+                chain_parts.append(f"{t}({layer['component']},{timing:.0f}ms)")
             chain = " → ".join(chain_parts)
             self.log("CORRELATION", f"Stack chain: {chain}", "SUCCESS")
             self.log("CORRELATION", f"Total latency: {total_latency:.2f}ms", "INFO")
@@ -3567,15 +3575,45 @@ class DiscrepancyTester:
                 
                 # If any method bypasses forbidden
                 if response.status_code not in [401, 403, 405, 429]:
-                    is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
-                    self.discrepancies.append({
-                        'type': 'Method Confusion',
+                    body_len = len(response.content)
+
+                    if method == 'OPTIONS' and response.status_code == 200:
+                        # OPTIONS 200 is normal CORS/preflight behaviour: body is
+                        # typically empty and the response only carries Allow/CORS
+                        # headers.  Only flag as a real bypass when the body is large
+                        # enough to indicate that actual protected content was returned.
+                        is_confirmed_bypass = body_len > 200
+                        discrepancy_type = 'Method Confusion - OPTIONS'
+                        note = (
+                            'OPTIONS returned 200 with a non-trivial body — verify manually'
+                            if is_confirmed_bypass else
+                            'OPTIONS 200 with empty/tiny body: normal preflight, not a bypass'
+                        )
+                    elif method == 'TRACE' and response.status_code == 200:
+                        # TRACE echoes the request back; this is an XST (Cross-Site
+                        # Tracing) risk but does NOT grant access to the protected
+                        # resource, so it is not a 403 bypass.
+                        is_confirmed_bypass = False
+                        discrepancy_type = 'TRACE Enabled (XST risk)'
+                        note = 'TRACE is enabled — Cross-Site Tracing risk; not a 403 bypass'
+                    else:
+                        is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
+                        discrepancy_type = 'Method Confusion'
+                        note = None
+
+                    entry = {
+                        'type': discrepancy_type,
                         'method': method,
                         'forbidden_url': self.forbidden_endpoint,
                         'response_code': response.status_code,
+                        'response_body_len': body_len,
                         'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
                         'is_confirmed_bypass': is_confirmed_bypass,
-                    })
+                    }
+                    if note:
+                        entry['note'] = note
+                    self.discrepancies.append(entry)
+
                     label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
                     print(f"    {label}: {method} → {response.status_code}")
             except Exception as e:
@@ -3945,7 +3983,10 @@ class DiscrepancyTester:
             try:
                 response = self.session.get(self.forbidden_endpoint, headers=headers, timeout=5)
 
-                if response.status_code not in [403, 401, 429]:
+                # 400 Bad Request  → server correctly rejected the malformed Host
+                # 421 Misdirected Request → server correctly refused the wrong-host request
+                # Both are expected security behaviour, not exploitable discrepancies.
+                if response.status_code not in [400, 401, 403, 421, 429]:
                     self.discrepancies.append({
                         'type': 'Host Header Attack',
                         'headers': headers,
@@ -5275,9 +5316,24 @@ class DiscrepancyTester:
                     self.rate_limiter.wait()
 
                     test_path = candidate['payload']
-                    test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{test_path}"
                     op = candidate['operator']
                     gen = candidate['generation']
+
+                    # Percent-encode raw control characters and non-ASCII so that
+                    # requests doesn't reject the URL with InvalidURL.  Characters
+                    # that are legal in an HTTP path (RFC 3986 §3.3) are left alone;
+                    # everything else (tab, LF, CR, null byte, high-unicode, …) is
+                    # encoded as %XX / %XX%XX before the URL is assembled.
+                    try:
+                        encoded_path = urllib.parse.quote(
+                            test_path,
+                            safe="/:@!$&'()*+,;=-._%~"  # keep pct-encoded seqs intact
+                        )
+                    except Exception:
+                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → invalid mutation (skipped)")
+                        continue
+
+                    test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{encoded_path}"
 
                     try:
                         response = self.session.get(test_url, timeout=5, allow_redirects=False)
@@ -5331,8 +5387,15 @@ class DiscrepancyTester:
                         else:
                             print(f"     [-] [{idx}/{len(diverse_candidates)}] op={op} → HTTP {status} (blocked)")
 
-                    except Exception:
-                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → request error")
+                    except requests.exceptions.InvalidURL as exc:
+                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → invalid URL ({exc})")
+                        continue
+                    except (requests.exceptions.ConnectionError,
+                            requests.exceptions.Timeout) as exc:
+                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → connection error ({type(exc).__name__})")
+                        continue
+                    except Exception as exc:
+                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → request error ({type(exc).__name__})")
                         continue
 
                 print(f"\n     🧬 Semantic scan complete: {hits} bypass(es) found out of {len(diverse_candidates)} tested")
@@ -6354,9 +6417,10 @@ class BypassValidator:
                 }
                 return True
 
-            # Different from baseline but not a bypass
-            # 401/403/429/503 are common WAF block responses – not discrepancies
-            if response.status_code not in [401, 403, 429, 503]:
+            # Different from baseline but not a bypass.
+            # 400/421 are correct server rejections of malformed/misdirected Host
+            # headers and should not be counted as exploitable discrepancies.
+            if response.status_code not in [400, 401, 403, 421, 429, 503]:
                 bypass['validation'] = {
                     'status': 'DISCREPANCY',
                     'response_code': response.status_code,
