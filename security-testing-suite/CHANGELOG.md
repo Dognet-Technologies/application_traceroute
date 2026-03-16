@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.x] - 2026-03-16 (branch: claude/cms-detection-bypass-fix-pHNMM)
+
+### Engineering Decisions Log
+
+#### CMS Detection & Path Normalization False-Positive Filter
+**Problema:** il CMS detector produceva false positive su path normalizzati
+(`/admin/..` → `/` con HTTP 200 interpretato come bypass).
+**Soluzione adottata:** fingerprint della homepage al momento dell'init; qualsiasi
+risposta 200 viene confrontata col fingerprint prima di essere registrata come bypass.
+**Scartato:** soglia statica sulla lunghezza della risposta — troppo fragile su siti
+con contenuto dinamico.
+
+#### Bypassability Score — da hardcoded a dinamico
+**Problema:** `_assess_bypassability()` restituiva valori fissi per tipo di errore
+(es. `authz_error` → sempre 65%) indipendentemente dalla confidence della classificazione.
+**Soluzione adottata:** score dinamico = `0.5 + (ceiling - 0.5) × confidence`, con
+convergence bonus (+3 pp per ogni classificatore aggiuntivo che concorda su un block-type),
+cappato al ceiling del tipo primario.
+**Scartato:** usare direttamente il campo `confidence` del classificatore come score —
+non tiene conto del fatto che tipi diversi hanno bypassabilità intrinseche diverse.
+
+#### Selezione candidati evolutivi — da slice a selezione diversificata
+**Problema:** `evolved_candidates[:10]` testava sempre i primi 10 candidati, tutti
+prodotti dai primi 1-2 operatori (case_swap + encoding_layer); gli operatori più
+interessanti (unicode, null_byte, double_encoding) non venivano mai testati.
+**Soluzione adottata:** selezione che garantisce almeno un candidato per operatore
+(copertura di tutti e 7), poi riempie fino a 15 candidati con i rimanenti.
+**Scartato:** ordinamento per "atteso più efficace" senza dati storici — senza SQLite
+qualsiasi ranking a priori è arbitrario quanto lo slice originale.
+
+#### Nodo SSRF nella graph chain — executor mancante
+**Problema:** `ssrf_attempt` era nel percorso ottimale A* ma non aveva entry in
+`technique_mapping`; veniva silenziosamente saltato senza output.
+**Soluzione adottata:** aggiunto ramo `else` con log `[~] No executor (skipped)`;
+il feedback di execution non viene registrato per quel nodo (non si abbassa la sua
+probabilità senza averlo effettivamente testato).
+**Scartato:** rimuovere il nodo dal grafo — SSRF è un vettore reale e il nodo serve
+anche come waypoint per il calcolo delle probabilità della catena.
+
+#### Adaptive Replanning output — sempre stampato, mai informativo
+**Problema:** `🔄 Adaptive Replanning...` veniva sempre stampato ma il blocco interno
+era condizionato a `if adapted_plan['optimal_path'] != attack_plan['optimal_path']`,
+che è quasi sempre falso (A* trova lo stesso percorso dopo il Bayesian update delle prob).
+**Soluzione adottata:** il blocco mostra sempre il confronto before/after delle
+probabilità, sia che il percorso cambi sia che rimanga invariato.
+
+#### Validazione risultati attack chain — modulo esistente vs nuovo
+**Problema:** i risultati della graph chain e del semantic bypass non venivano validati.
+**Valutato:** `BypassValidator` (semplice, già in v4) — singola re-request, solo
+status code 2xx, nessuna analisi differenziale.
+**Soluzione adottata:** `IntelligentBypassValidator` esistente — multi-strategy retry,
+Bayesian inference, ResponseDifferentialAnalyzer già inizializzato. Integrato via
+`_confirm_chain_hit()` helper; condivide session e rate-limiter senza request aggiuntive
+all'init. I bypass confermati vengono upgradeati a severity `CRITICAL` e il
+`differential_score` passato a `learn_from_success` usa la probability reale del validator.
+**Scartato:** sviluppare un validator apposito per la chain — non necessario, il modulo
+esistente copre già tutti i casi.
+
+#### Apprendimento strategie IntelligentBypassValidator — in-memory
+**Stato attuale:** `successful_strategies` è `dict {category: strategy}` in-memory,
+si azzera a ogni sessione, sovrascrive sempre con l'ultima vincente.
+**Decisione:** mantenere così fino alla 4.5.0 dove verrà introdotta persistenza SQLite
+(vedi sezione v4.5.0 nel roadmap). Persistere il modello attuale prima di ridisegnarlo
+come `{category: {strategy: count}}` non avrebbe senso.
+
+---
+
 ## [4.0.0] - 2026-02-18 (CURRENT RELEASE)
 
 ### 🎉 Major Release - Complete Rewrite
@@ -103,6 +170,49 @@ Last stable release of the separated tools architecture.
 ---
 
 ## [Unreleased] - Future Roadmap
+
+### Planned for v4.5.0
+
+#### 🧠 SQLite Persistence for Adaptive Learning
+
+**Decision:** Aggiungere persistenza SQLite all'`IntelligentBypassValidator` per rendere
+l'apprendimento delle strategie di validazione cross-sessione e per-target.
+
+**Contesto:** Attualmente `successful_strategies` in `IntelligentBypassValidator` è un
+semplice `dict {category: strategy}` in-memory: si azzera a ogni run e sovrascrive sempre
+con l'ultima strategia vincente senza contare le frequenze.
+
+**Schema minimo pianificato:**
+```sql
+CREATE TABLE strategy_success (
+    category     TEXT NOT NULL,
+    strategy     TEXT NOT NULL,
+    target_hash  TEXT NOT NULL,  -- hash(netloc), non l'URL reale
+    count        INTEGER DEFAULT 1,
+    last_seen    DATETIME,
+    PRIMARY KEY (category, strategy, target_hash)
+);
+```
+
+**Decisioni prese:**
+- `target_hash = hash(netloc)`: l'apprendimento deve essere per-target perché una
+  strategia che funziona su un nginx misconfigured non è generalizzabile
+- Due pesi in `_get_ordered_strategies()`: score per-target (peso alto) + score globale
+  aggregato su tutti i target (peso basso) per favorire la generalizzazione progressiva
+- Il modello attuale `{category: strategy}` va sostituito con `{category: {strategy: count}}`
+  prima di persistere, per avere ranking robusto invece di sovrascrittura
+- TTL/decay da definire: pattern appresi oltre N mesi vanno svalutati (target può
+  cambiare configurazione)
+
+**Decisioni scartate:**
+- JSON su disco (come fa `VulnerabilityVerifier`): troppo lento in lettura/scrittura
+  per una struttura che viene aggiornata a ogni bypass confermato
+- Persistenza immediata senza ridisegnare il modello: salvare l'attuale dict su SQLite
+  così com'è perpetuerebbe il limite "ultima vincente sovrascrive tutto"
+- Store unificato VulnerabilityVerifier + IntelligentBypassValidator in un unico DB nella
+  stessa sessione: valutare nella 4.5.0 se conviene condividere lo stesso file SQLite
+
+---
 
 ### Planned for v4.1.0
 - [ ] Python package installation (`pip install application-traceroute`)
