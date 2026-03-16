@@ -6547,16 +6547,17 @@ APPLICATION STACK TRACEROUTE v4.0.1 - INTELLIGENT RECONSTRUCTION
         Saves to organized directory structure:
         results/{domain}_{timestamp}/bypasses_{domain}_{timestamp}.json
         """
-        # Generate domain and timestamp
+        # Reuse the directory created at init time (shared with debug log).
+        # Fall back to creating a new one only if called standalone.
         domain = urlparse(self.target_url).netloc.replace(':', '_').replace('.', '_')
-        timestamp = int(time.time())
-
-        # Create organized directory structure under the project-wide results dir
-        ensure_results_base()
-        scan_dir = f"{domain}_{timestamp}"
-        output_dir = os.path.join(RESULTS_BASE_STR, scan_dir)
-
-        os.makedirs(output_dir, exist_ok=True)
+        if hasattr(self, 'results_dir') and os.path.isdir(self.results_dir):
+            output_dir = self.results_dir
+            timestamp = self._scan_ts
+        else:
+            timestamp = int(time.time())
+            ensure_results_base()
+            output_dir = os.path.join(RESULTS_BASE_STR, f"{domain}_{timestamp}")
+            os.makedirs(output_dir, exist_ok=True)
 
         # Generate filename if not provided
         if not filename:
@@ -6664,6 +6665,15 @@ class ApplicationTraceroute:
         self.forbidden_endpoint = forbidden_endpoint
         self.skip_forbidden_tests = skip_forbidden_tests
 
+        # Create a single results directory shared by JSON export and debug log.
+        # Use the same domain slug and timestamp as export_json() so everything
+        # lands in one folder regardless of when each piece is written.
+        ensure_results_base()
+        domain = urlparse(self.target_url).netloc.replace(':', '_').replace('.', '_')
+        self._scan_ts = int(time.time())
+        self.results_dir = os.path.join(RESULTS_BASE_STR, f"{domain}_{self._scan_ts}")
+        os.makedirs(self.results_dir, exist_ok=True)
+
         # Initialize base session
         base_session = requests.Session()
         base_session.verify = False
@@ -6672,13 +6682,7 @@ class ApplicationTraceroute:
         self.debug_logger = None
         if debug_mode:
             if DEBUG_LOGGER_AVAILABLE:
-                from core.paths import RESULTS_BASE_STR
-                import re as _re
-                slug = _re.sub(r'[^a-z0-9]', '_', target_url.lower().split('://')[-1])
-                import time as _time
-                out_dir = os.path.join(RESULTS_BASE_STR, f"{slug}_{int(_time.time())}")
-                os.makedirs(out_dir, exist_ok=True)
-                self.debug_logger = DebugLogger(output_dir=out_dir, enabled=True)
+                self.debug_logger = DebugLogger(output_dir=self.results_dir, enabled=True)
                 self.session = DebugSession(base_session, self.debug_logger)
                 print(f"  🐛 Debug mode enabled — logging to: {self.debug_logger.output_file}")
             else:
