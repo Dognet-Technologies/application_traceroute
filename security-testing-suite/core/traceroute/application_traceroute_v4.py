@@ -67,6 +67,22 @@ except ImportError as e:
     ADVANCED_MODULES_AVAILABLE = False
     print(f"⚠️  Advanced modules not available - using standard tests only ({e})")
 
+# Optional debug logger (same module used by the crawler)
+try:
+    from core.debug_logger import DebugLogger, DebugSession
+    DEBUG_LOGGER_AVAILABLE = True
+except ImportError:
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _parent = str(_Path(__file__).parent.parent)
+        if _parent not in _sys.path:
+            _sys.path.insert(0, _parent)
+        from debug_logger import DebugLogger, DebugSession
+        DEBUG_LOGGER_AVAILABLE = True
+    except ImportError:
+        DEBUG_LOGGER_AVAILABLE = False
+
 # Suppress SSL warnings for security testing
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
@@ -1701,6 +1717,8 @@ class ProgressiveStackAnalyzer:
             'cache':        self.deep_cache_fingerprinting,
             'framework':    self.deep_framework_fingerprinting,
             'cms':          self.deep_cms_fingerprinting,
+            'api_gateway':  self.deep_api_gateway_fingerprinting,
+            'service_mesh': self.deep_service_mesh_fingerprinting,
         }
 
         for key in methods_to_call:
@@ -6640,20 +6658,39 @@ class ApplicationTraceroute:
     Main orchestrator for the complete analysis workflow.
     """
     
-    def __init__(self, target_url: str, forbidden_endpoint: Optional[str] = None, 
-                 skip_forbidden_tests: bool = False):
+    def __init__(self, target_url: str, forbidden_endpoint: Optional[str] = None,
+                 skip_forbidden_tests: bool = False, debug_mode: bool = False):
         self.target_url = target_url.rstrip('/')
         self.forbidden_endpoint = forbidden_endpoint
         self.skip_forbidden_tests = skip_forbidden_tests
-        
-        # Initialize session
-        self.session = requests.Session()
-        self.session.verify = False
-        
+
+        # Initialize base session
+        base_session = requests.Session()
+        base_session.verify = False
+
+        # Wrap with DebugSession when --debug is requested
+        self.debug_logger = None
+        if debug_mode:
+            if DEBUG_LOGGER_AVAILABLE:
+                from core.paths import RESULTS_BASE_STR
+                import re as _re
+                slug = _re.sub(r'[^a-z0-9]', '_', target_url.lower().split('://')[-1])
+                import time as _time
+                out_dir = os.path.join(RESULTS_BASE_STR, f"{slug}_{int(_time.time())}")
+                os.makedirs(out_dir, exist_ok=True)
+                self.debug_logger = DebugLogger(output_dir=out_dir, enabled=True)
+                self.session = DebugSession(base_session, self.debug_logger)
+                print(f"  🐛 Debug mode enabled — logging to: {self.debug_logger.output_file}")
+            else:
+                print("  ⚠  Debug mode requested but debug_logger module not available")
+                self.session = base_session
+        else:
+            self.session = base_session
+
         # Components
         self.stack_analyzer = ProgressiveStackAnalyzer(target_url)
         self.stack_analyzer.session = self.session  # Share session
-        
+
         self.forbidden_finder = ForbiddenEndpointFinder(target_url, self.session)
         self.discrepancy_tester = None
         self.bypass_generator = None
@@ -6814,6 +6851,11 @@ either tool is sufficient.
         action='store_true',
         help='Show current license status and exit'
     )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug mode: log every HTTP request/response to a JSON file in the results directory'
+    )
 
     args = parser.parse_args()
 
@@ -6868,11 +6910,20 @@ either tool is sufficient.
     tracer = ApplicationTraceroute(
         args.target,
         forbidden_endpoint=args.forbidden_endpoint,
-        skip_forbidden_tests=args.skip_forbidden_tests
+        skip_forbidden_tests=args.skip_forbidden_tests,
+        debug_mode=args.debug
     )
 
     # Use asyncio for async operations
     asyncio.run(tracer.run_full_analysis())
+
+    # Flush debug log if enabled
+    if args.debug and tracer.debug_logger:
+        debug_file = tracer.debug_logger.save()
+        if debug_file:
+            print(f"\n🐛 DEBUG LOG saved to: {debug_file}")
+            print("   Contains: all HTTP I/O, headers, request/response bodies")
+            print("   Attach this file when reporting bugs")
 
 
 if __name__ == "__main__":
