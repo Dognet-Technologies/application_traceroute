@@ -97,14 +97,16 @@ security-crawler https://target.com \
 
 **Output**: `results/target_com_<timestamp>/vulnerabilities_target_com_<timestamp>.json`
 
-### 3. Authenticated Scanning
+### 3. Authenticated Scanning (form login)
 
 ```bash
 security-crawler https://target.com \
     --auth-type form \
-    --auth-url "https://target.com/login" \
-    --auth-data "username=admin&password=test" \
-    --max-pages 200
+    --auth-login-url "https://target.com/login" \
+    --auth-username admin \
+    --auth-password secret \
+    --max-pages 200 \
+    --verbose
 ```
 
 ### 4. Combined Workflow (Recommended)
@@ -237,7 +239,7 @@ Required:
   target                Target URL (http://example.com)
 
 Scanning Options:
-  --max-pages N         Maximum pages to crawl (default: 100)
+  --max-pages N         Maximum pages to crawl (default: 1000)
   --depth N             Maximum crawl depth (default: 3)
   --discovery-limit N   Endpoint discovery limit (default: 1000)
 
@@ -246,7 +248,7 @@ Authentication:
   --auth-username USER  Username for authentication
   --auth-password PASS  Password for authentication
   --auth-token TOKEN    Bearer token
-  --auth-login-url URL  Login URL for form authentication
+  --auth-login-url URL  Login URL for form authentication (--auth-type form)
   --auth-cookies STR    Cookies: name1=value1;name2=value2
   --auth-headers STR    Headers: Header1:Value1;Header2:Value2
   --auth-config FILE    JSON file with auth configuration
@@ -254,6 +256,9 @@ Authentication:
 Wordlists:
   --wordlist-base PATH  Base directory for wordlists (REQUIRED for payload scanning)
                         e.g. /usr/share/wordlists or ~/wordlists
+
+Discovery:
+  --skip-discovery      Skip wordlist-based endpoint discovery (crawled pages only)
 
 Bypass:
   --bypass-file FILE    Load bypasses from security-traceroute output
@@ -273,60 +278,215 @@ License:
 
 ## 🔬 Examples
 
-### Example 1: Basic Vulnerability Scan
+### Example 1: Quick scan, no auth
 
 ```bash
-security-crawler http://testphp.vulnweb.com --verbose
+security-crawler https://target.com --verbose
 ```
 
-**Output:**
-```
-🚨 VULNERABILITIES DETECTED: 27
-XSS (11 found):
-  📍 http://testphp.vulnweb.com/search.php?searchFor=<script>alert(1)</script>
-SQLI (8 found):
-  📍 http://testphp.vulnweb.com/userinfo.php?uname='
-RCE (4 found):
-  📍 http://testphp.vulnweb.com/product.php?pic=; id
+---
+
+### Example 2: Infrastructure analysis with a known 403 endpoint
+
+Map the stack and run full bypass discovery on a specific protected path:
+
+```bash
+security-traceroute https://target.com \
+    --forbidden-endpoint https://target.com/admin/dashboard
 ```
 
-### Example 2: Authenticated Scan with Wordlists
+Results in `results/target_com_<timestamp>/bypasses_*.json`.
+
+---
+
+### Example 3: Infrastructure analysis only — skip bypass tests
+
+Useful when you only want stack fingerprinting and have no 403 endpoint, or want a fast run:
+
+```bash
+security-traceroute https://target.com --skip-forbidden-tests
+```
+
+---
+
+### Example 4: Form authentication
 
 ```bash
 security-crawler https://app.example.com \
     --auth-type form \
-    --auth-url "https://app.example.com/login" \
-    --auth-data "email=test@example.com&password=password123" \
-    --auth-check "https://app.example.com/dashboard" \
-    --wordlist-base /usr/share/wordlists \
+    --auth-login-url "https://app.example.com/login" \
+    --auth-username "pentester@example.com" \
+    --auth-password "MyPassword123" \
     --max-pages 500 \
     --verbose
 ```
 
-### Example 3: Full Workflow with Bypasses
+---
+
+### Example 5: Bearer token (API or JWT)
 
 ```bash
-# Discover infrastructure and bypass techniques
-security-traceroute https://protected.example.com
-# Output: results/protected_example_com_1234567890/bypasses_protected_example_com_1234567890.json
-
-# Scan using discovered bypasses
-security-crawler https://protected.example.com \
-    --bypass-file results/protected_example_com_1234567890/bypasses_protected_example_com_1234567890.json \
-    --max-pages 1000
+security-crawler https://api.example.com \
+    --auth-type bearer \
+    --auth-token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+    --max-pages 200 \
+    --verbose
 ```
 
-### Example 4: Technology-Specific Scanning
+---
+
+### Example 6: Basic HTTP authentication
 
 ```bash
-# Scanner auto-detects PHP + MySQL and uses specific payloads
-security-crawler https://php-app.com --verbose
+security-crawler https://staging.example.com \
+    --auth-type basic \
+    --auth-username admin \
+    --auth-password admin123 \
+    --verbose
 ```
 
-**Output includes:**
+---
+
+### Example 7: Cookie-based authentication
+
+Paste the session cookie directly from your browser after logging in:
+
+```bash
+security-crawler https://app.example.com \
+    --auth-type cookie \
+    --auth-cookies "session=abc123def456; csrftoken=xyz789; _ga=GA1.2.111" \
+    --max-pages 300 \
+    --verbose
+```
+
+---
+
+### Example 8: Custom header authentication (API key, X-Auth-Token, etc.)
+
+```bash
+security-crawler https://api.example.com \
+    --auth-type custom_header \
+    --auth-headers "X-API-Key:sk-live-abc123;X-Tenant-ID:acme-corp" \
+    --max-pages 100 \
+    --verbose
+```
+
+---
+
+### Example 9: Auth from a JSON config file
+
+Useful when the auth setup is complex or reused across multiple runs. Create `auth.json`:
+
+```json
+{
+    "type": "form",
+    "login_url": "https://app.example.com/login",
+    "username": "pentester",
+    "password": "secret",
+    "cookies": "remember_me=1"
+}
+```
+
+Then run:
+
+```bash
+security-crawler https://app.example.com \
+    --auth-config auth.json \
+    --max-pages 500 \
+    --verbose
+```
+
+---
+
+### Example 10: Targeted scan with custom wordlists (specific vuln type + vendor)
+
+Point `--wordlist-base` at your wordlist root. The scanner automatically picks the right
+files based on detected technology. To target a specific vendor directory structure:
+
+```bash
+# Focused SQLi scan against a WordPress/MySQL target
+security-crawler https://wp-site.example.com \
+    --wordlist-base ~/wordlists \
+    --max-pages 200 \
+    --verbose
+```
+
+Matching wordlist paths (auto-discovered under `--wordlist-base`):
+```
+~/wordlists/
+├── SecLists/Fuzzing/SQLi/             ← picked for sqli
+├── PayloadsAllTheThings/SQL Injection/ ← picked for sqli
+├── fuzzdb/attack/xss/                 ← picked for xss
+└── custom/wordpress/sqli.txt          ← picked if path contains 'sqli'
+```
+
+Output includes:
 ```
 📚 Found 27 wordlist files for sqli (tech: mysql)
 Collected 147 MySQL-specific payloads
+```
+
+---
+
+### Example 11: Skip wordlist endpoint discovery
+
+Skip the path discovery phase and scan only crawled pages (faster, less noise):
+
+```bash
+security-crawler https://target.com \
+    --skip-discovery \
+    --max-pages 100 \
+    --verbose
+```
+
+---
+
+### Example 12: Debug mode — full HTTP I/O trace
+
+Saves every request/response (headers, body, timings) to `debug_<session_id>.json`
+in the results directory. Use to diagnose false positives or inspect exactly what was sent:
+
+```bash
+security-crawler https://target.com \
+    --auth-type cookie \
+    --auth-cookies "session=abc123" \
+    --debug \
+    --verbose
+```
+
+---
+
+### Example 13: Full workflow — traceroute → bypass → scan
+
+```bash
+# Step 1: fingerprint the stack, find bypass techniques for the admin panel
+security-traceroute https://target.com \
+    --forbidden-endpoint https://target.com/admin
+
+# Step 2: use the discovered bypasses in the full vulnerability scan
+security-crawler https://target.com \
+    --auth-type cookie \
+    --auth-cookies "session=abc123" \
+    --bypass-file results/target_com_<timestamp>/bypasses_target_com_<timestamp>.json \
+    --wordlist-base ~/wordlists \
+    --max-pages 1000 \
+    --verbose
+```
+
+---
+
+### Example 14: Bug bounty recon — full unauthenticated sweep
+
+Large scope, deep crawl, all default payload sets, no wordlist (uses internal payloads):
+
+```bash
+security-traceroute https://target.com --skip-forbidden-tests
+
+security-crawler https://target.com \
+    --depth 5 \
+    --max-pages 1000 \
+    --discovery-limit 2000 \
+    --verbose
 ```
 
 ---
