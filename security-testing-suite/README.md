@@ -2,8 +2,8 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8+-green.svg)
+![Version](https://img.shields.io/badge/version-4.0.1-blue.svg)
+![Python](https://img.shields.io/badge/python-3.10+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-orange.svg)
 ![Status](https://img.shields.io/badge/status-stable-success.svg)
 
@@ -31,13 +31,15 @@
 
 ## 🚀 Features
 
-### Application Stack Traceroute (v4.0)
+### Application Stack Traceroute (`security-traceroute`)
 - **Infrastructure Fingerprinting**: Identifies CDN, WAF, Load Balancers, Proxies, Backend servers
 - **Parser Discrepancy Detection**: Finds inconsistencies between layers (22+ advanced techniques)
 - **Automated Bypass Generation**: Creates and validates custom bypasses for discovered infrastructure
-- **JSON Export**: Structured output for integration with other tools
+- **Semantic Bypass Engine**: NLP-inspired classification + evolutionary mutation of bypass candidates
+- **Graph-Optimized Attack Chains**: A* search + Game Theory to find optimal technique sequences
+- **JSON Export**: Structured output saved to `results/` for integration with other tools
 
-### Smart Vulnerability Scanner (v4.0)
+### Smart Vulnerability Scanner (`security-crawler`)
 - **Multi-Category Detection**: XSS, SQLi, RCE, LFI, SSTI, XXE, CSRF, CRLF, XPath, and more
 - **Intelligent Crawling**: Discovers hidden endpoints, parameters, and attack surface
 - **Behavioral Analysis**: Identifies parameter behavior (database interaction, file ops, reflection)
@@ -50,33 +52,24 @@
 
 ## 📦 Installation
 
-### Quick Install (Recommended)
-
 ```bash
 # Clone repository
 git clone https://github.com/yourusername/application_traceroute.git
-cd application_traceroute
+cd application_traceroute/security-testing-suite
 
-# Install dependencies
-pip3 install -r requirements.txt
+# Install package and dependencies
+pip install -e .
 
 # Verify installation
-python3 smart_vuln_crawler2.py --version
-python3 application_traceroute.py --version
-```
-
-### Python Package (Coming Soon)
-
-```bash
-pip install application-traceroute
+security-traceroute --version
+security-crawler --version
 ```
 
 ### Requirements
 
-- Python 3.8+
-- Linux/macOS (Windows with WSL)
-- 2GB RAM minimum
-- Internet connection for wordlist downloads
+- Python 3.10+
+- Linux / macOS (Windows with WSL)
+- 2 GB RAM minimum
 
 ---
 
@@ -87,27 +80,27 @@ pip install application-traceroute
 Map the complete application stack and discover bypass techniques:
 
 ```bash
-python3 application_traceroute.py https://target.com
+security-traceroute https://target.com
 ```
 
-**Output**: `bypasses_target.com_timestamp.json` with validated bypass techniques
+**Output**: `results/target_com_<timestamp>/bypasses_target_com_<timestamp>.json`
 
 ### 2. Vulnerability Scanning
 
 Scan for vulnerabilities with intelligent crawling:
 
 ```bash
-python3 smart_vuln_crawler2.py https://target.com \
+security-crawler https://target.com \
     --max-pages 100 \
     --verbose
 ```
 
+**Output**: `results/target_com_<timestamp>/vulnerabilities_target_com_<timestamp>.json`
+
 ### 3. Authenticated Scanning
 
-Scan authenticated applications:
-
 ```bash
-python3 smart_vuln_crawler2.py https://target.com \
+security-crawler https://target.com \
     --auth-type form \
     --auth-url "https://target.com/login" \
     --auth-data "username=admin&password=test" \
@@ -117,12 +110,12 @@ python3 smart_vuln_crawler2.py https://target.com \
 ### 4. Combined Workflow (Recommended)
 
 ```bash
-# Step 1: Discover bypasses
-python3 application_traceroute.py https://target.com
+# Step 1: Discover infrastructure and bypass techniques
+security-traceroute https://target.com
 
-# Step 2: Scan with discovered bypasses
-python3 smart_vuln_crawler2.py https://target.com \
-    --bypass-file bypasses_target.com_*.json \
+# Step 2: Scan using the discovered bypasses
+security-crawler https://target.com \
+    --bypass-file results/target_com_<timestamp>/bypasses_target_com_<timestamp>.json \
     --max-pages 500 \
     --verbose
 ```
@@ -131,7 +124,8 @@ python3 smart_vuln_crawler2.py https://target.com \
 
 ## 🔑 License Management
 
-Both tools share a **single license file** stored at `~/.application_traceroute/license.json`. Activating or deactivating a license from either tool affects both.
+Both tools share a **single license file** stored at `~/.application_traceroute/license.json`.
+Activating or deactivating a license from either tool affects both.
 
 ### License Types
 
@@ -148,9 +142,9 @@ Licenses are validated online against **dognet.tech**. An activation token is re
 ### Check Current License
 
 ```bash
-python3 application_traceroute.py --license-status
+security-traceroute --license-status
 # or
-python3 smart_vuln_crawler2.py --license-status
+security-crawler --license-status
 ```
 
 Output:
@@ -164,16 +158,16 @@ License: ANNUAL [online]
 ### Activate or Renew a License
 
 ```bash
-python3 application_traceroute.py --activate-license YOUR_LICENSE_KEY
+security-traceroute --activate-license YOUR_LICENSE_KEY
 # or
-python3 smart_vuln_crawler2.py --activate-license YOUR_LICENSE_KEY
+security-crawler --activate-license YOUR_LICENSE_KEY
 ```
 
-If a license is already active its **online activation slot is released automatically** before the new key is registered. This means you can renew mid-subscription without manual steps.
+If a license is already active its **online activation slot is released automatically** before the new key is registered. You can renew mid-subscription without manual steps.
 
 ```bash
 # Renew before expiry — old slot released, new one registered
-python3 application_traceroute.py --activate-license AT_NEW_KEY_HEREyr
+security-traceroute --activate-license AT_NEW_KEY_HEREyr
 # License activated: annual (expires 2027-03-10)
 ```
 
@@ -182,9 +176,9 @@ python3 application_traceroute.py --activate-license AT_NEW_KEY_HEREyr
 Use this before moving the tool to a different machine so the activation slot is freed on the server:
 
 ```bash
-python3 application_traceroute.py --deactivate-license
+security-traceroute --deactivate-license
 # or
-python3 smart_vuln_crawler2.py --deactivate-license
+security-crawler --deactivate-license
 ```
 
 Output:
@@ -215,10 +209,29 @@ If no valid license is found the tool prompts interactively:
 
 ### Command Line Options
 
+#### Application Traceroute
+
+```
+security-traceroute <target> [options]
+
+Required:
+  target                      Target URL
+
+Options:
+  --forbidden-endpoint URL    Known 403/401 endpoint for bypass testing
+  --skip-forbidden-tests      Skip tests requiring a forbidden endpoint
+  --verbose                   Detailed output
+
+License:
+  --license-status            Show current license status and exit
+  --activate-license KEY      Activate or renew a license key and exit
+  --deactivate-license        Deactivate the current license and exit
+```
+
 #### Smart Vulnerability Scanner
 
-```bash
-python3 smart_vuln_crawler2.py <target> [options]
+```
+security-crawler <target> [options]
 
 Required:
   target                Target URL (http://example.com)
@@ -239,14 +252,14 @@ Authentication:
   --auth-config FILE    JSON file with auth configuration
 
 Wordlists:
-  --wordlist-base PATH  Base directory for wordlists (REQUIRED)
+  --wordlist-base PATH  Base directory for wordlists (REQUIRED for payload scanning)
                         e.g. /usr/share/wordlists or ~/wordlists
 
 Bypass:
-  --bypass-file FILE    Load bypasses from Application Traceroute output
+  --bypass-file FILE    Load bypasses from security-traceroute output
 
 Output:
-  --output FILE         Output JSON file (default: attack_surface.json)
+  --output FILE         Output JSON filename (saved inside results/<scan_dir>/)
   --verbose             Enable detailed logging
   --debug               Log all I/O, headers and data flows to debug_*.json
 
@@ -256,25 +269,6 @@ License:
   --deactivate-license  Deactivate the current license and exit
 ```
 
-#### Application Traceroute
-
-```bash
-python3 application_traceroute.py <target> [options]
-
-Required:
-  target                      Target URL
-
-Options:
-  --forbidden-endpoint URL    Known 403/401 endpoint for bypass testing
-  --skip-forbidden-tests      Skip tests requiring a forbidden endpoint
-  --verbose                   Detailed output
-
-License:
-  --license-status            Show current license status and exit
-  --activate-license KEY      Activate or renew a license key and exit
-  --deactivate-license        Deactivate the current license and exit
-```
-
 ---
 
 ## 🔬 Examples
@@ -282,7 +276,7 @@ License:
 ### Example 1: Basic Vulnerability Scan
 
 ```bash
-python3 smart_vuln_crawler2.py http://testphp.vulnweb.com --verbose
+security-crawler http://testphp.vulnweb.com --verbose
 ```
 
 **Output:**
@@ -299,7 +293,7 @@ RCE (4 found):
 ### Example 2: Authenticated Scan with Wordlists
 
 ```bash
-python3 smart_vuln_crawler2.py https://app.example.com \
+security-crawler https://app.example.com \
     --auth-type form \
     --auth-url "https://app.example.com/login" \
     --auth-data "email=test@example.com&password=password123" \
@@ -312,15 +306,13 @@ python3 smart_vuln_crawler2.py https://app.example.com \
 ### Example 3: Full Workflow with Bypasses
 
 ```bash
-# Discover infrastructure and bypasses
-python3 application_traceroute.py https://protected.example.com
-
-# Output: bypasses_protected.example.com_1234567890.json
-# Contains: 9 validated bypass techniques
+# Discover infrastructure and bypass techniques
+security-traceroute https://protected.example.com
+# Output: results/protected_example_com_1234567890/bypasses_protected_example_com_1234567890.json
 
 # Scan using discovered bypasses
-python3 smart_vuln_crawler2.py https://protected.example.com \
-    --bypass-file bypasses_protected.example.com_1234567890.json \
+security-crawler https://protected.example.com \
+    --bypass-file results/protected_example_com_1234567890/bypasses_protected_example_com_1234567890.json \
     --max-pages 1000
 ```
 
@@ -328,7 +320,7 @@ python3 smart_vuln_crawler2.py https://protected.example.com \
 
 ```bash
 # Scanner auto-detects PHP + MySQL and uses specific payloads
-python3 smart_vuln_crawler2.py https://php-app.com --verbose
+security-crawler https://php-app.com --verbose
 ```
 
 **Output includes:**
@@ -340,6 +332,9 @@ Collected 147 MySQL-specific payloads
 ---
 
 ## 📊 Output Formats
+
+All output is saved under `results/<domain>_<timestamp>/` at the project root,
+regardless of where the tool is invoked from.
 
 ### Vulnerability Report (JSON)
 
@@ -417,57 +412,43 @@ Collected 147 MySQL-specific payloads
 
 ### Custom Wordlists
 
-Place your wordlists in the following structure:
+Place your wordlists in the following structure and pass the root with `--wordlist-base`:
 
 ```
 /path/to/wordlists/
 ├── fuzzdb/
-│   ├── attack/
-│   │   ├── sql-injection/
-│   │   ├── xss/
-│   │   └── ...
+│   └── attack/
+│       ├── sql-injection/
+│       ├── xss/
+│       └── ...
 ├── SecLists/
-│   ├── Fuzzing/
-│   │   ├── SQLi/
-│   │   └── XSS/
+│   └── Fuzzing/
+│       ├── SQLi/
+│       └── XSS/
 └── PayloadsAllTheThings/
     ├── SQL Injection/
     └── XSS Injection/
 ```
 
-Scanner will automatically discover and use all relevant files.
+The scanner automatically discovers and uses all relevant files.
 
 ### Technology Detection
 
-Scanner automatically detects and adapts to:
+The scanner automatically detects and adapts to:
 - **Languages**: PHP, Python, Java, Node.js, Ruby, ASP.NET
 - **Databases**: MySQL, PostgreSQL, MSSQL, Oracle, SQLite, MongoDB
 - **Frameworks**: Laravel, Django, Spring, Express, Rails
 - **Servers**: Apache, Nginx, IIS, Tomcat
 
-### Rate Limiting
-
-Configure request rate to avoid detection:
-
-```python
-# In smart_vuln_crawler2.py
-self.rate_limiter = RateLimiter(
-    requests_per_second=1.0,  # Adjust as needed
-    burst=5
-)
-```
-
 ---
 
 ## 🧪 Testing
-
-Run the test suite:
 
 ```bash
 # Test on DVWA (Damn Vulnerable Web Application)
 docker run --rm -p 8080:80 vulnerables/web-dvwa
 
-python3 smart_vuln_crawler2.py http://localhost:8080 \
+security-crawler http://localhost:8080 \
     --auth-type form \
     --auth-url "http://localhost:8080/login.php" \
     --auth-data "username=admin&password=password&Login=Login" \
@@ -494,10 +475,10 @@ python3 smart_vuln_crawler2.py http://localhost:8080 \
 
 ### Scalability
 
-- **Small target** (< 50 pages): 10-20 minutes
-- **Medium target** (50-200 pages): 30-60 minutes
-- **Large target** (200-500 pages): 1-3 hours
-- **Very large target** (500+ pages): 3-6 hours
+- **Small target** (< 50 pages): 10–20 minutes
+- **Medium target** (50–200 pages): 30–60 minutes
+- **Large target** (200–500 pages): 1–3 hours
+- **Very large target** (500+ pages): 3–6 hours
 
 ---
 
@@ -532,48 +513,15 @@ Contributions are welcome! Please:
 
 ```bash
 git clone https://github.com/yourusername/application_traceroute.git
-cd application_traceroute
-pip3 install -r requirements-dev.txt
+cd application_traceroute/security-testing-suite
+pip install -e ".[dev]"
 ```
 
 ---
 
 ## 📝 Changelog
 
-### v4.0.1 (2026-03-10) - CURRENT
-
-**License Management:**
-- Online license activation via dognet.tech REST API
-- Activation token stored locally; each run performs online token validation
-- Automatic online deactivation of old slot when renewing with `--activate-license`
-- New CLI flags in both tools: `--license-status`, `--deactivate-license`
-- Graceful offline fallback: if the server is unreachable, locally cached expiration is used
-- License file shared between both tools (`~/.application_traceroute/license.json`)
-
-### v4.0.0 (2026-02-18)
-
-**Major Features:**
-- 🎯 Unified security testing suite
-- 🧠 Intelligent behavioral analysis
-- 📚 Recursive wordlist scanning (150+ payloads per type)
-- 🔍 Advanced pattern matching with parameter normalization
-- 🛡️ 10+ vulnerability categories (XSS, SQLi, RCE, SSTI, CSRF, CRLF, XXE, XPath, etc.)
-- ⚡ Production-ready with 99.9% stability
-
-**Improvements:**
-- 2x faster crawling with optimized threading
-- 3x better detection rate with improved pattern matching
-- Technology-aware payload selection
-- Enhanced authentication handling
-- Comprehensive debug logging
-
-### v3.5.0 (Previous Stable)
-
-**Features:**
-- Separate tools: `application_traceroute.py` and `smart_crawler.py`
-- Basic vulnerability scanning
-- Manual bypass configuration
-- Limited wordlist support
+See [CHANGELOG.md](CHANGELOG.md) for the full history of decisions, fixes, and features.
 
 ---
 
@@ -596,12 +544,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Wordlists**: fuzzdb, SecLists, PayloadsAllTheThings
 - **Testing**: DVWA, testphp.vulnweb.com
 - **Community**: Bug bounty hunters and security researchers worldwide
-
----
-
-## ⭐ Star History
-
-If you find this tool useful, please consider giving it a star! ⭐
 
 ---
 
