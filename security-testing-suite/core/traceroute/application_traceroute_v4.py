@@ -1060,7 +1060,120 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': [],
                     'error_patterns': ['go runtime', 'panic']
                 }
-            }
+            },
+
+            'cms_detection': {
+                'wordpress': {
+                    'headers': ['x-pingback'],
+                    'cookies': ['wordpress_', 'wp-settings-', 'wordpress_logged_in', 'wp_lang'],
+                    'body_patterns': [
+                        'wp-content/', 'wp-includes/', '/wp-json/', 'xmlrpc.php',
+                        'wp-embed.min.js', 'wp-emoji-release.min.js'
+                    ],
+                    'behavioral_paths': ['/wp-login.php', '/wp-admin/', '/wp-json/wp/v2/'],
+                    'tech_headers': {'x-pingback': 'xmlrpc.php'},
+                },
+                'drupal': {
+                    'headers': ['x-drupal-cache', 'x-drupal-dynamic-cache', 'x-generator'],
+                    'cookies': ['SESS', 'SSESS', 'Drupal.visitor.'],
+                    'body_patterns': [
+                        'sites/default/files', 'drupal.js', 'Drupal.settings',
+                        '/sites/all/', 'drupal/misc/'
+                    ],
+                    'behavioral_paths': ['/user/login', '/node', '/?q=user/login'],
+                    'tech_headers': {'x-generator': 'Drupal'},
+                },
+                'joomla': {
+                    'headers': [],
+                    'cookies': ['joomla_user_state', 'joomla_session'],
+                    'body_patterns': [
+                        '/media/jui/', '/components/com_', '/templates/system/',
+                        'mootools-core', 'joomla!'
+                    ],
+                    'behavioral_paths': ['/administrator/', '/administrator/index.php'],
+                    'tech_headers': {},
+                },
+                'typo3': {
+                    'headers': [],
+                    'cookies': ['fe_typo_user', 'be_typo_user'],
+                    'body_patterns': [
+                        'typo3temp', '/typo3conf/', 'typo3/sysext', 'TYPO3'
+                    ],
+                    'behavioral_paths': ['/typo3/', '/typo3/backend.php'],
+                    'tech_headers': {},
+                },
+                'magento': {
+                    'headers': ['x-magento-cache-control', 'x-magento-vary', 'x-magento-cache-debug'],
+                    'cookies': ['frontend', 'adminhtml', 'PHPSESSID'],
+                    'body_patterns': [
+                        'mage/', 'Mage.Cookies', '/skin/frontend/', 'js/mage/',
+                        'Magento_Ui', 'data-mage-init'
+                    ],
+                    'behavioral_paths': ['/admin', '/downloader/'],
+                    'tech_headers': {'x-magento-cache-debug': ''},
+                },
+                'shopify': {
+                    'headers': ['x-shopify-stage', 'x-shopify-request-id', 'x-shopid', 'x-shardid'],
+                    'cookies': ['_shopify_', '_session_id', 'cart'],
+                    'body_patterns': [
+                        'Shopify.', '/cdn.shopify.com/', 'myshopify.com',
+                        'shopify_pay', 'window.Shopify'
+                    ],
+                    'behavioral_paths': ['/admin', '/checkout', '/cart'],
+                    'tech_headers': {},
+                },
+                'prestashop': {
+                    'headers': [],
+                    'cookies': ['PrestaShop-', 'id_cart', 'id_currency', 'id_lang'],
+                    'body_patterns': [
+                        'prestashop', '/modules/blockcart/', 'var prestashop',
+                        'PrestaShop', 'id_product'
+                    ],
+                    'behavioral_paths': ['/admin', '/index.php?controller=authentication'],
+                    'tech_headers': {},
+                },
+                'woocommerce': {
+                    'headers': [],
+                    'cookies': ['woocommerce_', 'wc_cart_hash_', 'woocommerce_items_in_cart'],
+                    'body_patterns': [
+                        'woocommerce', 'WooCommerce', '/wc-api/', 'wc_add_to_cart_nonce',
+                        'data-product_id', 'wc-checkout'
+                    ],
+                    'behavioral_paths': ['/shop', '/cart', '/my-account'],
+                    'tech_headers': {},
+                },
+                'ghost': {
+                    'headers': ['x-ghost-cache-status'],
+                    'cookies': ['ghost-admin-api-session'],
+                    'body_patterns': [
+                        'ghost-url', 'ghost.io', 'content/themes/casper',
+                        'window.ghost', '/@tryghost/'
+                    ],
+                    'behavioral_paths': ['/ghost/', '/ghost/api/'],
+                    'tech_headers': {'x-ghost-cache-status': ''},
+                },
+                'strapi': {
+                    'headers': [],
+                    'cookies': [],
+                    'body_patterns': ['strapi', '"strapiVersion"', '/uploads/'],
+                    'behavioral_paths': ['/admin', '/admin/auth/login', '/_health'],
+                    'tech_headers': {},
+                },
+                'umbraco': {
+                    'headers': [],
+                    'cookies': ['UMB_UCONTEXT', 'UMB-XSRF-TOKEN'],
+                    'body_patterns': ['umbracoNaviHide', 'UmbracoContext', '/umbraco/'],
+                    'behavioral_paths': ['/umbraco/', '/umbraco/backoffice/'],
+                    'tech_headers': {},
+                },
+                'craft_cms': {
+                    'headers': ['x-powered-by'],
+                    'cookies': ['CraftSessionId', 'CRAFT_CSRF_TOKEN'],
+                    'body_patterns': ['craft.app', 'craftcms', 'Craft CMS'],
+                    'behavioral_paths': ['/admin', '/index.php?p=admin'],
+                    'tech_headers': {'x-powered-by': 'Craft CMS'},
+                },
+            },
         }
 
     def log(self, category: str, message: str, level: str = "INFO"):
@@ -1293,7 +1406,8 @@ class ProgressiveStackAnalyzer:
             'container_orchestration_detection': 75,
             'serverless_detection': 85,
             'microservice_detection': 95,
-            'backend_detection': 100
+            'backend_detection': 100,
+            'cms_detection': 110,
         }
         return orders.get(category, 50)
 
@@ -1504,6 +1618,7 @@ class ProgressiveStackAnalyzer:
         'microservice_detection':           'microservice',
         'container_orchestration_detection':'container_orchestration',
         'serverless_detection':             'serverless',
+        'cms_detection':                    'cms',
     }
 
     _TIMELINE_TYPE_TO_LAYER = {
@@ -1526,6 +1641,7 @@ class ProgressiveStackAnalyzer:
         'forwarding':             'LOAD_BALANCER',   # X-Forwarded-* → proxying layer
         'infrastructure':         'LOAD_BALANCER',   # X-Served-By, X-Backend-Server
         'framework':              'FRAMEWORK',       # X-Powered-By, X-Runtime
+        'cms':                    'CMS',             # CMS layer (WordPress, Drupal, etc.)
         'tracking':               None,              # X-Request-ID etc. – not a real hop
     }
 
@@ -1554,6 +1670,7 @@ class ProgressiveStackAnalyzer:
             'microservice':           'framework',
             'container_orchestration':'load_balancer',
             'serverless':             'backend',
+            'cms':                    'cms',
             # Synthetic types from header analysis
             'cdn/lb':                 'load_balancer',
             'cdn/waf':                'waf',
@@ -1578,10 +1695,16 @@ class ProgressiveStackAnalyzer:
             'load_balancer': self.deep_load_balancer_fingerprinting,
             'cache':        self.deep_cache_fingerprinting,
             'framework':    self.deep_framework_fingerprinting,
+            'cms':          self.deep_cms_fingerprinting,
         }
 
         for key in methods_to_call:
             method_dispatch[key](baseline_response)
+
+        # CMS detection runs unconditionally: CMS is application-layer and rarely
+        # leaves explicit header evidence that would populate the timeline above.
+        if 'cms' not in methods_to_call:
+            self.deep_cms_fingerprinting(baseline_response)
 
         # Phase 3: Promote every timeline hop that deep fingerprinting missed.
         # This ensures the stack chain reflects all discovered hops, not just
@@ -2367,6 +2490,104 @@ class ProgressiveStackAnalyzer:
         else:
             self.log("FRAMEWORK", "No App Framework detected or confidence too low", "INFO")
 
+    def deep_cms_fingerprinting(self, response: requests.Response):
+        """
+        Deep CMS detection (WordPress, Drupal, Joomla, Magento, Shopify…).
+
+        Confidence breakdown (100 pts max):
+          35 – Body pattern match (most reliable: CMS always injects its assets/paths)
+          25 – Cookie name match
+          25 – Header / tech-header match
+          15 – Behavioural path responds (login/admin endpoint exists)
+        """
+        self.log("CMS", "Deep fingerprinting (Content Management System)...", "DISCOVERY")
+
+        cms_fingerprints = self.fingerprints.get('cms_detection', {})
+        detected = []
+        body_text = response.text.lower()
+
+        for cms_name, fp in cms_fingerprints.items():
+            confidence = 0
+            evidence = []
+
+            # 1. Body patterns (35 pts) – most reliable signal
+            for pattern in fp.get('body_patterns', []):
+                if pattern.lower() in body_text:
+                    confidence += 35
+                    evidence.append(f"Body: {pattern}")
+                    break
+
+            # 2. Cookie patterns (25 pts)
+            for c_pattern in fp.get('cookies', []):
+                for cookie_name in response.cookies.keys():
+                    if c_pattern.lower() in cookie_name.lower():
+                        confidence += 25
+                        evidence.append(f"Cookie: {cookie_name}")
+                        break
+                else:
+                    continue
+                break
+
+            # 3. Headers / tech-headers (25 pts)
+            matched_header = False
+            for h_pattern in fp.get('headers', []):
+                for h_name in response.headers.keys():
+                    if h_pattern.lower() in h_name.lower():
+                        confidence += 25
+                        evidence.append(f"Header: {h_name}")
+                        matched_header = True
+                        break
+                if matched_header:
+                    break
+            if not matched_header:
+                for h_name, expected in fp.get('tech_headers', {}).items():
+                    actual = response.headers.get(h_name, '')
+                    if expected == '' and actual:
+                        confidence += 25
+                        evidence.append(f"Tech header: {h_name}")
+                        break
+                    elif expected and expected.lower() in actual.lower():
+                        confidence += 25
+                        evidence.append(f"Tech header: {h_name}={actual[:40]}")
+                        break
+
+            # 4. Behavioural paths (15 pts)
+            for path in fp.get('behavioral_paths', []):
+                try:
+                    self.rate_limiter.wait()
+                    r = self.session.get(self.target_url + path, timeout=5,
+                                         allow_redirects=False)
+                    if r.status_code in [200, 301, 302, 401, 403]:
+                        confidence += 15
+                        evidence.append(f"Path exists: {path} ({r.status_code})")
+                        break
+                except Exception:
+                    pass
+
+            if confidence >= 35:
+                detected.append({
+                    'name': cms_name,
+                    'confidence': min(confidence, 100),
+                    'evidence': evidence,
+                    'level': 'HIGH' if confidence >= 70 else 'MEDIUM' if confidence >= 50 else 'LOW',
+                })
+
+        detected.sort(key=lambda x: x['confidence'], reverse=True)
+
+        if detected:
+            best = detected[0]
+            self.stack['layers'].append({
+                'type': 'CMS',
+                'component': best['name'],
+                'confidence': best['confidence'],
+                'level': best['level'],
+                'evidence': best['evidence'],
+            })
+            self.log("CMS", f"Detected: {best['name']} "
+                     f"(confidence: {best['confidence']}/100, {best['level']})", "SUCCESS")
+        else:
+            self.log("CMS", "No CMS detected or confidence too low", "INFO")
+
     def test_behavioral_paths(self):
         """
         Actively test behavioral paths defined in fingerprints.
@@ -2890,6 +3111,11 @@ class DiscrepancyTester:
 
         self.chain_map = {'discrepancies': self.discrepancies}  # Alias for compatibility
 
+        # Pre-fetch homepage fingerprint to detect path-normalization false positives.
+        # Many path variants (e.g. /admin/..) get normalised by the server to '/'
+        # and return the homepage with a 200, which is NOT a real bypass.
+        self._homepage_fingerprint = self._fetch_homepage_fingerprint()
+
         # === ADVANCED MODULES INITIALIZATION ===
         self.advanced_enabled = ADVANCED_MODULES_AVAILABLE
         self.differential_analyzer = None
@@ -3340,6 +3566,65 @@ class DiscrepancyTester:
             except Exception as e:
                 results[method] = f"Error: {str(e)}"
     
+    def _fetch_homepage_fingerprint(self) -> Optional[Dict]:
+        """
+        Fetch the site root to build a fingerprint used for false-positive
+        detection in path normalisation tests.
+
+        Returns a dict with hashes and length, or None on failure.
+        """
+        try:
+            parsed = urlparse(self.forbidden_endpoint or self.target_url)
+            root_url = f"{parsed.scheme}://{parsed.netloc}/"
+            resp = self.session.get(root_url, timeout=5, allow_redirects=True)
+            body = resp.content
+            stripped = re.sub(rb'\s+', b' ', body)
+            return {
+                'url': root_url,
+                'status_code': resp.status_code,
+                'content_length': len(body),
+                'body_hash': hashlib.md5(body).hexdigest(),
+                'body_hash_stripped': hashlib.md5(stripped).hexdigest(),
+            }
+        except Exception:
+            return None
+
+    def _is_homepage_response(self, response: requests.Response) -> bool:
+        """
+        Return True when the response looks like the site homepage.
+
+        Used to filter path-normalisation false positives: variants such as
+        '/admin/..' often get resolved to '/' by the server and return the
+        homepage with HTTP 200 – that is NOT a real bypass.
+
+        Matching strategy (any one is sufficient):
+          1. Exact body MD5 match with the homepage.
+          2. Whitespace-normalised body MD5 match.
+          3. Content-length within 2 % of the homepage length (for dynamically
+             generated pages that embed a timestamp or nonce).
+        """
+        if not self._homepage_fingerprint:
+            return False
+
+        body = response.content
+
+        # 1. Exact hash
+        if hashlib.md5(body).hexdigest() == self._homepage_fingerprint['body_hash']:
+            return True
+
+        # 2. Whitespace-normalised hash
+        stripped_hash = hashlib.md5(re.sub(rb'\s+', b' ', body)).hexdigest()
+        if stripped_hash == self._homepage_fingerprint['body_hash_stripped']:
+            return True
+
+        # 3. Length proximity (±2 %)
+        hp_len = self._homepage_fingerprint['content_length']
+        resp_len = len(body)
+        if hp_len > 0 and abs(resp_len - hp_len) / hp_len <= 0.02:
+            return True
+
+        return False
+
     def test_path_normalization(self):
         """Test path parsing discrepancies - EXPANDED"""
         print("  🔬 Testing Path Normalization...")
@@ -3407,9 +3692,16 @@ class DiscrepancyTester:
             try:
                 test_url = f"{parsed.scheme}://{parsed.netloc}{variant}"
                 response = self.session.get(test_url, timeout=5, allow_redirects=False)
-                
+
                 if response.status_code not in [400, 401, 403, 404, 429]:
                     is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
+
+                    # False-positive guard: a 2xx that serves the homepage is NOT a
+                    # bypass – the server simply normalised the path back to '/'.
+                    if is_confirmed_bypass and self._is_homepage_response(response):
+                        print(f"    ⚠️  False Positive (homepage served): {variant} → {response.status_code}")
+                        continue
+
                     self.discrepancies.append({
                         'type': 'Path Normalization',
                         'original_path': base_path,
