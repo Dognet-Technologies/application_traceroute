@@ -57,6 +57,10 @@ try:
         GraphAttackPlanner,
         AttackCategory
     )
+    from core.engines.intelligent_bypass_validator import (
+        IntelligentBypassValidator,
+        ValidationConfidence
+    )
     ADVANCED_MODULES_AVAILABLE = True
 except ImportError as e:
     ADVANCED_MODULES_AVAILABLE = False
@@ -3121,6 +3125,7 @@ class DiscrepancyTester:
         self.differential_analyzer = None
         self.semantic_engine = None
         self.attack_planner = None
+        self.intelligent_validator = None
 
         if self.advanced_enabled and forbidden_endpoint:
             try:
@@ -3138,6 +3143,15 @@ class DiscrepancyTester:
 
                 # GraphAttackPlanner with game theory
                 self.attack_planner = GraphAttackPlanner()
+
+                # IntelligentBypassValidator for inline confirmation of hits.
+                # Shares the same session and baseline — no extra baseline requests at init.
+                rps = (1.0 / self.rate_limiter.delay) if self.rate_limiter.delay > 0 else 2.0
+                self.intelligent_validator = IntelligentBypassValidator(
+                    session=self.session,
+                    baseline_url=self.forbidden_endpoint,
+                    rate_limit=rps
+                )
 
                 print("  ✅ Advanced engines initialized successfully")
             except Exception as e:
@@ -5283,11 +5297,35 @@ class DiscrepancyTester:
                             print(f"    [!] 🧬 Bypass [{idx}/{len(diverse_candidates)}] op={op} gen={gen} → HTTP {status}")
                             print(f"        Payload: {test_path[:80]}")
 
+                            # Confirm with IntelligentBypassValidator
+                            validation = self._confirm_chain_hit(
+                                url=test_url,
+                                headers={},
+                                method='GET',
+                                technique_name=f'Semantic/{op}',
+                                category='path',
+                                initial_status=status
+                            )
+                            conf = validation['confidence']
+                            prob = validation.get('probability', 0.0)
+                            if validation['confirmed']:
+                                print(f"    [✔] Validation: {conf} ({prob:.0%})"
+                                      f"  via {validation.get('strategy', '?')}")
+                                # Update severity in discrepancy based on confirmed status
+                                self.discrepancies[-1]['severity'] = 'CRITICAL'
+                                self.discrepancies[-1]['validated'] = True
+                                self.discrepancies[-1]['validation_confidence'] = conf
+                            else:
+                                print(f"    [?] Validation: {conf} ({prob:.0%})"
+                                      f"  — discrepancy, not confirmed bypass")
+                                self.discrepancies[-1]['validated'] = False
+                                self.discrepancies[-1]['validation_confidence'] = conf
+
                             # Learn from success
                             self.semantic_engine.learn_from_success(
                                 vectors[0],
                                 test_path,
-                                {'differential_score': 1.0}
+                                {'differential_score': validation.get('probability', 1.0)}
                             )
                         else:
                             print(f"     [-] [{idx}/{len(diverse_candidates)}] op={op} → HTTP {status} (blocked)")
@@ -5368,6 +5406,28 @@ class DiscrepancyTester:
                         status = result.get('status_code', '')
                         print(f"    [✓] {technique_name}: Success"
                               f"  (HTTP {status}, via {method_detail})")
+
+                        # Confirm hit with IntelligentBypassValidator
+                        headers_used = {k: v for k, v in (result.get('headers_used') or {}).items()} \
+                            if isinstance(result.get('headers_used'), dict) else {}
+                        url_used = result.get('url', self.forbidden_endpoint)
+                        node_category = node.category.name.lower()
+                        validation = self._confirm_chain_hit(
+                            url=url_used,
+                            headers=headers_used,
+                            method='GET',
+                            technique_name=technique_name,
+                            category=node_category,
+                            initial_status=status
+                        )
+                        conf = validation['confidence']
+                        prob = validation.get('probability', 0.0)
+                        if validation['confirmed']:
+                            print(f"    [✔] Validation: {conf} ({prob:.0%})"
+                                  f"  via {validation.get('strategy', '?')}")
+                        else:
+                            print(f"    [?] Validation: {conf} ({prob:.0%})"
+                                  f"  — not confirmed as real bypass")
                     else:
                         attempts = result.get('attempts', '?')
                         print(f"    [✗] {technique_name}: Failed  ({attempts} attempts)")
@@ -5400,6 +5460,63 @@ class DiscrepancyTester:
                       f" → {adapted_details['success_probability']:.2%}")
                 print(f"        Det. risk : {details['detection_risk']:.2%}"
                       f" → {adapted_details['detection_risk']:.2%}")
+
+    def _confirm_chain_hit(self, url: str, headers: Dict, method: str,
+                           technique_name: str, category: str,
+                           initial_status: int) -> Dict:
+        """
+        Confirm a chain hit using IntelligentBypassValidator.
+
+        Called after any technique executor or semantic bypass reports a
+        non-blocked status. Uses multi-strategy Bayesian validation to
+        distinguish real bypasses from flukes/redirects/soft-blocks.
+
+        Args:
+            url: The URL that produced the hit
+            headers: Headers used in the successful request
+            method: HTTP method used
+            technique_name: Human-readable technique name
+            category: Attack category ('header', 'path', 'method', etc.)
+            initial_status: Status code from the original hit
+
+        Returns:
+            Dict with 'confirmed' (bool), 'confidence' (str), 'probability' (float)
+        """
+        if not self.intelligent_validator:
+            # Fallback: trust the initial status as-is
+            return {
+                'confirmed': initial_status in range(200, 300),
+                'confidence': 'UNKNOWN',
+                'probability': 0.0,
+                'note': 'IntelligentBypassValidator not available'
+            }
+
+        bypass_dict = {
+            'metadata': {
+                'bypass_type': technique_name,
+                'confidence': 0.6,   # neutral prior; validator will update it
+                'category': category,
+                'bypass_id': f'chain_{technique_name.lower().replace(" ", "_")}'
+            },
+            'request': {
+                'url': url,
+                'method': method,
+                'headers': headers
+            }
+        }
+
+        result = self.intelligent_validator._validate_bypass_intelligent(
+            bypass_dict, bypass_dict['metadata']['bypass_id']
+        )
+
+        return {
+            'confirmed': result.validated,
+            'confidence': result.validation_confidence.value,
+            'probability': result.validation_probability,
+            'attempts': result.attempts,
+            'strategy': result.successful_strategy,
+            'verdict': result.final_verdict
+        }
 
     # Helper methods for graph attack chain execution
     def _execute_header_manipulation(self) -> Dict:
