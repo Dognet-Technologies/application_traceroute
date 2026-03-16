@@ -491,15 +491,25 @@ class SemanticBypassEngine:
         }
 
     def _assess_bypassability(self, classification: Dict) -> float:
-        """Assess probability that error can be bypassed (0.0-1.0)"""
+        """
+        Assess probability that error can be bypassed (0.0-1.0).
+
+        Dynamic computation based on:
+        - Error type (heuristic ceiling per category)
+        - Classification confidence (scales score toward/away from ceiling)
+        - Convergence signal (multiple classifiers agreeing on a block type)
+        """
         if not classification['primary_classification']:
             return 0.5  # Unknown, 50% chance
 
-        primary_type = classification['primary_classification']['type']
+        primary = classification['primary_classification']
+        primary_type = primary['type']
+        # Confidence in [0,1]: how strongly the classifier matched this type
+        confidence = min(primary.get('confidence', 0.5), 1.0)
 
-        # Bypassability heuristics based on error type
-        bypassability_map = {
-            'waf_block': 0.70,          # WAF blocks often bypassable
+        # Heuristic ceiling per error type (maximum achievable bypassability)
+        bypassability_ceiling = {
+            'waf_block': 0.70,          # WAF blocks often bypassable via encoding
             'authz_error': 0.65,        # Authorization checks can be bypassed
             'method_not_allowed': 0.60, # Method confusion possible
             'rate_limit': 0.40,         # Rate limits harder to bypass
@@ -507,8 +517,26 @@ class SemanticBypassEngine:
             'backend_error': 0.80,      # Backend errors = already bypassed frontend!
             'routing_error': 0.50,      # Path issues may be bypassable
         }
+        ceiling = bypassability_ceiling.get(primary_type, 0.50)
 
-        return bypassability_map.get(primary_type, 0.50)
+        # Scale toward ceiling proportionally to classifier confidence.
+        # At confidence=1.0 → score equals ceiling.
+        # At confidence=0.0 → score is 0.50 (maximum uncertainty).
+        dynamic_score = 0.5 + (ceiling - 0.5) * confidence
+
+        # Convergence bonus: multiple independent classifiers agreeing on a
+        # block-class error is a stronger signal of a real hard block (or bypass
+        # opportunity). Each additional agreeing classifier adds +3 pp, capped at
+        # the ceiling.
+        block_types = {'waf_block', 'authz_error', 'rate_limit'}
+        agreeing = sum(
+            1 for c in classification.get('all_classifications', [])
+            if c['type'] in block_types and c['type'] != primary_type
+        )
+        if agreeing:
+            dynamic_score = min(dynamic_score + 0.03 * agreeing, ceiling)
+
+        return round(min(max(dynamic_score, 0.0), 1.0), 4)
 
     def _suggest_attack_vectors(self, classification: Dict) -> List[AttackVector]:
         """Suggest attack vectors based on error classification"""

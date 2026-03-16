@@ -5212,12 +5212,19 @@ class DiscrepancyTester:
                 baseline_response.status_code
             )
 
-            print(f"     Error Classification: {semantic_analysis['classification']['primary_classification']['type'] if semantic_analysis['classification']['primary_classification'] else 'Unknown'}")
-            print(f"     Bypassability Score: {semantic_analysis['is_bypassable']:.2%}")
-            print(f"     Suggested Vectors: {', '.join([v.value for v in semantic_analysis['suggested_vectors'][:3]])}")
+            primary_cls = semantic_analysis['classification']['primary_classification']
+            cls_type = primary_cls['type'] if primary_cls else 'Unknown'
+            cls_confidence = primary_cls['confidence'] if primary_cls else 0.0
+            bypassability = semantic_analysis['is_bypassable']
+            vectors = semantic_analysis['suggested_vectors']
+
+            print(f"     Status Code    : {baseline_response.status_code}")
+            print(f"     Classification : {cls_type} (confidence: {cls_confidence:.0%})")
+            print(f"     Bypassability  : {bypassability:.2%}  {'[high]' if bypassability >= 0.60 else '[medium]' if bypassability >= 0.40 else '[low]'}")
+            print(f"     Attack Vectors : {', '.join([v.value for v in vectors[:3]]) if vectors else 'none suggested'}")
 
             # Generate evolved bypass payloads
-            if semantic_analysis['suggested_vectors']:
+            if vectors:
                 print("\n     Generating evolved bypass mutations...")
 
                 base_path = self.parsed_url.path
@@ -5228,40 +5235,68 @@ class DiscrepancyTester:
 
                 print(f"     Generated {len(evolved_candidates)} mutation candidates")
 
-                # Test top evolved candidates
-                for candidate in evolved_candidates[:10]:  # Test top 10
+                # Select a diverse set: at least one candidate per operator,
+                # then fill up to 15 from remaining candidates.
+                # Taking purely [:10] would test only the first 1-2 operators
+                # (case_swap + encoding_layer) and miss unicode/null-byte/etc.
+                seen_operators: set = set()
+                diverse_candidates = []
+                for c in evolved_candidates:
+                    if c['operator'] not in seen_operators:
+                        diverse_candidates.append(c)
+                        seen_operators.add(c['operator'])
+                # Fill remaining slots with other candidates not yet included
+                for c in evolved_candidates:
+                    if len(diverse_candidates) >= 15:
+                        break
+                    if c not in diverse_candidates:
+                        diverse_candidates.append(c)
+
+                print(f"     Operators covered: {', '.join(sorted(seen_operators))}")
+                print(f"     Testing {len(diverse_candidates)} diverse candidates...\n")
+
+                hits = 0
+                for idx, candidate in enumerate(diverse_candidates, 1):
                     self.rate_limiter.wait()
 
                     test_path = candidate['payload']
                     test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{test_path}"
+                    op = candidate['operator']
+                    gen = candidate['generation']
 
                     try:
                         response = self.session.get(test_url, timeout=5, allow_redirects=False)
+                        status = response.status_code
 
-                        if response.status_code not in [401, 403, 404, 429]:
+                        if status not in [401, 403, 404, 429]:
+                            hits += 1
                             self.discrepancies.append({
                                 'type': 'Semantic Evolutionary Bypass',
-                                'mutation_operator': candidate['operator'],
-                                'generation': candidate['generation'],
+                                'mutation_operator': op,
+                                'generation': gen,
                                 'original_payload': base_path,
                                 'evolved_payload': test_path,
-                                'response_code': response.status_code,
-                                'severity': 'HIGH' if response.status_code == 200 else 'MEDIUM',
-                                'evidence': f"Evolved payload bypassed via {candidate['operator']}"
+                                'response_code': status,
+                                'severity': 'HIGH' if status == 200 else 'MEDIUM',
+                                'evidence': f"Evolved payload bypassed via {op}"
                             })
-
-                            print(f"    [!] 🧬 Evolutionary Bypass: {candidate['operator']} -> {response.status_code}")
+                            print(f"    [!] 🧬 Bypass [{idx}/{len(diverse_candidates)}] op={op} gen={gen} → HTTP {status}")
+                            print(f"        Payload: {test_path[:80]}")
 
                             # Learn from success
-                            if semantic_analysis['suggested_vectors']:
-                                self.semantic_engine.learn_from_success(
-                                    semantic_analysis['suggested_vectors'][0],
-                                    test_path,
-                                    {'differential_score': 1.0}
-                                )
+                            self.semantic_engine.learn_from_success(
+                                vectors[0],
+                                test_path,
+                                {'differential_score': 1.0}
+                            )
+                        else:
+                            print(f"     [-] [{idx}/{len(diverse_candidates)}] op={op} → HTTP {status} (blocked)")
 
-                    except:
+                    except Exception:
+                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → request error")
                         continue
+
+                print(f"\n     🧬 Semantic scan complete: {hits} bypass(es) found out of {len(diverse_candidates)} tested")
 
         except Exception as e:
             print(f"     ⚠️  Semantic analysis error: {str(e)}")
@@ -5289,15 +5324,22 @@ class DiscrepancyTester:
             print(f"     ⚠️  No viable attack path found")
             return
 
+        details = attack_plan['optimal_path_details']
+        ev = details['expected_value']
+        ev_label = 'high' if ev >= 20 else 'medium' if ev >= 8 else 'low'
+
         print(f"\n     📊 Optimal Attack Plan Generated:")
-        print(f"        Path Length: {len(attack_plan['optimal_path'])} techniques")
-        print(f"        Success Probability: {attack_plan['optimal_path_details']['success_probability']:.2%}")
-        print(f"        Detection Risk: {attack_plan['optimal_path_details']['detection_risk']:.2%}")
-        print(f"        Expected Value: {attack_plan['optimal_path_details']['expected_value']:.2f}")
+        print(f"        Path Length      : {len(attack_plan['optimal_path'])} techniques")
+        print(f"        Success Prob.    : {details['success_probability']:.2%}")
+        print(f"        Detection Risk   : {details['detection_risk']:.2%}")
+        print(f"        Expected Value   : {ev:.2f} [{ev_label}]  (P(success)×100 − P(detect)×cost)")
 
         print(f"\n     🔗 Attack Chain:")
-        for i, technique_name in enumerate(attack_plan['optimal_path_details']['techniques'], 1):
-            print(f"        {i}. {technique_name}")
+        for i, technique_name in enumerate(details['techniques'], 1):
+            node_id = attack_plan['optimal_path'][i - 1]
+            node = self.attack_planner.graph.nodes[node_id]
+            print(f"        {i}. {technique_name}"
+                  f"  (p={node.success_probability:.0%}, risk={node.detection_risk:.0%})")
 
         # Execute techniques from attack plan
         print(f"\n     Executing optimal attack chain...")
@@ -5322,13 +5364,21 @@ class DiscrepancyTester:
                     execution_feedback[technique_id] = result
 
                     if result.get('success'):
-                        print(f"    [✓] {technique_name}: Success")
+                        method_detail = result.get('method', '')
+                        status = result.get('status_code', '')
+                        print(f"    [✓] {technique_name}: Success"
+                              f"  (HTTP {status}, via {method_detail})")
                     else:
-                        print(f"    [✗] {technique_name}: Failed")
+                        attempts = result.get('attempts', '?')
+                        print(f"    [✗] {technique_name}: Failed  ({attempts} attempts)")
 
                 except Exception as e:
                     execution_feedback[technique_id] = {'success': False, 'error': str(e)}
-                    print(f"    [✗] {technique_name}: Error - {str(e)}")
+                    print(f"    [✗] {technique_name}: Error — {str(e)}")
+            else:
+                # Node has no executor: record as skipped so adaptive replanning
+                # can still update its probability from lack of execution data.
+                print(f"    [~] {technique_name}: No executor (skipped)")
 
         # Adaptive replanning based on feedback
         if execution_feedback:
@@ -5338,9 +5388,18 @@ class DiscrepancyTester:
                 execution_feedback
             )
 
+            adapted_details = adapted_plan['optimal_path_details']
             if adapted_plan['optimal_path'] != attack_plan['optimal_path']:
-                print(f"        Strategy adapted based on execution feedback")
-                print(f"        New success probability: {adapted_plan['optimal_path_details']['success_probability']:.2%}")
+                new_chain = ' → '.join(adapted_details['techniques'])
+                print(f"        Path changed  : {new_chain}")
+                print(f"        New success p.: {adapted_details['success_probability']:.2%}")
+                print(f"        New det. risk : {adapted_details['detection_risk']:.2%}")
+            else:
+                print(f"        Path unchanged — probabilities updated from execution feedback")
+                print(f"        Success p.: {details['success_probability']:.2%}"
+                      f" → {adapted_details['success_probability']:.2%}")
+                print(f"        Det. risk : {details['detection_risk']:.2%}"
+                      f" → {adapted_details['detection_risk']:.2%}")
 
     # Helper methods for graph attack chain execution
     def _execute_header_manipulation(self) -> Dict:
