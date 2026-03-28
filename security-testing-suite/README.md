@@ -156,7 +156,7 @@ security-crawler --license-status
 Output:
 ```
 License: ANNUAL [online]
-  Key:       AT_ABC_DEF_GHI_JKLyr
+  Key:       ATABC_DEF_GHI_JKLyr
   Expires:   2027-03-10
   Remaining: 365 days
 ```
@@ -173,7 +173,7 @@ If a license is already active its **online activation slot is released automati
 
 ```bash
 # Renew before expiry — old slot released, new one registered
-security-traceroute --activate-license AT_NEW_KEY_HEREyr
+security-traceroute --activate-license ATNEW_KEY_HEREyr
 # License activated: annual (expires 2027-03-10)
 ```
 
