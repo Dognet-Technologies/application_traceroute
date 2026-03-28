@@ -57,6 +57,10 @@
 git clone https://github.com/yourusername/application_traceroute.git
 cd application_traceroute/security-testing-suite
 
+# Create and activate virtual environment (required on Python 3.13+ / Debian/Ubuntu)
+python3 -m venv .venv
+source .venv/bin/activate
+
 # Install package and dependencies
 pip install -e .
 
