@@ -8569,30 +8569,31 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists
-  python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists --max-pages 500 --verbose
-  python smart_vuln_crawler2.py https://target.com --wordlist-base ~/wordlists --bypass-file bypasses.json
+  security-crawler https://target.com --wordlist-base ~/wordlists
+  security-crawler https://target.com --wordlist-base ~/wordlists --max-pages 500 --verbose
+  security-crawler https://target.com --wordlist-base ~/wordlists --bypass-file bypasses.json
 
-License management (shared with application_traceroute_v4.py):
-  python smart_vuln_crawler2.py --license-status
+License management (shared with security-traceroute):
+  security-crawler --license-status
       Show current license type, key, expiration date and days remaining.
 
-  python smart_vuln_crawler2.py --activate-license YOUR_LICENSE_KEY
+  security-crawler --activate-license YOUR_LICENSE_KEY
       Activate or renew a license key. If a license is already active its
       online activation slot is released before the new one is registered.
       License types accepted:
         Monthly     : AT_XXX_XXX_XXX_XXXmo  (30 days)
         Annual      : AT_XXX_XXX_XXX_XXXyr  (365 days)
 
-  python smart_vuln_crawler2.py --deactivate-license
+  security-crawler --deactivate-license
       Deactivate the current license online and remove the local license file.
       Use this before moving the tool to a different machine.
 
 Note: the license is stored in ~/.application_traceroute/license.json and is
-shared between application_traceroute and smart_vuln_crawler2. Activating from
+shared between security-traceroute and security-crawler. Activating from
 either tool is sufficient.
         """
     )
+    parser.add_argument('--version', action='version', version='security-crawler 4.0.1')
     parser.add_argument('target', nargs='?', help='Target URL to crawl')
     parser.add_argument('--activate-license', metavar='KEY',
                         help='Activate (or renew) a license key and exit')
