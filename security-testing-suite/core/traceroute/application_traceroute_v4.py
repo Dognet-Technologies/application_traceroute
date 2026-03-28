@@ -4964,6 +4964,7 @@ class DiscrepancyTester:
                 context = ssl.create_default_context()
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
                 sock = context.wrap_socket(sock, server_hostname=target_host)
 
             sock.connect((target_host, target_port))

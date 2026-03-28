@@ -7586,7 +7586,7 @@ class SmartCrawler:
             # Check 3: Location header manipulation
             if 'location' in response_headers_lower:
                 location = response_headers_lower['location']
-                if 'evil.com' in location or 'attacker' in location:
+                if re.search(r'(?:^|[/@.])evil\.com(?:[/:]|$)', location) or 'attacker' in location:
                     return True
 
             # Check 4: Response splitting (double CRLF in payload, injected header appears)
