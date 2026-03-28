@@ -138,8 +138,8 @@ Activating or deactivating a license from either tool affects both.
 | Type | Key Format | Duration |
 |---|---|---|
 | Free Trial | `DOGNETDA3-DAD-B3Dfree` | 30 days |
-| Monthly | `AT_XXX_XXX_XXX_XXXmo` | 30 days |
-| Annual | `AT_XXX_XXX_XXX_XXXyr` | 365 days |
+| Monthly | `ATXXX_XXX_XXX_XXXmo` | 30 days |
+| Annual | `ATXXX_XXX_XXX_XXXyr` | 365 days |
 
 > `X` = character from `ABCDEFGHILMENOPQRSTUVZXWYJK1234567890`
 
@@ -695,7 +695,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full history of decisions, fixes, and f
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/application_traceroute/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/application_traceroute/discussions)
-- **Email**: security@yourdomain.com
+- **Email**: info@dognet.tech
 
 ---
 
