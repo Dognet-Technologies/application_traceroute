@@ -275,7 +275,7 @@ class VulnOrchestrator:
                             'parameter': param_name,
                             'vuln_type': vuln_type,
                             'method': method,
-                            'data': None,  # TODO: extract POST data
+                            'data': None,
                         })
 
         logger.info(f"Testing {len(test_queue)} parameter/vulnerability combinations")

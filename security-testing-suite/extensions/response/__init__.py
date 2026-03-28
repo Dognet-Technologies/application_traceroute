@@ -21,7 +21,6 @@ from .causal_response_analyzer import (
     VerificationResult,
     ContentAnalysisResult,
     BehavioralDifferential,
-    create_mock_response
 )
 
 __all__ = [
@@ -42,8 +41,6 @@ __all__ = [
     'ContentAnalysisResult',
     'BehavioralDifferential',
 
-    # Helpers
-    'create_mock_response'
 ]
 
 __version__ = "4.0.1"

@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [4.0.x] - 2026-03-16 (branch: claude/cms-detection-bypass-fix-pHNMM)
+## [4.0.1] - 2026-03-28
 
-### Engineering Decisions Log
+### Fixed
+- **security-traceroute**: crash `KeyError: 'api_gateway'` on targets with missing API gateway layer
+- **security-traceroute**: 4 false-positive bypass reports with improved diagnostics
+- **security-traceroute**: output path now always resolved to canonical `results/` directory regardless of invocation path
+- **security-crawler**: `--auth-url` / `--auth-data` flags removed from docs (never existed); correct flags are `--auth-login-url`, `--auth-username`, `--auth-password`
+- **README**: Testing section example used wrong flag names (`--auth-url`, `--auth-data`) — corrected
+- **README**: added 14 practical usage examples with correct flag names and defaults
+- **Code**: removed `create_mock_response` from public package API (`extensions/vulnerability` and `extensions/response`) — it is a test helper, not part of the public interface
+
+### Added
+- **security-traceroute**: `--debug` flag — logs all HTTP I/O, headers and data flows to `debug_*.json` in the results directory
+- **security-traceroute**: `--debug` documented in CLI options reference
+
+### Internal Engineering Decisions Log
 
 #### CMS Detection & Path Normalization False-Positive Filter
 **Problema:** il CMS detector produceva false positive su path normalizzati
@@ -74,7 +87,7 @@ come `{category: {strategy: count}}` non avrebbe senso.
 
 ---
 
-## [4.0.0] - 2026-02-18 (CURRENT RELEASE)
+## [4.0.0] - 2026-02-18
 
 ### 🎉 Major Release - Complete Rewrite
 
@@ -262,8 +275,8 @@ python3 smart_vuln_crawler2.py https://target.com --max-pages 100
 # OLD (v3.5)
 --login-url=... --username=... --password=...
 
-# NEW (v4.0)
---auth-type form --auth-url "..." --auth-data "username=...&password=..."
+# NEW (v4.0+)
+--auth-type form --auth-login-url "..." --auth-username "..." --auth-password "..."
 ```
 
 3. **Update output parsing**:

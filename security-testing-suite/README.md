@@ -223,6 +223,7 @@ Options:
   --forbidden-endpoint URL    Known 403/401 endpoint for bypass testing
   --skip-forbidden-tests      Skip tests requiring a forbidden endpoint
   --verbose                   Detailed output
+  --debug                     Log all I/O, headers and data flows to debug_*.json
 
 License:
   --license-status            Show current license status and exit
@@ -610,8 +611,9 @@ docker run --rm -p 8080:80 vulnerables/web-dvwa
 
 security-crawler http://localhost:8080 \
     --auth-type form \
-    --auth-url "http://localhost:8080/login.php" \
-    --auth-data "username=admin&password=password&Login=Login" \
+    --auth-login-url "http://localhost:8080/login.php" \
+    --auth-username admin \
+    --auth-password password \
     --verbose
 
 # Expected: 15-20 vulnerabilities detected

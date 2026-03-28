@@ -911,13 +911,13 @@ class PayloadManager:
 
         if vuln_type.lower() in main_types:
             # Use CausalVulnerabilityAnalyzer
-            mock_response = {
+            response_data = {
                 'status_code': status_code,
                 'text': response_text,
                 'headers': response_headers or {},
                 'elapsed': response_time
             }
-            mock_baseline = {
+            baseline_data = {
                 'text': baseline_response,
                 'elapsed': baseline_time
             } if baseline_response else None
@@ -926,9 +926,9 @@ class PayloadManager:
                 endpoint="",
                 param="",
                 payload=payload,
-                response=mock_response,
+                response=response_data,
                 vuln_type=vuln_type,
-                baseline_response=mock_baseline,
+                baseline_response=baseline_data,
                 session=self._session
             )
 
