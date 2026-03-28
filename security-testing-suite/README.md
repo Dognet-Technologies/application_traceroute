@@ -95,6 +95,7 @@ Scan for vulnerabilities with intelligent crawling:
 
 ```bash
 security-crawler https://target.com \
+    --wordlist-base ~/wordlist \
     --max-pages 100 \
     --verbose
 ```
@@ -105,6 +106,7 @@ security-crawler https://target.com \
 
 ```bash
 security-crawler https://target.com \
+    --wordlist-base ~/wordlist \
     --auth-type form \
     --auth-login-url "https://target.com/login" \
     --auth-username admin \
@@ -121,6 +123,7 @@ security-traceroute https://target.com
 
 # Step 2: Scan using the discovered bypasses
 security-crawler https://target.com \
+    --wordlist-base ~/wordlist \
     --bypass-file results/target_com_<timestamp>/bypasses_target_com_<timestamp>.json \
     --max-pages 500 \
     --verbose
@@ -318,6 +321,7 @@ security-traceroute https://target.com --skip-forbidden-tests
 
 ```bash
 security-crawler https://app.example.com \
+    --wordlist-base ~/wordlist \
     --auth-type form \
     --auth-login-url "https://app.example.com/login" \
     --auth-username "pentester@example.com" \
@@ -332,6 +336,7 @@ security-crawler https://app.example.com \
 
 ```bash
 security-crawler https://api.example.com \
+    --wordlist-base ~/wordlist \
     --auth-type bearer \
     --auth-token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
     --max-pages 200 \
@@ -344,6 +349,7 @@ security-crawler https://api.example.com \
 
 ```bash
 security-crawler https://staging.example.com \
+    --wordlist-base ~/wordlist \
     --auth-type basic \
     --auth-username admin \
     --auth-password admin123 \
@@ -358,6 +364,7 @@ Paste the session cookie directly from your browser after logging in:
 
 ```bash
 security-crawler https://app.example.com \
+    --wordlist-base ~/wordlist \
     --auth-type cookie \
     --auth-cookies "session=abc123def456; csrftoken=xyz789; _ga=GA1.2.111" \
     --max-pages 300 \
@@ -370,6 +377,7 @@ security-crawler https://app.example.com \
 
 ```bash
 security-crawler https://api.example.com \
+    --wordlist-base ~/wordlist \
     --auth-type custom_header \
     --auth-headers "X-API-Key:sk-live-abc123;X-Tenant-ID:acme-corp" \
     --max-pages 100 \
@@ -396,6 +404,7 @@ Then run:
 
 ```bash
 security-crawler https://app.example.com \
+    --wordlist-base ~/wordlist \
     --auth-config auth.json \
     --max-pages 500 \
     --verbose
@@ -439,6 +448,7 @@ Skip the path discovery phase and scan only crawled pages (faster, less noise):
 
 ```bash
 security-crawler https://target.com \
+    --wordlist-base ~/wordlist \
     --skip-discovery \
     --max-pages 100 \
     --verbose
@@ -453,6 +463,7 @@ in the results directory. Use to diagnose false positives or inspect exactly wha
 
 ```bash
 security-crawler https://target.com \
+    --wordlist-base ~/wordlist \
     --auth-type cookie \
     --auth-cookies "session=abc123" \
     --debug \
@@ -470,6 +481,7 @@ security-traceroute https://target.com \
 
 # Step 2: use the discovered bypasses in the full vulnerability scan
 security-crawler https://target.com \
+    --wordlist-base ~/wordlist \
     --auth-type cookie \
     --auth-cookies "session=abc123" \
     --bypass-file results/target_com_<timestamp>/bypasses_target_com_<timestamp>.json \
@@ -488,6 +500,7 @@ Large scope, deep crawl, all default payload sets, no wordlist (uses internal pa
 security-traceroute https://target.com --skip-forbidden-tests
 
 security-crawler https://target.com \
+    --wordlist-base ~/wordlist \
     --depth 5 \
     --max-pages 1000 \
     --discovery-limit 2000 \
@@ -614,6 +627,7 @@ The scanner automatically detects and adapts to:
 docker run --rm -p 8080:80 vulnerables/web-dvwa
 
 security-crawler http://localhost:8080 \
+    --wordlist-base ~/wordlist \
     --auth-type form \
     --auth-login-url "http://localhost:8080/login.php" \
     --auth-username admin \
