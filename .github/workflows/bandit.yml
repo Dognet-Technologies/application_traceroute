@@ -1,0 +1,44 @@
+name: Bandit Security Scan
+
+on:
+  push:
+    branches: [ "Stable" ]
+  pull_request:
+    branches: [ "Stable" ]
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  bandit:
+    name: Bandit SAST
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Bandit
+      run: pip install bandit[sarif]
+
+    - name: Run Bandit
+      run: |
+        bandit -r security-testing-suite/ \
+          --exclude security-testing-suite/venv \
+          -ll \
+          -f sarif \
+          -o bandit-results.sarif
+      continue-on-error: true
+
+    - name: Upload Bandit results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: bandit-results.sarif
+        category: bandit
