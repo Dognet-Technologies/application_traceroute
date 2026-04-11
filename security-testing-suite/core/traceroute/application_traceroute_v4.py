@@ -629,7 +629,7 @@ class ProgressiveStackAnalyzer:
                         'error_pages': ['request denied by usp secure entry server']
                     },
                     'varnish': {
-                        'headers': ['x-varnish', 'via'],
+                        'headers': ['x-varnish'],  # via rimosso: non discriminante per WAF
                         'cookies': [],
                         'response_codes': [403, 503],
                         'body_patterns': ['varnish', 'guru meditation'],
@@ -686,7 +686,8 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': []
                 },
                 'gcp_lb': {
-                    'headers': ['via'],
+                    'headers': [],
+                    'via_patterns': ['1.1 google', '1.1 gfe', 'gfe'],
                     'body_patterns': ['google cloud load balancer', 'gclb'],
                     'behavioral_paths': []
                 },
@@ -696,7 +697,7 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': []
                 },
                 'citrix_netscaler_lb': {
-                    'headers': ['ns_af', 'via'],
+                    'headers': ['ns_af'],  # via rimosso: troppo generico
                     'body_patterns': ['netscaler'],
                     'behavioral_paths': []
                 }
@@ -704,23 +705,26 @@ class ProgressiveStackAnalyzer:
 
             'proxy_detection': {
                 'varnish': {
-                    'headers': ['x-varnish', 'via'],
-                    'body_patterns': ['varnish'],
+                    'headers': ['x-varnish'],  # via rimosso: usato da Fastly, Varnish, molti altri
+                    'via_patterns': ['varnish'],
+                    'body_patterns': ['varnish', 'guru meditation'],
                     'behavioral_paths': ['/varnish-status']
                 },
                 'squid': {
-                    'headers': ['x-squid', 'via'],
+                    'headers': ['x-squid-error', 'x-cache-lookup'],  # x-squid non standard; via rimosso
+                    'via_patterns': ['squid'],
                     'body_patterns': ['squid', 'cache access denied'],
                     'behavioral_paths': []
                 },
                 'nginx_proxy': {
-                    'headers': ['x-nginx-proxy', 'via'],
+                    'headers': ['x-nginx-proxy'],  # via rimosso: nginx non si identifica via Via
                     'body_patterns': ['nginx'],
                     'behavioral_paths': []
                 },
                 'apache_traffic_server': {
-                    'headers': ['via', 'x-ats-request-id'],
-                    'body_patterns': ['apache traffic server', 'ats'],
+                    'headers': ['x-ats-request-id', 'x-check-cacheable'],  # via rimosso
+                    'via_patterns': ['traffic-server', 'ats/'],
+                    'body_patterns': ['apache traffic server'],
                     'behavioral_paths': []
                 },
                 'traefik': {
@@ -737,7 +741,8 @@ class ProgressiveStackAnalyzer:
 
             'api_gateway_detection': {
                 'kong': {
-                    'headers': ['x-kong-proxy-latency', 'x-kong-upstream-latency', 'via'],
+                    'headers': ['x-kong-proxy-latency', 'x-kong-upstream-latency',
+                                'x-kong-request-id'],  # via rimosso: non discriminante
                     'body_patterns': ['kong', 'kong gateway'],
                     'behavioral_paths': ['/']
                 },
@@ -888,6 +893,100 @@ class ProgressiveStackAnalyzer:
                     'body_patterns': ['proxysql', 'mysql load balancer'],
                     'behavioral_paths': []
                 }
+            },
+
+            # Database inference: DB non è mai esposto direttamente via HTTP.
+            # La detection è inferenziale: errori nel body, header proxy-DB,
+            # correlazione con backend rilevato, path admin (phpmyadmin ecc.)
+            'database_detection': {
+                'mysql_mariadb': {
+                    'proxy_headers': ['x-mysql-proxy'],
+                    'error_patterns': [
+                        'you have an error in your sql syntax',
+                        'mysql_fetch_array', 'mysql_num_rows',
+                        'call to undefined function mysql',
+                        'supplied argument is not a valid mysql result',
+                        'com.mysql.jdbc', 'pdo::prepare', 'pdoexception',
+                        'access denied for user.*@.*mysql',
+                        'table.*doesn.*exist', 'unknown column',
+                    ],
+                    'body_patterns': [],
+                    'stack_trace_patterns': ['mysqli_', 'pdo\\\\mysql', 'doctrine\\\\dbal'],
+                    'backend_correlation': ['php', 'ruby', 'perl', 'python'],
+                    'behavioral_paths': ['/phpmyadmin', '/pma', '/adminer',
+                                         '/mysql', '/db', '/database'],
+                },
+                'postgresql': {
+                    'proxy_headers': ['x-pgbouncer'],
+                    'error_patterns': [
+                        'pg_query', 'pg_execute', 'pgerror',
+                        'activerecord::statementinvalid',
+                        'org.postgresql.util.psqlexception',
+                        'unterminated quoted string at or near',
+                        'pg_hba.conf entry for host',
+                        'fatal: password authentication failed for user',
+                        'dbal\\\\driver\\\\pdopgsqlexception',
+                    ],
+                    'body_patterns': [],
+                    'stack_trace_patterns': ['activerecord', 'psycopg2', 'asyncpg',
+                                              'pg.pool', 'node-postgres'],
+                    'backend_correlation': ['ruby', 'python', 'java', 'golang', 'nodejs'],
+                    'behavioral_paths': [],
+                },
+                'mongodb': {
+                    'proxy_headers': ['x-mongodb-proxy'],
+                    'error_patterns': [
+                        'mongoerror', 'bsontypeerror', 'mongoclient',
+                        'mongoexception', 'e11000 duplicate key error',
+                        'failed to connect to.*27017', 'mongod',
+                        'mongowriteconcernerror',
+                    ],
+                    'body_patterns': ['"_id":', '"$oid":'],
+                    'stack_trace_patterns': ['mongoose', 'mongodb\\\\driver', 'pymongo'],
+                    'backend_correlation': ['nodejs', 'python', 'ruby'],
+                    'behavioral_paths': [],
+                },
+                'redis': {
+                    'proxy_headers': ['x-redis-cache', 'x-cache-redis', 'x-redis-sentinel'],
+                    'error_patterns': [
+                        'redis::commanderror', 'wrongtype operation',
+                        'err wrong number of arguments for',
+                        'redis connection refused',
+                        'redis::client',
+                    ],
+                    'body_patterns': [],
+                    'stack_trace_patterns': ['predis', 'jedis', 'ioredis', 'stackexchange.redis'],
+                    'backend_correlation': [],
+                    'behavioral_paths': [],
+                },
+                'elasticsearch': {
+                    'proxy_headers': ['x-elastic-product'],
+                    'error_patterns': [
+                        'indexnotfoundexception', 'index_not_found_exception',
+                        'no alive nodes found in your cluster',
+                        'elasticsearch.exceptions',
+                        'org.elasticsearch',
+                    ],
+                    'body_patterns': ['"_shards":', '"hits":', '"_index":',
+                                      '"timed_out":', 'elasticsearch'],
+                    'stack_trace_patterns': ['elasticsearch', 'opensearch'],
+                    'backend_correlation': [],
+                    'behavioral_paths': ['/_cat/health', '/_cluster/health',
+                                          '/_cat/indices', '/_nodes'],
+                },
+                'oracle': {
+                    'proxy_headers': [],
+                    'error_patterns': [
+                        'ora-00001', 'ora-00907', 'ora-01017', 'ora-12541',
+                        'oracle.jdbc', 'java.sql.sqlrecoverableexception',
+                        'oracle error', 'cx_oracle',
+                    ],
+                    'body_patterns': [],
+                    'stack_trace_patterns': ['oracle.jdbc', 'cx_oracle',
+                                              'oracle.ucp', 'orawrap'],
+                    'backend_correlation': ['java', 'php', 'python'],
+                    'behavioral_paths': [],
+                },
             },
 
             'cache_layer_detection': {
@@ -1737,12 +1836,18 @@ class ProgressiveStackAnalyzer:
         if 'cms' not in methods_to_call:
             self.deep_cms_fingerprinting(baseline_response)
 
+        # Database inference — sempre, dopo backend/framework (serve correlazione)
+        self.deep_database_fingerprinting(baseline_response)
+
         # Phase 3: Promote every timeline hop that deep fingerprinting missed.
         # This ensures the stack chain reflects all discovered hops, not just
         # those that passed a confidence threshold inside a deep method.
         self._promote_timeline_hops_to_layers(timeline)
 
-        # Phase 4: Check for hidden layers (no header evidence)
+        # Phase 4: Resolve vendor conflicts (rimuove layer incompatibili)
+        self._resolve_vendor_conflicts()
+
+        # Phase 5: Check for hidden layers (no header evidence)
         self.detect_hidden_layers()
 
     def _promote_timeline_hops_to_layers(self, timeline: List[Dict]):
@@ -2147,7 +2252,15 @@ class ProgressiveStackAnalyzer:
                 if confidence >= 40:
                     break
 
-            # 2. Forwarding headers (20 pts)
+            # 2. Via header specific analysis (20 pts, replaces generic via match)
+            via_val = response.headers.get('Via', '').lower()
+            for via_pat in fp.get('via_patterns', []):
+                if via_pat.lower() in via_val:
+                    confidence += 20
+                    evidence.append(f"Via: {via_pat}")
+                    break
+
+            # 2b. Forwarding headers (20 pts)
             if forwarding_bonus:
                 confidence += forwarding_bonus
                 evidence.append(f"Forwarding headers present")
@@ -2617,7 +2730,9 @@ class ProgressiveStackAnalyzer:
                 except Exception:
                     pass
 
-            if confidence >= 35:
+            # Soglia 50: richiede almeno 2 tipi di evidenza indipendenti
+            # (body+cookie, body+header, ecc.) per ridurre falsi positivi
+            if confidence >= 50 and len(evidence) >= 2:
                 detected.append({
                     'name': cms_name,
                     'confidence': min(confidence, 100),
@@ -2640,6 +2755,172 @@ class ProgressiveStackAnalyzer:
                      f"(confidence: {best['confidence']}/100, {best['level']})", "SUCCESS")
         else:
             self.log("CMS", "No CMS detected or confidence too low", "INFO")
+
+    def deep_database_fingerprinting(self, response: requests.Response):
+        """
+        Database layer inference via HTTP.
+
+        I DB non sono mai esposti direttamente; la detection è inferenziale:
+
+        Confidence breakdown (100 pts max):
+          40 – Proxy/specifici header DB (x-pgbouncer, x-elastic-product, ecc.)
+          30 – Errore/stack-trace nel body che rivela il DB engine
+          20 – Correlazione con backend rilevato (Ruby → PostgreSQL, PHP → MySQL)
+          10 – Path amministrativo risponde (phpmyadmin, /_cat/health, ecc.)
+
+        Fino a 2 DB rilevati (es. MySQL + Redis).
+        """
+        self.log("DB", "Inferring database layer...", "DISCOVERY")
+
+        db_fingerprints = self.fingerprints.get('database_detection', {})
+        detected = []
+        body_text = response.text.lower()[:20000]  # scan first 20 KB
+
+        # Backend già rilevati — usati per correlazione
+        detected_backends = {
+            l['component'].lower()
+            for l in self.stack['layers']
+            if l['type'] in ('BACKEND', 'FRAMEWORK')
+        }
+
+        for db_name, fp in db_fingerprints.items():
+            confidence = 0
+            evidence = []
+
+            # 1. Proxy/header specifico (40 pts) — segnale più affidabile
+            for h in fp.get('proxy_headers', []):
+                if response.headers.get(h):
+                    confidence += 40
+                    evidence.append(f"Proxy header: {h}")
+                    break
+
+            # 2. Errori/stack-trace nel body (30 pts)
+            for pattern in fp.get('error_patterns', []):
+                if re.search(pattern, body_text, re.IGNORECASE):
+                    confidence += 30
+                    evidence.append(f"Error pattern: {pattern[:40]}")
+                    break
+
+            # 2b. Body pattern generico (15 pts) — solo se nessun errore trovato
+            if confidence < 30:
+                for pattern in fp.get('body_patterns', []):
+                    if pattern.lower() in body_text:
+                        confidence += 15
+                        evidence.append(f"Body: {pattern}")
+                        break
+
+            # 3. Correlazione backend rilevato (20 pts)
+            for kw in fp.get('backend_correlation', []):
+                if any(kw in b for b in detected_backends):
+                    confidence += 20
+                    evidence.append(f"Backend correlation: {kw}")
+                    break
+
+            # 4. Path amministrativo (10 pts)
+            for path in fp.get('behavioral_paths', []):
+                try:
+                    self.rate_limiter.wait()
+                    r = self.session.get(
+                        self.target_url.rstrip('/') + path,
+                        timeout=4, allow_redirects=False
+                    )
+                    if r.status_code in [200, 401, 403]:
+                        confidence += 10
+                        evidence.append(f"Admin path: {path} ({r.status_code})")
+                        break
+                except Exception:
+                    pass
+
+            # Soglia bassa (30) perché l'inferenza è per natura debole
+            if confidence >= 30 and evidence:
+                detected.append({
+                    'name': db_name,
+                    'confidence': min(confidence, 100),
+                    'evidence': evidence,
+                    'level': 'HIGH' if confidence >= 70 else 'MEDIUM' if confidence >= 50 else 'LOW',
+                })
+
+        detected.sort(key=lambda x: x['confidence'], reverse=True)
+
+        added = 0
+        for match in detected:
+            if added >= 2:  # max 2 DB per stack (es. PostgreSQL + Redis)
+                break
+            self.stack['layers'].append({
+                'type': 'DATABASE',
+                'component': match['name'],
+                'confidence': match['confidence'],
+                'level': match['level'],
+                'evidence': match['evidence'],
+            })
+            self.log("DB", f"Inferred: {match['name']} "
+                     f"(confidence: {match['confidence']}/100, {match['level']})", "SUCCESS")
+            added += 1
+
+        if added == 0:
+            self.log("DB", "No database layer inferred", "INFO")
+
+    def _resolve_vendor_conflicts(self):
+        """
+        Post-processing: rimuove layer incompatibili con rilevamenti
+        ad alta confidenza già presenti nello stack.
+
+        Regole:
+        - aws_cloudfront → impossibile coesistere con gcp_lb o citrix_netscaler_lb
+        - cloudflare CDN (≥60%) → rimuove WAF non-cloudflare a bassa confidence
+        - Per tipi a istanza singola (WAF, API_GATEWAY, CMS): tieni solo
+          il candidato con confidence più alta se gli altri sono a LOW
+        """
+        layers = self.stack['layers']
+
+        cdn_map = {
+            l['component']: l['confidence']
+            for l in layers if l['type'] == 'CDN'
+        }
+
+        # AWS CloudFront → GCP LB e Citrix NetScaler sono impossibili
+        if 'aws_cloudfront' in cdn_map:
+            before = len(layers)
+            self.stack['layers'] = [
+                l for l in layers
+                if not (
+                    l['type'] == 'LOAD_BALANCER'
+                    and l['component'] in ('gcp_lb', 'citrix_netscaler_lb')
+                )
+            ]
+            layers = self.stack['layers']
+            removed = before - len(layers)
+            if removed:
+                self.log("CORRELATION",
+                         f"Vendor conflict: removed {removed} LB layer(s) "
+                         f"incompatible with aws_cloudfront", "INFO")
+
+        # Cloudflare CDN ad alta confidence → rimuovi WAF non-cloudflare a LOW
+        if cdn_map.get('cloudflare', 0) >= 60:
+            self.stack['layers'] = [
+                l for l in layers
+                if not (
+                    l['type'] == 'WAF'
+                    and 'cloudflare' not in l['component']
+                    and l['confidence'] < 60
+                )
+            ]
+            layers = self.stack['layers']
+
+        # Per tipi a istanza singola: tieni solo il migliore se gli altri
+        # sono a LOW confidence (< 50). CDN, BACKEND, PROXY, CACHE, DATABASE
+        # possono avere più istanze legittime — non vengono toccati qui.
+        single_instance = {'WAF', 'API_GATEWAY', 'CMS', 'SERVICE_MESH'}
+        for layer_type in single_instance:
+            candidates = sorted(
+                [l for l in layers if l['type'] == layer_type],
+                key=lambda x: x['confidence'], reverse=True
+            )
+            if len(candidates) > 1:
+                # Rimuovi i duplicati a bassa confidence
+                to_remove = [c for c in candidates[1:] if c['confidence'] < 50]
+                for rem in to_remove:
+                    self.stack['layers'].remove(rem)
 
     def test_behavioral_paths(self):
         """
@@ -2789,7 +3070,8 @@ class ProgressiveStackAnalyzer:
         # Sort layers by typical order
         order_priority = {
             'CDN': 1, 'WAF': 2, 'API_GATEWAY': 3, 'LOAD_BALANCER': 4,
-            'SERVICE_MESH': 5, 'PROXY': 6, 'CACHE': 7, 'FRAMEWORK': 8, 'BACKEND': 9,
+            'SERVICE_MESH': 5, 'PROXY': 6, 'CACHE': 7, 'FRAMEWORK': 8,
+            'BACKEND': 9, 'DATABASE': 10, 'CMS': 11,
         }
         self.stack['layers'].sort(key=lambda x: order_priority.get(x['type'], 99))
 
@@ -2848,7 +3130,9 @@ class ProgressiveStackAnalyzer:
         'PROXY':         0.08,
         'CACHE':         0.02,
         'FRAMEWORK':     0.10,
-        'BACKEND':       0.30,
+        'BACKEND':       0.25,
+        'DATABASE':      0.05,  # DB latency è parte del backend, non separata
+        'CMS':           0.00,  # CMS è application-layer, non aggiunge latenza di rete
     }
 
     def _estimate_layer_latencies(self, total_latency: float,
