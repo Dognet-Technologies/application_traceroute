@@ -605,7 +605,7 @@ class ResponseDifferentialAnalyzer:
             if signature_similarity < 0.7:  # <70% similar
                 _error_sig_flagged = True
                 likelihood_ratio = _ldb.get_prior(
-                    f'traceroute.lr.error_sig_changed.{_stack_sig}', static_fallback=25.0
+                    f'traceroute.lr_scalar.error_sig_changed.{_stack_sig}', static_fallback=25.0
                 ) if _ldb else 25.0
 
                 self.bayesian_engine.add_evidence(BypassEvidence(
