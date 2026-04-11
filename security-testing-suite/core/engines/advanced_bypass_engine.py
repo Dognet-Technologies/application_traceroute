@@ -435,8 +435,29 @@ class ResponseDifferentialAnalyzer:
         # Initialised once; used across all evidence sections below.
         _stack_sig = getattr(self, 'stack_sig', 'unknown')
         _ldb = getattr(self, 'learning_db', None)
+        _scan_id = getattr(self, 'scan_id', None)
 
+        # Anomaly flags — tracciati per record_anomaly_observation() alla fine.
+        # Ogni flag è True se l'anomalia ha superato la soglia e contribuito
+        # all'analisi bayesiana. Usati da _update_lr_scalars() in learning_db.
+        _size_flagged = False
+        _timing_flagged = False
+        _entropy_flagged = False
+        _new_hdr_flagged = False
+        _miss_hdr_flagged = False
+        _error_sig_flagged = False
+        _reflection_flagged = False
+        _multi_dim_flagged = False
+        # magnitude scalari — per contesto/debug in anomaly_observations
+        _size_mag: float = 0.0
+        _timing_mag: float = 0.0
+        _entropy_mag: float = 0.0
+        _error_sig_sim: float = 1.0  # similarity (1 = identico, 0 = totalmente diverso)
+        _avg_distance: float = 0.0
+
+        _size_mag = float(size_z_score)
         if abs(size_z_score) > 2.0:  # >2 standard deviations
+            _size_flagged = True
             # Strong evidence of different behavior
             _size_scalar = _ldb.get_prior(
                 f'traceroute.lr_scalar.size_anomaly.{_stack_sig}', static_fallback=2.0
@@ -463,7 +484,9 @@ class ResponseDifferentialAnalyzer:
         baseline_timings = [fp.timing_ms for fp in self.baseline_fingerprints]
         timing_z_score = self._calculate_z_score(test_fingerprint.timing_ms, baseline_timings)
 
+        _timing_mag = float(timing_z_score)
         if abs(timing_z_score) > 2.5:
+            _timing_flagged = True
             # Timing anomaly suggests different code path
             interpretation = "Backend reached" if timing_z_score > 0 else "Fast rejection"
 
@@ -493,7 +516,9 @@ class ResponseDifferentialAnalyzer:
         baseline_entropies = [fp.entropy for fp in self.baseline_fingerprints]
         entropy_diff = test_fingerprint.entropy - statistics.mean(baseline_entropies)
 
+        _entropy_mag = float(entropy_diff)
         if abs(entropy_diff) > 0.5:  # Significant entropy change
+            _entropy_flagged = True
             interpretation = self._interpret_entropy_change(entropy_diff)
 
             _entropy_scalar = _ldb.get_prior(
@@ -525,6 +550,7 @@ class ResponseDifferentialAnalyzer:
         missing_headers = common_baseline_headers - test_headers
 
         if new_headers:
+            _new_hdr_flagged = True
             _new_hdr_scalar = _ldb.get_prior(
                 f'traceroute.lr_scalar.new_headers.{_stack_sig}', static_fallback=15.0
             ) if _ldb else 15.0
@@ -546,6 +572,7 @@ class ResponseDifferentialAnalyzer:
             })
 
         if missing_headers:
+            _miss_hdr_flagged = True
             _miss_hdr_scalar = _ldb.get_prior(
                 f'traceroute.lr_scalar.missing_headers.{_stack_sig}', static_fallback=8.0
             ) if _ldb else 8.0
@@ -573,8 +600,10 @@ class ResponseDifferentialAnalyzer:
                 baseline_signatures[0],
                 test_fingerprint.error_signature
             )
+            _error_sig_sim = signature_similarity
 
             if signature_similarity < 0.7:  # <70% similar
+                _error_sig_flagged = True
                 likelihood_ratio = _ldb.get_prior(
                     f'traceroute.lr.error_sig_changed.{_stack_sig}', static_fallback=25.0
                 ) if _ldb else 25.0
@@ -597,6 +626,7 @@ class ResponseDifferentialAnalyzer:
 
         # === 7. REFLECTION ANALYSIS ===
         if test_fingerprint.reflection_indicators:
+            _reflection_flagged = True
             _refl_scalar = _ldb.get_prior(
                 f'traceroute.lr_scalar.reflection.{_stack_sig}', static_fallback=20.0
             ) if _ldb else 20.0
@@ -621,7 +651,9 @@ class ResponseDifferentialAnalyzer:
         distances = [test_fingerprint.distance(bf) for bf in self.baseline_fingerprints]
         avg_distance = statistics.mean(distances)
 
+        _avg_distance = avg_distance
         if avg_distance > 0.5:  # Threshold for "significantly different"
+            _multi_dim_flagged = True
             _multidim_scalar = _ldb.get_prior(
                 f'traceroute.lr_scalar.multi_dim.{_stack_sig}', static_fallback=15.0
             ) if _ldb else 15.0
@@ -641,6 +673,29 @@ class ResponseDifferentialAnalyzer:
                 'interpretation': 'Response significantly differs across multiple dimensions',
                 'evidence': f"Multi-dim distance: {avg_distance:.3f}"
             })
+
+        # === P5: RECORD ANOMALY OBSERVATIONS → feedback loop per _update_lr_scalars ===
+        # Registra sia le anomalie flagged che quelle non flagged (necessarie per
+        # calcolare il denominatore del LR empirico in learning_db._update_lr_scalars).
+        if _ldb and _scan_id:
+            _anomaly_record = [
+                ('size_anomaly',      _size_flagged,      _size_mag),
+                ('timing_anomaly',    _timing_flagged,     _timing_mag),
+                ('entropy_diff',      _entropy_flagged,    _entropy_mag),
+                ('new_headers',       _new_hdr_flagged,    float(len(new_headers))),
+                ('missing_headers',   _miss_hdr_flagged,   float(len(missing_headers))),
+                ('error_sig_changed', _error_sig_flagged,  1.0 - _error_sig_sim),
+                ('reflection',        _reflection_flagged,
+                 float(len(test_fingerprint.reflection_indicators))),
+                ('multi_dim',         _multi_dim_flagged,  _avg_distance),
+            ]
+            for _atype, _flagged, _mag in _anomaly_record:
+                try:
+                    _ldb.record_anomaly_observation(
+                        _scan_id, _atype, _flagged, _stack_sig, _mag
+                    )
+                except Exception:
+                    pass
 
         # === FINAL BAYESIAN ASSESSMENT ===
         posterior_prob = self.bayesian_engine.get_posterior_probability()

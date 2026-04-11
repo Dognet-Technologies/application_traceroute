@@ -898,6 +898,17 @@ class ProgressiveStackAnalyzer:
             # Database inference: DB non è mai esposto direttamente via HTTP.
             # La detection è inferenziale: errori nel body, header proxy-DB,
             # correlazione con backend rilevato, path admin (phpmyadmin ecc.)
+            #
+            # Campi per ogni fingerprint:
+            #   proxy_headers      – header HTTP specifici del DB/proxy (segnale forte)
+            #   error_patterns     – regex negli error body 500 (segnale forte)
+            #   body_patterns      – pattern in qualsiasi body (segnale medio)
+            #   stack_trace_patterns – nomi di libreria in stack trace (segnale medio)
+            #   tech_headers       – list of {'header': str, 'contains': str}
+            #                        es. X-Powered-By: PHP → MySQL probabile
+            #   cookie_patterns    – cookie name substrings che indicano il backend
+            #   backend_correlation – linguaggi rilevati che correlano con questo DB
+            #   behavioral_paths   – path admin/diagnostici da sondare (segnale debole)
             'database_detection': {
                 'mysql_mariadb': {
                     'proxy_headers': ['x-mysql-proxy'],
@@ -908,10 +919,22 @@ class ProgressiveStackAnalyzer:
                         'supplied argument is not a valid mysql result',
                         'com.mysql.jdbc', 'pdo::prepare', 'pdoexception',
                         'access denied for user.*@.*mysql',
-                        'table.*doesn.*exist', 'unknown column',
+                        'table.*doesn.*exist', 'unknown column.*in.*field list',
+                        'mysql server has gone away',
+                        'lost connection to mysql server',
+                        'incorrect integer value',
+                        'data too long for column',
                     ],
                     'body_patterns': [],
-                    'stack_trace_patterns': ['mysqli_', 'pdo\\\\mysql', 'doctrine\\\\dbal'],
+                    'stack_trace_patterns': [
+                        'mysqli_', 'pdo\\\\mysql', 'doctrine\\\\dbal',
+                        'illuminate\\\\database', 'laravel.*database',
+                        'propel', 'zend_db',
+                    ],
+                    'tech_headers': [
+                        {'header': 'X-Powered-By', 'contains': 'php'},
+                    ],
+                    'cookie_patterns': ['PHPSESSID', 'phpsessid'],
                     'backend_correlation': ['php', 'ruby', 'perl', 'python'],
                     'behavioral_paths': ['/phpmyadmin', '/pma', '/adminer',
                                          '/mysql', '/db', '/database'],
@@ -926,11 +949,80 @@ class ProgressiveStackAnalyzer:
                         'pg_hba.conf entry for host',
                         'fatal: password authentication failed for user',
                         'dbal\\\\driver\\\\pdopgsqlexception',
+                        'relation.*does not exist',
+                        'column.*does not exist',
+                        'operator does not exist',
+                        'syntax error at or near',
+                        'invalid input syntax for type',
                     ],
                     'body_patterns': [],
-                    'stack_trace_patterns': ['activerecord', 'psycopg2', 'asyncpg',
-                                              'pg.pool', 'node-postgres'],
+                    'stack_trace_patterns': [
+                        'activerecord', 'psycopg2', 'asyncpg',
+                        'pg.pool', 'node-postgres', 'sequelize.*postgres',
+                        'knex.*pg', 'sqlalchemy.*postgresql',
+                    ],
+                    'tech_headers': [
+                        {'header': 'X-Runtime', 'contains': ''},   # Ruby/Rails → PostgreSQL
+                        {'header': 'X-Powered-By', 'contains': 'ruby'},
+                    ],
+                    'cookie_patterns': ['_session', '__Host-'],
                     'backend_correlation': ['ruby', 'python', 'java', 'golang', 'nodejs'],
+                    'behavioral_paths': [],
+                },
+                'mssql': {
+                    # Microsoft SQL Server — stack Windows/ASP.NET/dotnet
+                    'proxy_headers': [],
+                    'error_patterns': [
+                        'microsoft ole db provider for sql server',
+                        'unclosed quotation mark after the character string',
+                        'incorrect syntax near',
+                        'microsoft sql native client',
+                        'sqlexception.*sql server',
+                        'odbc sql server driver',
+                        'mssqlexception', 'sqlserver.*error',
+                        'server error in.*application',
+                        'conversion failed when converting',
+                        'invalid column name',
+                        'object name.*is invalid',
+                    ],
+                    'body_patterns': [],
+                    'stack_trace_patterns': [
+                        'system.data.sqlclient', 'microsoft.data.sqlclient',
+                        'entityframework', 'dapper', 'sqlconnection',
+                        'system.data.entity',
+                    ],
+                    'tech_headers': [
+                        {'header': 'X-AspNet-Version', 'contains': ''},  # .NET → MSSQL
+                        {'header': 'X-AspNetMvc-Version', 'contains': ''},
+                        {'header': 'X-Powered-By', 'contains': 'asp.net'},
+                    ],
+                    'cookie_patterns': ['ASP.NET_SessionId', 'ASPSESSIONid',
+                                        '.ASPXAUTH', '.AspNet.'],
+                    'backend_correlation': ['dotnet', 'asp.net', 'java'],
+                    'behavioral_paths': [],
+                },
+                'sqlite': {
+                    # SQLite — tipico in app piccole, dev, Django/Flask senza config DB
+                    'proxy_headers': [],
+                    'error_patterns': [
+                        'sqlite3.operationalerror',
+                        'sqlite3.integrityerror',
+                        'sqlite3.databaseerror',
+                        'unable to open database file',
+                        'disk i/o error',
+                        'database disk image is malformed',
+                        'no such table',
+                        'no such column',
+                        'sqlite error',
+                    ],
+                    'body_patterns': [],
+                    'stack_trace_patterns': [
+                        'sqlite3', 'better-sqlite3', 'sqlalchemy.*sqlite',
+                        'django.*sqlite', 'sequelize.*sqlite',
+                    ],
+                    'tech_headers': [],
+                    'cookie_patterns': ['sessionid', 'django_session'],
+                    'backend_correlation': ['python', 'php', 'ruby', 'nodejs'],
                     'behavioral_paths': [],
                 },
                 'mongodb': {
@@ -940,11 +1032,57 @@ class ProgressiveStackAnalyzer:
                         'mongoexception', 'e11000 duplicate key error',
                         'failed to connect to.*27017', 'mongod',
                         'mongowriteconcernerror',
+                        'mongonetworkerror',
+                        'queryfailed.*mongo',
                     ],
                     'body_patterns': ['"_id":', '"$oid":'],
-                    'stack_trace_patterns': ['mongoose', 'mongodb\\\\driver', 'pymongo'],
+                    'stack_trace_patterns': [
+                        'mongoose', 'mongodb\\\\driver', 'pymongo',
+                        'motor', 'mongoengine',
+                    ],
+                    'tech_headers': [],
+                    'cookie_patterns': ['connect.sid'],  # Express/Node → spesso MongoDB
                     'backend_correlation': ['nodejs', 'python', 'ruby'],
                     'behavioral_paths': [],
+                },
+                'cassandra': {
+                    # Cassandra — wide-column store, usato spesso con Java/Python
+                    'proxy_headers': [],
+                    'error_patterns': [
+                        'cassandraexception', 'com.datastax.driver',
+                        'com.datastax.oss', 'nohodeavailableexception',
+                        'invalidquerymessage', 'unavailableexception',
+                        'cassandra.policies', 'readtimeoutexception',
+                        'writetimeoutexception',
+                    ],
+                    'body_patterns': [],
+                    'stack_trace_patterns': [
+                        'datastax', 'cassandra-driver', 'astra',
+                        'com.datastax', 'cassandra.cluster',
+                    ],
+                    'tech_headers': [],
+                    'cookie_patterns': [],
+                    'backend_correlation': ['java', 'python', 'nodejs'],
+                    'behavioral_paths': [],
+                },
+                'couchdb': {
+                    # CouchDB — document store, API REST nativa su porta 5984
+                    'proxy_headers': [],
+                    'error_patterns': [
+                        '"error".*"not_found"', '"error".*"bad_request"',
+                        '"error".*"unauthorized"',
+                        'org.apache.couchdb',
+                        '"reason".*"missing"',
+                    ],
+                    'body_patterns': ['"_rev":', '"_id":', '"total_rows":', '"offset":'],
+                    'stack_trace_patterns': [
+                        'pouchdb', 'cradle', 'nano.*couch',
+                        'cloudant', 'couchdb',
+                    ],
+                    'tech_headers': [],
+                    'cookie_patterns': ['AuthSession'],  # CouchDB usa AuthSession cookie
+                    'backend_correlation': ['nodejs', 'python', 'erlang'],
+                    'behavioral_paths': ['/_utils/', '/_all_dbs', '/_active_tasks'],
                 },
                 # Redis è un cache layer, non un DB — già gestito in cache_layer_detection.
                 # Non duplicato qui per evitare classificazione errata.
@@ -955,13 +1093,127 @@ class ProgressiveStackAnalyzer:
                         'no alive nodes found in your cluster',
                         'elasticsearch.exceptions',
                         'org.elasticsearch',
+                        'shardsfailedException',
+                        'strictdynamicmappingexception',
+                        'mapperparsingexception',
                     ],
                     'body_patterns': ['"_shards":', '"hits":', '"_index":',
                                       '"timed_out":', 'elasticsearch'],
-                    'stack_trace_patterns': ['elasticsearch', 'opensearch'],
+                    'stack_trace_patterns': [
+                        'elasticsearch-py', 'org.elasticsearch',
+                        'spring-data-elasticsearch',
+                    ],
+                    'tech_headers': [
+                        {'header': 'X-Elastic-Product', 'contains': ''},
+                    ],
+                    'cookie_patterns': [],
                     'backend_correlation': [],
                     'behavioral_paths': ['/_cat/health', '/_cluster/health',
                                           '/_cat/indices', '/_nodes'],
+                },
+                'opensearch': {
+                    # OpenSearch — fork Elasticsearch (AWS); distingue per header
+                    'proxy_headers': ['x-opensearch-product'],
+                    'error_patterns': [
+                        'opensearchexception', 'org.opensearch',
+                        'indexnotfoundexception', 'no alive nodes found',
+                        'opensearch.exceptions',
+                    ],
+                    'body_patterns': ['"_shards":', '"hits":', '"_index":', '"opensearch"'],
+                    'stack_trace_patterns': [
+                        'opensearch-py', 'org.opensearch',
+                        'spring-data-opensearch',
+                    ],
+                    'tech_headers': [
+                        {'header': 'X-OpenSearch-Product', 'contains': ''},
+                    ],
+                    'cookie_patterns': [],
+                    'backend_correlation': [],
+                    'behavioral_paths': ['/_cluster/health', '/_cat/health',
+                                          '/_cat/indices'],
+                },
+                'neo4j': {
+                    # Neo4j — graph database, API Bolt/HTTP su porta 7474/7687
+                    'proxy_headers': [],
+                    'error_patterns': [
+                        'neo4j.exceptions', 'neoclienterror',
+                        'org.neo4j', 'cypher syntax error',
+                        'neo4j.v1', 'neo4j.exceptions.cypher',
+                        'clienterror.statement.syntaxerror',
+                    ],
+                    'body_patterns': ['"neo4j"', '"nodes":', '"relationships":',
+                                      '"columns":', '"data":'],
+                    'stack_trace_patterns': [
+                        'neo4j-driver', 'py2neo', 'neomodel',
+                        'spring-data-neo4j', 'neo4j.GraphDatabase',
+                    ],
+                    'tech_headers': [],
+                    'cookie_patterns': [],
+                    'backend_correlation': ['java', 'python', 'nodejs'],
+                    'behavioral_paths': ['/browser/', '/db/neo4j/tx'],
+                },
+                'influxdb': {
+                    # InfluxDB — time series database, API HTTP nativa
+                    'proxy_headers': ['x-influxdb-version', 'x-influxdb-build'],
+                    'error_patterns': [
+                        'influxdb', 'influxerror', 'influxql',
+                        'error parsing query', 'field type conflict',
+                        'retention policy not found',
+                    ],
+                    'body_patterns': ['"results":', '"series":', '"statement_id":'],
+                    'stack_trace_patterns': [
+                        'influxdb-client', 'influxdb3-python',
+                        'com.influxdb', 'influxdb_client',
+                    ],
+                    'tech_headers': [
+                        {'header': 'X-Influxdb-Version', 'contains': ''},
+                        {'header': 'X-Influxdb-Build', 'contains': ''},
+                    ],
+                    'cookie_patterns': [],
+                    'backend_correlation': ['python', 'golang', 'nodejs'],
+                    'behavioral_paths': ['/ping', '/health', '/api/v2/health'],
+                },
+                'solr': {
+                    # Apache Solr — search engine, API HTTP su porta 8983
+                    'proxy_headers': [],
+                    'error_patterns': [
+                        'org.apache.solr', 'solrexception',
+                        'remote solr server returned', 'solrquery',
+                        'parseerror.*solr', 'solr.common',
+                    ],
+                    'body_patterns': ['"responseheader":', '"qtime":', '"numfound":',
+                                      '"solr"'],
+                    'stack_trace_patterns': [
+                        'solrj', 'pysolr', 'sunspot', 'acts_as_solr',
+                        'org.apache.solr',
+                    ],
+                    'tech_headers': [],
+                    'cookie_patterns': [],
+                    'backend_correlation': ['java', 'ruby', 'python'],
+                    'behavioral_paths': ['/solr/admin/', '/solr/#/'],
+                },
+                'clickhouse': {
+                    # ClickHouse — OLAP columnar DB, API HTTP su porta 8123
+                    'proxy_headers': ['x-clickhouse-server-display-name',
+                                      'x-clickhouse-query-id'],
+                    'error_patterns': [
+                        'db::exception', 'clickhouse exception',
+                        'code:.*db::exception', 'unknown table',
+                        'there is no query to execute',
+                        'clickhouse.driver',
+                    ],
+                    'body_patterns': ['"meta":', '"data":', '"rows":', '"statistics":'],
+                    'stack_trace_patterns': [
+                        'clickhouse-driver', 'clickhouse-connect',
+                        'asynch', 'com.clickhouse',
+                    ],
+                    'tech_headers': [
+                        {'header': 'X-ClickHouse-Server-Display-Name', 'contains': ''},
+                        {'header': 'X-ClickHouse-Query-Id', 'contains': ''},
+                    ],
+                    'cookie_patterns': [],
+                    'backend_correlation': ['python', 'golang', 'java'],
+                    'behavioral_paths': ['/?query=SELECT+1', '/play'],
                 },
                 'oracle': {
                     'proxy_headers': [],
@@ -969,10 +1221,16 @@ class ProgressiveStackAnalyzer:
                         'ora-00001', 'ora-00907', 'ora-01017', 'ora-12541',
                         'oracle.jdbc', 'java.sql.sqlrecoverableexception',
                         'oracle error', 'cx_oracle',
+                        'ora-00933', 'ora-00942', 'ora-01722',
+                        'oracle.*violation of unique constraint',
                     ],
                     'body_patterns': [],
-                    'stack_trace_patterns': ['oracle.jdbc', 'cx_oracle',
-                                              'oracle.ucp', 'orawrap'],
+                    'stack_trace_patterns': [
+                        'oracle.jdbc', 'cx_oracle', 'oracle.ucp',
+                        'orawrap', 'spring.*oracle', 'hibernate.*oracle',
+                    ],
+                    'tech_headers': [],
+                    'cookie_patterns': [],
                     'backend_correlation': ['java', 'php', 'python'],
                     'behavioral_paths': [],
                 },
@@ -2745,25 +3003,67 @@ class ProgressiveStackAnalyzer:
         else:
             self.log("CMS", "No CMS detected or confidence too low", "INFO")
 
+    def _probe_db_error_body(self) -> str:
+        """
+        Active probe: invia un parametro con carattere di escape SQL ('--) per
+        provocare un errore 4xx/5xx e restituisce il body della risposta.
+
+        Questo è l'analogo del payload XSS in deep_waf_fingerprinting: non
+        testiamo la vulnerabilità, ma usiamo il messaggio di errore rivelato
+        dal server come firma del DB engine sottostante.
+
+        Restituisce stringa vuota se il probe fallisce o non produce errore.
+        """
+        probe_params = [
+            "?__id=1'--",
+            "?id=1'",
+            "?q=1\"--",
+        ]
+        for param in probe_params:
+            try:
+                self.rate_limiter.wait()
+                r = self.session.get(
+                    self.target_url.rstrip('/') + param,
+                    timeout=5, allow_redirects=False
+                )
+                # Ci interessa solo una risposta di errore (4xx/5xx)
+                if r.status_code >= 400:
+                    return r.text.lower()[:30000]
+            except Exception:
+                pass
+        return ''
+
     def deep_database_fingerprinting(self, response: requests.Response):
         """
         Database layer inference via HTTP.
 
-        I DB non sono mai esposti direttamente; la detection è inferenziale:
+        I DB non sono mai esposti direttamente; la detection è inferenziale
+        su 6 segnali (ordinati per affidabilità):
 
-        Confidence breakdown (100 pts max):
-          40 – Proxy/specifici header DB (x-pgbouncer, x-elastic-product, ecc.)
-          30 – Errore/stack-trace nel body che rivela il DB engine
-          20 – Correlazione con backend rilevato (Ruby → PostgreSQL, PHP → MySQL)
+        Confidence breakdown (max 100, capped):
+          40 – Proxy/header specifico DB (x-pgbouncer, x-elastic-product, ecc.)
+          35 – Active probe: param con escape SQL → errore 4xx/5xx
+               body corrisponde a error_patterns del DB (segnale forte:
+               il server ha rivelato il DB engine attraverso l'errore)
+          25 – Error/stack-trace pattern nel body baseline (200 OK)
+          20 – Stack trace di libreria DB nel body (error o baseline)
+          15 – Tech headers (X-Powered-By: PHP→MySQL, X-Runtime→PostgreSQL,
+               X-AspNet-Version→MSSQL, X-ClickHouse-Query-Id, ecc.)
+          10 – Cookie name patterns (PHPSESSID→MySQL, ASP.NET_SessionId→MSSQL)
+          15 – Correlazione con backend già rilevato nello stack
           10 – Path amministrativo risponde (phpmyadmin, /_cat/health, ecc.)
+          10 – Body pattern generico (fallback, solo se confidence < 30)
 
-        Fino a 2 DB rilevati (es. MySQL + Redis).
+        Fino a 2 DB rilevati. Soglia 30 (bassa — inferenza per natura debole).
         """
         self.log("DB", "Inferring database layer...", "DISCOVERY")
 
         db_fingerprints = self.fingerprints.get('database_detection', {})
         detected = []
-        body_text = response.text.lower()[:20000]  # scan first 20 KB
+        baseline_body = response.text.lower()[:20000]  # scan first 20 KB
+
+        # Active probe — eseguito una sola volta, risultato condiviso tra tutti i DB
+        probe_body = self._probe_db_error_body()
 
         # Backend già rilevati — usati per correlazione
         detected_backends = {
@@ -2771,6 +3071,9 @@ class ProgressiveStackAnalyzer:
             for l in self.stack['layers']
             if l['type'] in ('BACKEND', 'FRAMEWORK')
         }
+
+        # Cookie names dal response (lowercase)
+        response_cookies = {c.lower() for c in response.cookies.keys()}
 
         for db_name, fp in db_fingerprints.items():
             confidence = 0
@@ -2783,29 +3086,55 @@ class ProgressiveStackAnalyzer:
                     evidence.append(f"Proxy header: {h}")
                     break
 
-            # 2. Errori/stack-trace nel body (30 pts)
-            for pattern in fp.get('error_patterns', []):
-                if re.search(pattern, body_text, re.IGNORECASE):
-                    confidence += 30
-                    evidence.append(f"Error pattern: {pattern[:40]}")
-                    break
-
-            # 2b. Body pattern generico (15 pts) — solo se nessun errore trovato
-            if confidence < 30:
-                for pattern in fp.get('body_patterns', []):
-                    if pattern.lower() in body_text:
-                        confidence += 15
-                        evidence.append(f"Body: {pattern}")
+            # 2. Active probe: errori in risposta 4xx/5xx (35 pts)
+            #    Analogo al payload XSS di deep_waf_fingerprinting.
+            if probe_body:
+                for pattern in fp.get('error_patterns', []):
+                    if re.search(pattern, probe_body, re.IGNORECASE):
+                        confidence += 35
+                        evidence.append(f"Probe error: {pattern[:40]}")
                         break
 
-            # 3. Correlazione backend rilevato (20 pts)
+            # 3. Error/stack pattern nel body baseline (25 pts)
+            #    Più raro: appare solo se il 200 contiene messaggi di errore
+            if not any('Probe error' in e for e in evidence):
+                for pattern in fp.get('error_patterns', []):
+                    if re.search(pattern, baseline_body, re.IGNORECASE):
+                        confidence += 25
+                        evidence.append(f"Baseline error: {pattern[:40]}")
+                        break
+
+            # 4. Stack trace di libreria DB in qualsiasi body (20 pts)
+            combined_body = baseline_body + probe_body
+            for pattern in fp.get('stack_trace_patterns', []):
+                if re.search(pattern, combined_body, re.IGNORECASE):
+                    confidence += 20
+                    evidence.append(f"Stack trace: {pattern[:40]}")
+                    break
+
+            # 5. Tech headers (15 pts)
+            for th in fp.get('tech_headers', []):
+                header_val = response.headers.get(th['header'], '')
+                if header_val and (not th['contains'] or th['contains'].lower() in header_val.lower()):
+                    confidence += 15
+                    evidence.append(f"Tech header: {th['header']}")
+                    break
+
+            # 6. Cookie patterns (10 pts)
+            for ck in fp.get('cookie_patterns', []):
+                if any(ck.lower() in c for c in response_cookies):
+                    confidence += 10
+                    evidence.append(f"Cookie: {ck}")
+                    break
+
+            # 7. Correlazione backend rilevato (15 pts)
             for kw in fp.get('backend_correlation', []):
                 if any(kw in b for b in detected_backends):
-                    confidence += 20
+                    confidence += 15
                     evidence.append(f"Backend correlation: {kw}")
                     break
 
-            # 4. Path amministrativo (10 pts)
+            # 8. Path amministrativo (10 pts)
             for path in fp.get('behavioral_paths', []):
                 try:
                     self.rate_limiter.wait()
@@ -2820,6 +3149,14 @@ class ProgressiveStackAnalyzer:
                 except Exception:
                     pass
 
+            # 9. Body pattern generico (10 pts) — fallback se confidence ancora bassa
+            if confidence < 30:
+                for pattern in fp.get('body_patterns', []):
+                    if pattern.lower() in combined_body:
+                        confidence += 10
+                        evidence.append(f"Body pattern: {pattern}")
+                        break
+
             # Soglia bassa (30) perché l'inferenza è per natura debole
             if confidence >= 30 and evidence:
                 detected.append({
@@ -2833,7 +3170,7 @@ class ProgressiveStackAnalyzer:
 
         added = 0
         for match in detected:
-            if added >= 2:  # max 2 DB per stack (es. PostgreSQL + Redis)
+            if added >= 2:  # max 2 DB per stack
                 break
             self.stack['layers'].append({
                 'type': 'DATABASE',

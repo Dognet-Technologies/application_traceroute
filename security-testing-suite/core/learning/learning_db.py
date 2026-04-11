@@ -65,6 +65,20 @@ _STATIC_TIMING: dict = {
     'generic':     {'avg_ms': 50,  'jitter': 30},
 }
 
+# Prior statici per LR scalars anomalia (usati da advanced_bypass_engine)
+# Rappresentano quanto ogni tipo di anomalia aumenta la probabilità di bypass reale.
+# Aggiornati empiricamente da _update_lr_scalars() quando ci sono abbastanza dati.
+_STATIC_LR_SCALARS: dict = {
+    'size_anomaly':      2.0,
+    'timing_anomaly':    3.0,
+    'entropy_diff':      5.0,
+    'new_headers':       15.0,
+    'missing_headers':   8.0,
+    'error_sig_changed': 25.0,
+    'reflection':        20.0,
+    'multi_dim':         15.0,
+}
+
 # Prior statici per tecnica di bypass
 _STATIC_TECHNIQUE_PRIORS: dict = {
     'header_manipulation': {'success_probability': 0.35, 'detection_risk': 0.20},
@@ -178,6 +192,19 @@ CREATE INDEX IF NOT EXISTS idx_technique_outcomes_tech_stack
     ON technique_outcomes(technique_id, stack_signature);
 CREATE INDEX IF NOT EXISTS idx_priors_snapshot_key
     ON priors_snapshot(prior_key);
+
+CREATE TABLE IF NOT EXISTS anomaly_observations (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    scan_id         INTEGER REFERENCES scan_registry(id) ON DELETE CASCADE,
+    anomaly_type    TEXT    NOT NULL,
+    was_flagged     INTEGER NOT NULL CHECK(was_flagged IN (0, 1)),
+    stack_sig       TEXT    NOT NULL,
+    magnitude       REAL,
+    observed_at     REAL    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_anomaly_obs_type_stack
+    ON anomaly_observations(anomaly_type, stack_sig, was_flagged);
 """
 
 _SCHEMA_VERSION = 1
@@ -211,6 +238,7 @@ class LearningDB:
         'bypassability_scores': {'warmstart': 20,  'dynamic': 40},
         'vuln_test_limits':     {'warmstart': 15,  'dynamic': 30},
         'timing_thresholds':    {'warmstart': 10,  'dynamic': 25},
+        'anomaly_observations': {'warmstart': 15,  'dynamic': 40},
     }
 
     def __init__(self):
@@ -380,6 +408,31 @@ class LearningDB:
                  triggered_ms, int(confirmed), scan_id, time.time())
             )
 
+    def record_anomaly_observation(self, scan_id: int, anomaly_type: str,
+                                    was_flagged: bool, stack_sig: str,
+                                    magnitude: Optional[float] = None):
+        """
+        Registra se un tipo di anomalia è stato rilevato durante l'analisi
+        differenziale di una risposta bypass.
+
+        Usato da _update_lr_scalars() per calcolare empiricamente:
+          LR(anomaly_type | stack_sig) =
+              P(bypass_success | anomaly_flagged) /
+              P(bypass_success | anomaly_not_flagged)
+
+        magnitude: valore numerico dell'anomalia (es. delta size in %)
+                   opzionale — utile per debug ma non usato nel calcolo LR.
+        """
+        with self._conn:
+            self._conn.execute(
+                '''INSERT INTO anomaly_observations
+                   (scan_id, anomaly_type, was_flagged, stack_sig,
+                    magnitude, observed_at)
+                   VALUES (?, ?, ?, ?, ?, ?)''',
+                (scan_id, anomaly_type, int(was_flagged), stack_sig,
+                 magnitude, time.time())
+            )
+
     # ------------------------------------------------------------------
     # Processo post-scan — update_priors
     # ------------------------------------------------------------------
@@ -397,6 +450,7 @@ class LearningDB:
             self._update_bypassability_scores(target_hash)
             self._update_vuln_test_limits(tool, target_hash)
             self._update_timing_thresholds(tool, target_hash)
+            self._update_lr_scalars(tool, target_hash)
         except Exception as exc:
             logger.warning("update_priors(%s, %s) errore: %s", tool, target_hash, exc)
 
@@ -895,4 +949,118 @@ class LearningDB:
             self._upsert_prior(
                 f'{tool}.timing.{threshold_id}.{t_hash}',
                 tool, final_threshold, None, n_weighted, regime, static_threshold
+            )
+
+    def _update_lr_scalars(self, tool: str, target_hash: str):
+        """
+        Aggiorna LR scalars per (anomaly_type, stack_sig) basandosi su
+        osservazioni empiriche raccolte da record_anomaly_observation().
+
+        Teoria: il LR scalar è il rapporto di Bayes che risponde a
+        "quanto questo tipo di anomalia aumenta la probabilità che esista
+        un bypass reale?"
+
+          LR_empirico = P(bypass_success | anomaly_flagged)
+                      / P(bypass_success | anomaly_not_flagged)
+
+        Join tra anomaly_observations e technique_outcomes (via scan_id):
+        per ogni scan dove questa anomalia era flagged, controlliamo se
+        almeno una tecnica di bypass ha avuto successo.
+
+        Soglie regime: warmstart=15, dynamic=40 osservazioni pesate.
+        LR clamped [0.5, 50] per evitare degenerazione in assenza di dati.
+        Regression check: il nuovo LR migliora il discriminability score?
+        """
+        regime_thresholds = self.REGIME_THRESHOLDS['anomaly_observations']
+
+        pairs = set(
+            (row['anomaly_type'], row['stack_sig'])
+            for row in self._query(
+                'SELECT DISTINCT anomaly_type, stack_sig FROM anomaly_observations',
+                ()
+            )
+        )
+        if not pairs:
+            return
+
+        for anomaly_type, stack_sig in pairs:
+            static_lr = _STATIC_LR_SCALARS.get(anomaly_type, 5.0)
+
+            # Scans dove l'anomalia era flagged — verifica bypass success
+            rows_flagged = self._query(
+                '''SELECT ao.scan_id, sr.target_hash, ao.observed_at,
+                          COALESCE(MAX(tc.success), 0) AS any_success
+                   FROM anomaly_observations ao
+                   JOIN scan_registry sr ON ao.scan_id = sr.id
+                   LEFT JOIN technique_outcomes tc ON tc.scan_id = ao.scan_id
+                   WHERE ao.anomaly_type = ? AND ao.stack_sig = ? AND ao.was_flagged = 1
+                   GROUP BY ao.scan_id, sr.target_hash, ao.observed_at
+                   ORDER BY ao.observed_at DESC
+                   LIMIT 200''',
+                (anomaly_type, stack_sig)
+            )
+
+            # Scans dove l'anomalia NON era flagged (controfattuale)
+            rows_not_flagged = self._query(
+                '''SELECT ao.scan_id, sr.target_hash, ao.observed_at,
+                          COALESCE(MAX(tc.success), 0) AS any_success
+                   FROM anomaly_observations ao
+                   JOIN scan_registry sr ON ao.scan_id = sr.id
+                   LEFT JOIN technique_outcomes tc ON tc.scan_id = ao.scan_id
+                   WHERE ao.anomaly_type = ? AND ao.stack_sig = ? AND ao.was_flagged = 0
+                   GROUP BY ao.scan_id, sr.target_hash, ao.observed_at
+                   ORDER BY ao.observed_at DESC
+                   LIMIT 200''',
+                (anomaly_type, stack_sig)
+            )
+
+            if not rows_flagged:
+                continue
+
+            weights_flagged = [
+                self._calculate_weight(r['target_hash'], target_hash, r['observed_at'])
+                for r in rows_flagged
+            ]
+            n_weighted = self._calculate_n_weighted(weights_flagged)
+            regime = self._get_regime('anomaly_observations', n_weighted)
+
+            p_success_flagged = self._weighted_mean(
+                [float(r['any_success']) for r in rows_flagged],
+                weights_flagged
+            )
+
+            if rows_not_flagged:
+                weights_not_flagged = [
+                    self._calculate_weight(r['target_hash'], target_hash, r['observed_at'])
+                    for r in rows_not_flagged
+                ]
+                p_success_not_flagged = self._weighted_mean(
+                    [float(r['any_success']) for r in rows_not_flagged],
+                    weights_not_flagged
+                )
+            else:
+                # Prior neutro se non abbiamo controfattuali
+                p_success_not_flagged = 0.10
+
+            # LR empirico — clamp per stabilità numerica
+            lr_empirical = p_success_flagged / max(p_success_not_flagged, 0.05)
+            lr_empirical = max(0.5, min(50.0, lr_empirical))
+
+            blended_lr = self._blend_value(
+                lr_empirical, static_lr, regime, n_weighted, regime_thresholds
+            )
+
+            # Regression check: discriminability = P(flagged|success) - P(flagged|fail)
+            # Un LR migliore discrimina meglio i bypass reali dai falsi allarmi.
+            def _discriminability(lr_val: float, pf: float, pnf: float) -> float:
+                return (lr_val * pnf - pnf) / max(lr_val * pnf + pnf, 1e-9)
+
+            final_lr = self._regression_check(
+                blended_lr, static_lr, _discriminability,
+                p_success_flagged, p_success_not_flagged
+            )
+
+            self._upsert_prior(
+                f'traceroute.lr_scalar.{anomaly_type}.{stack_sig}',
+                'traceroute', final_lr, None, n_weighted, regime, static_lr
             )
