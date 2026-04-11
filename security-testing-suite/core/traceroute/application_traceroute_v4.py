@@ -904,8 +904,9 @@ class ProgressiveStackAnalyzer:
             #   error_patterns     – regex negli error body 500 (segnale forte)
             #   body_patterns      – pattern in qualsiasi body (segnale medio)
             #   stack_trace_patterns – nomi di libreria in stack trace (segnale medio)
-            #   tech_headers       – list of {'header': str, 'contains': str}
-            #                        es. X-Powered-By: PHP → MySQL probabile
+            #   tech_headers       – dict {header_name: substring_to_match}
+            #                        es. {'X-Powered-By': 'php'} → MySQL probabile
+            #                        empty string value = solo presenza dell'header
             #   cookie_patterns    – cookie name substrings che indicano il backend
             #   backend_correlation – linguaggi rilevati che correlano con questo DB
             #   behavioral_paths   – path admin/diagnostici da sondare (segnale debole)
@@ -931,9 +932,7 @@ class ProgressiveStackAnalyzer:
                         'illuminate\\\\database', 'laravel.*database',
                         'propel', 'zend_db',
                     ],
-                    'tech_headers': [
-                        {'header': 'X-Powered-By', 'contains': 'php'},
-                    ],
+                    'tech_headers': {'X-Powered-By': 'php'},
                     'cookie_patterns': ['PHPSESSID', 'phpsessid'],
                     'backend_correlation': ['php', 'ruby', 'perl', 'python'],
                     'behavioral_paths': ['/phpmyadmin', '/pma', '/adminer',
@@ -961,10 +960,10 @@ class ProgressiveStackAnalyzer:
                         'pg.pool', 'node-postgres', 'sequelize.*postgres',
                         'knex.*pg', 'sqlalchemy.*postgresql',
                     ],
-                    'tech_headers': [
-                        {'header': 'X-Runtime', 'contains': ''},   # Ruby/Rails → PostgreSQL
-                        {'header': 'X-Powered-By', 'contains': 'ruby'},
-                    ],
+                    'tech_headers': {
+                        'X-Runtime': '',         # Ruby/Rails → PostgreSQL
+                        'X-Powered-By': 'ruby',
+                    },
                     'cookie_patterns': ['_session', '__Host-'],
                     'backend_correlation': ['ruby', 'python', 'java', 'golang', 'nodejs'],
                     'behavioral_paths': [],
@@ -991,11 +990,11 @@ class ProgressiveStackAnalyzer:
                         'entityframework', 'dapper', 'sqlconnection',
                         'system.data.entity',
                     ],
-                    'tech_headers': [
-                        {'header': 'X-AspNet-Version', 'contains': ''},  # .NET → MSSQL
-                        {'header': 'X-AspNetMvc-Version', 'contains': ''},
-                        {'header': 'X-Powered-By', 'contains': 'asp.net'},
-                    ],
+                    'tech_headers': {
+                        'X-AspNet-Version': '',    # .NET → MSSQL
+                        'X-AspNetMvc-Version': '',
+                        'X-Powered-By': 'asp.net',
+                    },
                     'cookie_patterns': ['ASP.NET_SessionId', 'ASPSESSIONid',
                                         '.ASPXAUTH', '.AspNet.'],
                     'backend_correlation': ['dotnet', 'asp.net', 'java'],
@@ -1020,7 +1019,7 @@ class ProgressiveStackAnalyzer:
                         'sqlite3', 'better-sqlite3', 'sqlalchemy.*sqlite',
                         'django.*sqlite', 'sequelize.*sqlite',
                     ],
-                    'tech_headers': [],
+                    'tech_headers': {},
                     'cookie_patterns': ['sessionid', 'django_session'],
                     'backend_correlation': ['python', 'php', 'ruby', 'nodejs'],
                     'behavioral_paths': [],
@@ -1040,7 +1039,7 @@ class ProgressiveStackAnalyzer:
                         'mongoose', 'mongodb\\\\driver', 'pymongo',
                         'motor', 'mongoengine',
                     ],
-                    'tech_headers': [],
+                    'tech_headers': {},
                     'cookie_patterns': ['connect.sid'],  # Express/Node → spesso MongoDB
                     'backend_correlation': ['nodejs', 'python', 'ruby'],
                     'behavioral_paths': [],
@@ -1060,7 +1059,7 @@ class ProgressiveStackAnalyzer:
                         'datastax', 'cassandra-driver', 'astra',
                         'com.datastax', 'cassandra.cluster',
                     ],
-                    'tech_headers': [],
+                    'tech_headers': {},
                     'cookie_patterns': [],
                     'backend_correlation': ['java', 'python', 'nodejs'],
                     'behavioral_paths': [],
@@ -1079,7 +1078,7 @@ class ProgressiveStackAnalyzer:
                         'pouchdb', 'cradle', 'nano.*couch',
                         'cloudant', 'couchdb',
                     ],
-                    'tech_headers': [],
+                    'tech_headers': {},
                     'cookie_patterns': ['AuthSession'],  # CouchDB usa AuthSession cookie
                     'backend_correlation': ['nodejs', 'python', 'erlang'],
                     'behavioral_paths': ['/_utils/', '/_all_dbs', '/_active_tasks'],
@@ -1103,9 +1102,7 @@ class ProgressiveStackAnalyzer:
                         'elasticsearch-py', 'org.elasticsearch',
                         'spring-data-elasticsearch',
                     ],
-                    'tech_headers': [
-                        {'header': 'X-Elastic-Product', 'contains': ''},
-                    ],
+                    'tech_headers': {'X-Elastic-Product': ''},
                     'cookie_patterns': [],
                     'backend_correlation': [],
                     'behavioral_paths': ['/_cat/health', '/_cluster/health',
@@ -1124,9 +1121,7 @@ class ProgressiveStackAnalyzer:
                         'opensearch-py', 'org.opensearch',
                         'spring-data-opensearch',
                     ],
-                    'tech_headers': [
-                        {'header': 'X-OpenSearch-Product', 'contains': ''},
-                    ],
+                    'tech_headers': {'X-OpenSearch-Product': ''},
                     'cookie_patterns': [],
                     'backend_correlation': [],
                     'behavioral_paths': ['/_cluster/health', '/_cat/health',
@@ -1147,7 +1142,7 @@ class ProgressiveStackAnalyzer:
                         'neo4j-driver', 'py2neo', 'neomodel',
                         'spring-data-neo4j', 'neo4j.GraphDatabase',
                     ],
-                    'tech_headers': [],
+                    'tech_headers': {},
                     'cookie_patterns': [],
                     'backend_correlation': ['java', 'python', 'nodejs'],
                     'behavioral_paths': ['/browser/', '/db/neo4j/tx'],
@@ -1165,10 +1160,7 @@ class ProgressiveStackAnalyzer:
                         'influxdb-client', 'influxdb3-python',
                         'com.influxdb', 'influxdb_client',
                     ],
-                    'tech_headers': [
-                        {'header': 'X-Influxdb-Version', 'contains': ''},
-                        {'header': 'X-Influxdb-Build', 'contains': ''},
-                    ],
+                    'tech_headers': {'X-Influxdb-Version': '', 'X-Influxdb-Build': ''},
                     'cookie_patterns': [],
                     'backend_correlation': ['python', 'golang', 'nodejs'],
                     'behavioral_paths': ['/ping', '/health', '/api/v2/health'],
@@ -1187,7 +1179,7 @@ class ProgressiveStackAnalyzer:
                         'solrj', 'pysolr', 'sunspot', 'acts_as_solr',
                         'org.apache.solr',
                     ],
-                    'tech_headers': [],
+                    'tech_headers': {},
                     'cookie_patterns': [],
                     'backend_correlation': ['java', 'ruby', 'python'],
                     'behavioral_paths': ['/solr/admin/', '/solr/#/'],
@@ -1207,10 +1199,7 @@ class ProgressiveStackAnalyzer:
                         'clickhouse-driver', 'clickhouse-connect',
                         'asynch', 'com.clickhouse',
                     ],
-                    'tech_headers': [
-                        {'header': 'X-ClickHouse-Server-Display-Name', 'contains': ''},
-                        {'header': 'X-ClickHouse-Query-Id', 'contains': ''},
-                    ],
+                    'tech_headers': {'X-ClickHouse-Server-Display-Name': '', 'X-ClickHouse-Query-Id': ''},
                     'cookie_patterns': [],
                     'backend_correlation': ['python', 'golang', 'java'],
                     'behavioral_paths': ['/?query=SELECT+1', '/play'],
@@ -1229,7 +1218,7 @@ class ProgressiveStackAnalyzer:
                         'oracle.jdbc', 'cx_oracle', 'oracle.ucp',
                         'orawrap', 'spring.*oracle', 'hibernate.*oracle',
                     ],
-                    'tech_headers': [],
+                    'tech_headers': {},
                     'cookie_patterns': [],
                     'backend_correlation': ['java', 'php', 'python'],
                     'behavioral_paths': [],
@@ -1677,7 +1666,7 @@ class ProgressiveStackAnalyzer:
                                 break
                         if match_found: break
 
-                # Specific check for backend_detection tech_headers
+                # Check tech_headers: dict {header_name: substring_to_match}
                 if not match_found and 'tech_headers' in patterns:
                     for h_name, expected_val in patterns['tech_headers'].items():
                         if h_name in headers and expected_val.lower() in headers[h_name].lower():
@@ -3113,11 +3102,11 @@ class ProgressiveStackAnalyzer:
                     break
 
             # 5. Tech headers (15 pts)
-            for th in fp.get('tech_headers', []):
-                header_val = response.headers.get(th['header'], '')
-                if header_val and (not th['contains'] or th['contains'].lower() in header_val.lower()):
+            for h_name, expected_val in fp.get('tech_headers', {}).items():
+                header_val = response.headers.get(h_name, '')
+                if header_val and (not expected_val or expected_val.lower() in header_val.lower()):
                     confidence += 15
-                    evidence.append(f"Tech header: {th['header']}")
+                    evidence.append(f"Tech header: {h_name}")
                     break
 
             # 6. Cookie patterns (10 pts)
