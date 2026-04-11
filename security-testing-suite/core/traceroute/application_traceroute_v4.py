@@ -946,19 +946,8 @@ class ProgressiveStackAnalyzer:
                     'backend_correlation': ['nodejs', 'python', 'ruby'],
                     'behavioral_paths': [],
                 },
-                'redis': {
-                    'proxy_headers': ['x-redis-cache', 'x-cache-redis', 'x-redis-sentinel'],
-                    'error_patterns': [
-                        'redis::commanderror', 'wrongtype operation',
-                        'err wrong number of arguments for',
-                        'redis connection refused',
-                        'redis::client',
-                    ],
-                    'body_patterns': [],
-                    'stack_trace_patterns': ['predis', 'jedis', 'ioredis', 'stackexchange.redis'],
-                    'backend_correlation': [],
-                    'behavioral_paths': [],
-                },
+                # Redis è un cache layer, non un DB — già gestito in cache_layer_detection.
+                # Non duplicato qui per evitare classificazione errata.
                 'elasticsearch': {
                     'proxy_headers': ['x-elastic-product'],
                     'error_patterns': [
