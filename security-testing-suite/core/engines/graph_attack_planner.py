@@ -488,6 +488,10 @@ class GraphAttackPlanner:
 
     def _initialize_attack_graph(self):
         """Initialize graph with attack techniques"""
+        # NOTA: success_probability e detection_risk sono prior euristici.
+        # Calibrazione empirica disponibile dalla v4.1 via learning_db.
+        # Con dataset sufficiente (n >= 50 scan), i valori saranno sostituiti
+        # da technique_outcomes in learning.db tramite _load_dynamic_priors().
         # Define attack nodes (techniques)
         techniques = [
             # === RECONNAISSANCE ===
@@ -634,6 +638,30 @@ class GraphAttackPlanner:
         self.astar = AStarAttackPlanner(self.graph)
         self.game_optimizer = GameTheoreticOptimizer(self.graph)
 
+        # Carica prior dinamici da SQLite se disponibili (TASK 4.5)
+        self._load_dynamic_priors()
+
+    def _load_dynamic_priors(self):
+        """
+        Sovrascrive success_probability e detection_risk con valori da SQLite
+        se learning_db è disponibile e il regime lo consente.
+        Chiamare al termine di _initialize_attack_graph.
+        """
+        if not hasattr(self, 'learning_db') or not self.learning_db:
+            return
+        stack_sig = getattr(self, 'stack_sig', 'unknown')
+        for technique_id, node in self.graph.nodes.items():
+            if technique_id in ('recon_baseline', 'bypass_achieved'):
+                continue  # nodi terminali, non modificare
+            node.success_probability = self.learning_db.get_prior(
+                f'traceroute.technique.{technique_id}.{stack_sig}.success_prob',
+                static_fallback=node.success_probability
+            )
+            node.detection_risk = self.learning_db.get_prior(
+                f'traceroute.technique.{technique_id}.{stack_sig}.detection_risk',
+                static_fallback=node.detection_risk
+            )
+
     def plan_attack_sequence(self, goal: str = "bypass_achieved") -> Dict[str, Any]:
         """
         Plan optimal attack sequence to reach goal.
@@ -714,15 +742,15 @@ class GraphAttackPlanner:
                 node = self.graph.nodes[technique_id]
 
                 if result.get('success'):
-                    # Increase success probability (Bayesian update)
-                    node.success_probability = min(0.95, node.success_probability * 1.2)
+                    # Convergenza più rapida verso la realtà osservata (D-11).
+                    # Prior euristici — ×1.5/×0.6 compensano la lentezza di
+                    # aggiornamento prima che SQLite abbia dati sufficienti.
+                    node.success_probability = min(0.95, node.success_probability * 1.5)
                 else:
-                    # Decrease success probability
-                    node.success_probability = max(0.05, node.success_probability * 0.8)
+                    node.success_probability = max(0.05, node.success_probability * 0.6)
 
                 if result.get('detected'):
-                    # Increase detection risk
-                    node.detection_risk = min(0.95, node.detection_risk * 1.3)
+                    node.detection_risk = min(0.95, node.detection_risk * 1.4)
 
         # Replan with updated probabilities
         return self.plan_attack_sequence()

@@ -67,6 +67,13 @@ except ImportError as e:
     ADVANCED_MODULES_AVAILABLE = False
     print(f"⚠️  Advanced modules not available - using standard tests only ({e})")
 
+# SQLite Learning System
+try:
+    from core.learning.learning_db import LearningDB, _hash_target, _build_stack_signature
+    LEARNING_DB_AVAILABLE = True
+except ImportError:
+    LEARNING_DB_AVAILABLE = False
+
 # Optional debug logger (same module used by the crawler)
 try:
     from core.debug_logger import DebugLogger, DebugSession
@@ -1833,16 +1840,38 @@ class ProgressiveStackAnalyzer:
                 except:
                     pass
             
-            # 4. Timing analysis (10 points)
+            # 4. Timing analysis — z-score con prior SQLite (D-05)
             timing_sig = fingerprint_data.get('timing_signature', {})
             if timing_sig:
                 avg_latency = self._measure_latency()
-                expected_ms = timing_sig.get('avg_ms', 0)
-                jitter = timing_sig.get('jitter', 50)
-                
-                if abs(avg_latency - expected_ms) <= jitter:
-                    confidence += 10
-                    evidence.append(f"Timing: ~{avg_latency}ms")
+                cdn_name_lower = cdn_name.lower().replace(' ', '_')
+
+                # Leggi prior da SQLite se disponibile, altrimenti usa valori statici
+                if hasattr(self, 'learning_db') and self.learning_db:
+                    μ = self.learning_db.get_prior(
+                        f'traceroute.cdn.{cdn_name_lower}.latency_ms',
+                        static_fallback=float(timing_sig.get('avg_ms', 50))
+                    )
+                    σ = self.learning_db.get_prior(
+                        f'traceroute.cdn.{cdn_name_lower}.latency_std',
+                        static_fallback=float(timing_sig.get('jitter', 25))
+                    )
+                    # Registra osservazione per aggiornamento futuro
+                    if hasattr(self, 'scan_id') and self.scan_id:
+                        self.learning_db.record_timing(
+                            self.scan_id, self.target_url,
+                            cdn_name_lower, 'traceroute', avg_latency
+                        )
+                else:
+                    μ = float(timing_sig.get('avg_ms', 50))
+                    σ = float(timing_sig.get('jitter', 25))
+
+                if σ > 0:
+                    z = (avg_latency - μ) / σ
+                    timing_score = math.exp(-z ** 2)  # 1.0 al centro, decade con |z|
+                    confidence += int(timing_score * 10)  # max 10 come prima
+                    evidence.append(f"Timing z-score: {z:.2f} (score={timing_score:.2f}, "
+                                    f"obs={avg_latency:.0f}ms)")
             
             # Store if confidence is sufficient
             if confidence >= 40:  # Minimum threshold
@@ -2718,13 +2747,21 @@ class ProgressiveStackAnalyzer:
 
             if latencies:
                 jitter = max(latencies) - min(latencies)
-                if jitter > 100:
+                # Threshold dinamico da SQLite (TASK 4.7)
+                lb_jitter_threshold = (
+                    self.learning_db.get_prior(
+                        f'traceroute.hidden_lb.jitter_threshold.{_hash_target(self.target_url)}',
+                        static_fallback=100.0
+                    )
+                    if hasattr(self, 'learning_db') and self.learning_db else 100.0
+                )
+                if jitter > lb_jitter_threshold:
                     self.stack['layers'].append({
                         'type': 'LOAD_BALANCER',
                         'component': 'hidden_lb_via_timing',
                         'confidence': 40,
                         'level': 'LOW',
-                        'evidence': [f'Timing jitter: {jitter:.2f}ms (threshold: 100ms)'],
+                        'evidence': [f'Timing jitter: {jitter:.2f}ms (threshold: {lb_jitter_threshold:.0f}ms)'],
                         'source': 'timing_heuristic',
                     })
                     self.log("HIDDEN", f"Possible hidden load balancer (jitter: {jitter:.2f}ms)", "WARNING")
@@ -2757,7 +2794,8 @@ class ProgressiveStackAnalyzer:
 
         # Measure timing per layer (simplified - estimate based on position)
         total_latency = self._measure_latency()
-        estimated_latencies = self._estimate_layer_latencies(total_latency)
+        stack_sig = _build_stack_signature(self.stack['layers'])
+        estimated_latencies = self._estimate_layer_latencies(total_latency, stack_sig)
 
         # Build enhanced correlations
         for i in range(len(self.stack['layers']) - 1):
@@ -2800,24 +2838,34 @@ class ProgressiveStackAnalyzer:
             self.log("CORRELATION", f"Stack chain: {chain}", "SUCCESS")
             self.log("CORRELATION", f"Total latency: {total_latency:.2f}ms", "INFO")
 
-    def _estimate_layer_latencies(self, total_latency: float) -> Dict[str, float]:
+    _STATIC_LATENCY_DISTRIBUTION = {
+        'CDN':           0.20,
+        'WAF':           0.08,
+        'API_GATEWAY':   0.07,
+        'LOAD_BALANCER': 0.10,
+        'SERVICE_MESH':  0.05,
+        'PROXY':         0.08,
+        'CACHE':         0.02,
+        'FRAMEWORK':     0.10,
+        'BACKEND':       0.30,
+    }
+
+    def _estimate_layer_latencies(self, total_latency: float,
+                                   stack_sig: str = 'unknown') -> Dict[str, float]:
         """Estimate latency contribution per layer type.
 
-        Percentages are empirical estimates for a typical production stack.
-        They are normalised so the sum across actually-present layers equals
-        total_latency (unknown layers fall back to a small residual share).
+        Percentages empirici; in regime dynamic vengono sostituiti con valori
+        appresi da SQLite (TASK 4.8). stack_sig usato come chiave prior.
         """
-        distribution = {
-            'CDN':          0.20,  # edge PoP network overhead
-            'WAF':          0.08,  # payload inspection
-            'API_GATEWAY':  0.07,  # auth + routing
-            'LOAD_BALANCER': 0.10, # connection routing
-            'SERVICE_MESH': 0.05,  # sidecar proxy overhead
-            'PROXY':        0.08,  # reverse proxy forwarding
-            'CACHE':        0.02,  # cache lookup (very fast on HIT)
-            'FRAMEWORK':    0.10,  # app framework middleware
-            'BACKEND':      0.30,  # application processing
-        }
+        distribution = {}
+        for layer_type, static_pct in self._STATIC_LATENCY_DISTRIBUTION.items():
+            if hasattr(self, 'learning_db') and self.learning_db:
+                distribution[layer_type] = self.learning_db.get_prior(
+                    f'traceroute.latency_pct.{layer_type}.{stack_sig}',
+                    static_fallback=static_pct
+                )
+            else:
+                distribution[layer_type] = static_pct
 
         # Normalise to the actual layers present so totals are consistent
         present = {layer['type'] for layer in self.stack['layers']}
@@ -3142,6 +3190,10 @@ class DiscrepancyTester:
 
         self.chain_map = {'discrepancies': self.discrepancies}  # Alias for compatibility
 
+        # SQLite Learning System — iniettato dall'esterno (ApplicationTraceroute)
+        self.learning_db = None
+        self.scan_id = None
+
         # Pre-fetch homepage fingerprint to detect path-normalization false positives.
         # Many path variants (e.g. /admin/..) get normalised by the server to '/'
         # and return the homepage with a 200, which is NOT a real bypass.
@@ -3158,11 +3210,21 @@ class DiscrepancyTester:
             try:
                 print("  🧠 Initializing Advanced Bypass Engines...")
 
+                # baseline_samples dinamico da SQLite se disponibile (TASK 4.10)
+                _n_samples = 3
+                if LEARNING_DB_AVAILABLE:
+                    _tmp_db = LearningDB()
+                    _n_samples = int(_tmp_db.get_prior(
+                        f'traceroute.baseline_samples.{_hash_target(target_url)}',
+                        static_fallback=3.0
+                    ))
+                    del _tmp_db
+
                 # ResponseDifferentialAnalyzer with Bayesian inference
                 self.differential_analyzer = ResponseDifferentialAnalyzer(
                     self.session,
                     self.forbidden_endpoint,
-                    baseline_samples=3
+                    baseline_samples=_n_samples
                 )
 
                 # SemanticBypassEngine with evolutionary algorithms
@@ -3184,6 +3246,50 @@ class DiscrepancyTester:
             except Exception as e:
                 print(f"  ⚠️  Advanced engines initialization failed: {str(e)}")
                 self.advanced_enabled = False
+
+    def inject_learning_db(self, learning_db, scan_id: int):
+        """
+        Inietta LearningDB e scan_id in questo tester e in tutti i componenti avanzati.
+        Chiamato da ApplicationTraceroute dopo la costruzione (TASK 4.1, 4.2, 4.5, 4.6, 2.1).
+        """
+        self.learning_db = learning_db
+        self.scan_id = scan_id
+
+        if not learning_db:
+            return
+
+        stack_sig = _build_stack_signature(self.stack_analyzer.stack.get('layers', []))
+
+        # TASK 4.1 — prior bayesiano da SQLite per BayesianBypassInference
+        if self.differential_analyzer and ADVANCED_MODULES_AVAILABLE:
+            prior = learning_db.get_prior(
+                f'traceroute.bayesian.bypass_prior.{stack_sig}',
+                static_fallback=0.05
+            )
+            self.differential_analyzer.bayesian_engine = BayesianBypassInference(
+                prior_probability=prior
+            )
+            # TASK 4.6 — likelihood ratios e scan_id per record osservazioni
+            self.differential_analyzer.learning_db = learning_db
+            self.differential_analyzer.stack_sig = stack_sig
+            self.differential_analyzer.scan_id = scan_id
+
+        # TASK 4.2 — bypassability ceiling dinamico in SemanticBypassEngine
+        if self.semantic_engine:
+            self.semantic_engine.learning_db = learning_db
+            self.semantic_engine._current_stack_sig = stack_sig
+
+        # TASK 4.5 — prior dinamici GraphAttackPlanner
+        if self.attack_planner:
+            self.attack_planner.learning_db = learning_db
+            self.attack_planner.stack_sig = stack_sig
+            if hasattr(self.attack_planner, '_load_dynamic_priors'):
+                self.attack_planner._load_dynamic_priors()
+
+        # TASK 2.1 — soft-block logging in IntelligentBypassValidator
+        if self.intelligent_validator:
+            self.intelligent_validator.learning_db = learning_db
+            self.intelligent_validator.scan_id = scan_id
 
     def generate_unique_markers(self) -> Dict[str, str]:
         """Generate unique markers for tracking requests"""
@@ -5298,126 +5404,164 @@ class DiscrepancyTester:
             print(f"     Bypassability  : {bypassability:.2%}  {'[high]' if bypassability >= 0.60 else '[medium]' if bypassability >= 0.40 else '[low]'}")
             print(f"     Attack Vectors : {', '.join([v.value for v in vectors[:3]]) if vectors else 'none suggested'}")
 
-            # Generate evolved bypass payloads
+            # Generate evolved bypass payloads — 5 generazioni con feedback reale.
+            # Il loop è nel chiamante, non nell'engine (max_generations=1 per chiamata).
+            # fitness_scores vengono aggiornati dopo ogni generazione dai risultati reali.
             if vectors:
-                print("\n     Generating evolved bypass mutations...")
+                print("\n     Generating evolved bypass mutations (5 generations)...")
 
                 base_path = self.parsed_url.path
-                evolved_candidates = self.semantic_engine.generate_evolved_bypasses(
-                    base_path,
-                    max_generations=2  # 2 generations for efficiency
-                )
-
-                print(f"     Generated {len(evolved_candidates)} mutation candidates")
-
-                # Select a diverse set: at least one candidate per operator,
-                # then fill up to 15 from remaining candidates.
-                # Taking purely [:10] would test only the first 1-2 operators
-                # (case_swap + encoding_layer) and miss unicode/null-byte/etc.
-                seen_operators: set = set()
-                diverse_candidates = []
-                for c in evolved_candidates:
-                    if c['operator'] not in seen_operators:
-                        diverse_candidates.append(c)
-                        seen_operators.add(c['operator'])
-                # Fill remaining slots with other candidates not yet included
-                for c in evolved_candidates:
-                    if len(diverse_candidates) >= 15:
-                        break
-                    if c not in diverse_candidates:
-                        diverse_candidates.append(c)
-
-                print(f"     Operators covered: {', '.join(sorted(seen_operators))}")
-                print(f"     Testing {len(diverse_candidates)} diverse candidates...\n")
-
+                # fitness_scores: {payload: score} — alimenta la generazione successiva
+                fitness_scores: dict = {}
                 hits = 0
-                for idx, candidate in enumerate(diverse_candidates, 1):
-                    self.rate_limiter.wait()
+                all_tested: set = set()
 
-                    test_path = candidate['payload']
-                    op = candidate['operator']
-                    gen = candidate['generation']
+                for gen in range(1, 6):
+                    # Converti fitness_scores nel formato atteso da generate_evolved_bypasses
+                    previous_results = [
+                        {'payload': p, 'differential_score': s}
+                        for p, s in fitness_scores.items()
+                    ]
+                    evolved_candidates = self.semantic_engine.generate_evolved_bypasses(
+                        base_path,
+                        previous_results=previous_results if previous_results else None,
+                        max_generations=1
+                    )
 
-                    # Percent-encode raw control characters and non-ASCII so that
-                    # requests doesn't reject the URL with InvalidURL.  Characters
-                    # that are legal in an HTTP path (RFC 3986 §3.3) are left alone;
-                    # everything else (tab, LF, CR, null byte, high-unicode, …) is
-                    # encoded as %XX / %XX%XX before the URL is assembled.
-                    try:
-                        encoded_path = urllib.parse.quote(
-                            test_path,
-                            safe="/:@!$&'()*+,;=-._%~"  # keep pct-encoded seqs intact
-                        )
-                    except Exception:
-                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → invalid mutation (skipped)")
-                        continue
+                    # Selezione diversa: almeno 1 per operatore, fino a 15 totali
+                    seen_operators: set = set()
+                    diverse_candidates = []
+                    for c in evolved_candidates:
+                        if c['operator'] not in seen_operators:
+                            diverse_candidates.append(c)
+                            seen_operators.add(c['operator'])
+                    for c in evolved_candidates:
+                        if len(diverse_candidates) >= 15:
+                            break
+                        if c not in diverse_candidates:
+                            diverse_candidates.append(c)
 
-                    test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{encoded_path}"
+                    # Filtra già testati
+                    diverse_candidates = [
+                        c for c in diverse_candidates
+                        if c['payload'] not in all_tested
+                    ]
 
-                    try:
-                        response = self.session.get(test_url, timeout=5, allow_redirects=False)
-                        status = response.status_code
+                    if not diverse_candidates:
+                        print(f"     Gen {gen}: no new candidates, stopping early")
+                        break
 
-                        if status not in [401, 403, 404, 429]:
-                            hits += 1
-                            self.discrepancies.append({
-                                'type': 'Semantic Evolutionary Bypass',
-                                'mutation_operator': op,
-                                'generation': gen,
-                                'original_payload': base_path,
-                                'evolved_payload': test_path,
-                                'response_code': status,
-                                'severity': 'HIGH' if status == 200 else 'MEDIUM',
-                                'evidence': f"Evolved payload bypassed via {op}"
-                            })
-                            print(f"    [!] 🧬 Bypass [{idx}/{len(diverse_candidates)}] op={op} gen={gen} → HTTP {status}")
-                            print(f"        Payload: {test_path[:80]}")
+                    print(f"     Gen {gen}: {len(diverse_candidates)} candidates "
+                          f"(ops: {', '.join(sorted(seen_operators))})\n")
 
-                            # Confirm with IntelligentBypassValidator
-                            validation = self._confirm_chain_hit(
-                                url=test_url,
-                                headers={},
-                                method='GET',
-                                technique_name=f'Semantic/{op}',
-                                category='path',
-                                initial_status=status
-                            )
-                            conf = validation['confidence']
-                            prob = validation.get('probability', 0.0)
-                            if validation['confirmed']:
-                                print(f"    [✔] Validation: {conf} ({prob:.0%})"
-                                      f"  via {validation.get('strategy', '?')}")
-                                # Update severity in discrepancy based on confirmed status
-                                self.discrepancies[-1]['severity'] = 'CRITICAL'
-                                self.discrepancies[-1]['validated'] = True
-                                self.discrepancies[-1]['validation_confidence'] = conf
-                            else:
-                                print(f"    [?] Validation: {conf} ({prob:.0%})"
-                                      f"  — discrepancy, not confirmed bypass")
-                                self.discrepancies[-1]['validated'] = False
-                                self.discrepancies[-1]['validation_confidence'] = conf
+                    gen_fitness: dict = {}
 
-                            # Learn from success
-                            self.semantic_engine.learn_from_success(
-                                vectors[0],
+                    for idx, candidate in enumerate(diverse_candidates, 1):
+                        self.rate_limiter.wait()
+
+                        test_path = candidate['payload']
+                        op = candidate['operator']
+                        gen = candidate['generation']
+
+                        # Percent-encode raw control characters e non-ASCII per evitare
+                        # InvalidURL. Caratteri legali nel path HTTP (RFC 3986 §3.3) left
+                        # alone; tutto il resto viene codificato come %XX.
+                        try:
+                            encoded_path = urllib.parse.quote(
                                 test_path,
-                                {'differential_score': validation.get('probability', 1.0)}
+                                safe="/:@!$&'()*+,;=-._%~"  # keep pct-encoded seqs intact
                             )
-                        else:
-                            print(f"     [-] [{idx}/{len(diverse_candidates)}] op={op} → HTTP {status} (blocked)")
+                        except Exception:
+                            print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → invalid mutation (skipped)")
+                            gen_fitness[test_path] = 0.0
+                            all_tested.add(candidate['payload'])
+                            continue
 
-                    except requests.exceptions.InvalidURL as exc:
-                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → invalid URL ({exc})")
-                        continue
-                    except (requests.exceptions.ConnectionError,
-                            requests.exceptions.Timeout) as exc:
-                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → connection error ({type(exc).__name__})")
-                        continue
-                    except Exception as exc:
-                        print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → request error ({type(exc).__name__})")
-                        continue
+                        test_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{encoded_path}"
 
-                print(f"\n     🧬 Semantic scan complete: {hits} bypass(es) found out of {len(diverse_candidates)} tested")
+                        try:
+                            response = self.session.get(test_url, timeout=5, allow_redirects=False)
+                            status = response.status_code
+
+                            if status not in [401, 403, 404, 429]:
+                                hits += 1
+                                # Fitness: 1.0 se 2xx, 0.3 se discrepancy non confermata
+                                gen_fitness[test_path] = (
+                                    1.0 if status in range(200, 207) else 0.3
+                                )
+                                self.discrepancies.append({
+                                    'type': 'Semantic Evolutionary Bypass',
+                                    'mutation_operator': op,
+                                    'generation': gen,
+                                    'original_payload': base_path,
+                                    'evolved_payload': test_path,
+                                    'forbidden_url': self.forbidden_endpoint,
+                                    'url': test_url,
+                                    'response_code': status,
+                                    'severity': 'HIGH' if status == 200 else 'MEDIUM',
+                                    'source': 'advanced',
+                                    'evidence': f"Evolved payload bypassed via {op}"
+                                })
+                                print(f"    [!] 🧬 Bypass [{idx}/{len(diverse_candidates)}] op={op} gen={gen} → HTTP {status}")
+                                print(f"        Payload: {test_path[:80]}")
+
+                                # Confirm with IntelligentBypassValidator
+                                validation = self._confirm_chain_hit(
+                                    url=test_url,
+                                    headers={},
+                                    method='GET',
+                                    technique_name=f'Semantic/{op}',
+                                    category='path',
+                                    initial_status=status
+                                )
+                                conf = validation['confidence']
+                                prob = validation.get('probability', 0.0)
+                                if validation['confirmed']:
+                                    print(f"    [✔] Validation: {conf} ({prob:.0%})"
+                                          f"  via {validation.get('strategy', '?')}")
+                                    self.discrepancies[-1]['severity'] = 'CRITICAL'
+                                    self.discrepancies[-1]['validated'] = True
+                                    self.discrepancies[-1]['validation_confidence'] = conf
+                                    gen_fitness[test_path] = 1.0
+                                else:
+                                    print(f"    [?] Validation: {conf} ({prob:.0%})"
+                                          f"  — discrepancy, not confirmed bypass")
+                                    self.discrepancies[-1]['validated'] = False
+                                    self.discrepancies[-1]['validation_confidence'] = conf
+
+                                # Learn from success
+                                self.semantic_engine.learn_from_success(
+                                    vectors[0],
+                                    test_path,
+                                    {'differential_score': validation.get('probability', 1.0)}
+                                )
+                            else:
+                                # Bloccato: fitness 0.0
+                                gen_fitness[test_path] = 0.0
+                                print(f"     [-] [{idx}/{len(diverse_candidates)}] op={op} → HTTP {status} (blocked)")
+
+                        except requests.exceptions.InvalidURL as exc:
+                            print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → invalid URL ({exc})")
+                            gen_fitness[test_path] = 0.0
+                        except (requests.exceptions.ConnectionError,
+                                requests.exceptions.Timeout) as exc:
+                            print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → connection error ({type(exc).__name__})")
+                            gen_fitness[test_path] = 0.0
+                        except Exception as exc:
+                            print(f"     [?] [{idx}/{len(diverse_candidates)}] op={op} → request error ({type(exc).__name__})")
+                            gen_fitness[test_path] = 0.0
+
+                        all_tested.add(candidate['payload'])
+
+                    # Fitness score per questa generazione
+                    all_tested.add(candidate['payload'])
+
+                    # Aggiorna fitness_scores per la prossima generazione
+                    fitness_scores.update(gen_fitness)
+                    print(f"     Gen {gen} fitness update: {len(gen_fitness)} scored")
+
+                print(f"\n     🧬 Semantic scan complete: {hits} bypass(es) found "
+                      f"across 5 generations")
 
         except Exception as e:
             print(f"     ⚠️  Semantic analysis error: {str(e)}")
@@ -5475,6 +5619,12 @@ class DiscrepancyTester:
 
         execution_feedback = {}
 
+        # Pre-compute stack_sig once for outcome recording (TASK 5.1)
+        _exec_stack_sig = (
+            _build_stack_signature(self.discrepancies[0].get('stack', []))
+            if self.discrepancies else 'unknown'
+        )
+
         for technique_id in attack_plan['optimal_path'][1:-1]:  # Skip start and end nodes
             node = self.attack_planner.graph.nodes[technique_id]
             technique_name = node.name
@@ -5484,16 +5634,42 @@ class DiscrepancyTester:
                     result = technique_mapping[technique_name]()
                     execution_feedback[technique_id] = result
 
+                    # Record outcome in SQLite learning DB (TASK 5.1)
+                    if self.learning_db and self.scan_id is not None:
+                        try:
+                            self.learning_db.record_technique_outcome(
+                                scan_id=self.scan_id,
+                                technique_id=technique_id,
+                                stack_sig=_exec_stack_sig,
+                                success=bool(result.get('success')),
+                            )
+                        except Exception:
+                            pass
+
                     if result.get('success'):
                         method_detail = result.get('method', '')
                         status = result.get('status_code', '')
                         print(f"    [✓] {technique_name}: Success"
                               f"  (HTTP {status}, via {method_detail})")
 
-                        # Confirm hit with IntelligentBypassValidator
+                        # Registra come discrepancy — alimenta BypassGenerator
                         headers_used = {k: v for k, v in (result.get('headers_used') or {}).items()} \
                             if isinstance(result.get('headers_used'), dict) else {}
                         url_used = result.get('url', self.forbidden_endpoint)
+                        self.discrepancies.append({
+                            'type': 'Graph Optimized Bypass',
+                            'technique': technique_name,
+                            'forbidden_url': self.forbidden_endpoint,
+                            'url': url_used,
+                            'headers': headers_used,
+                            'method': 'GET',
+                            'response_code': status,
+                            'severity': 'HIGH',
+                            'source': 'advanced',
+                            'evidence': f'Graph A* path: {technique_name} success'
+                        })
+
+                        # Confirm hit with IntelligentBypassValidator
                         node_category = node.category.name.lower()
                         validation = self._confirm_chain_hit(
                             url=url_used,
@@ -6090,16 +6266,20 @@ class BypassGenerator:
         self.discrepancies = discrepancies
         self.stack_info = stack_info
         self.bypasses = []
+        self._bypass_semantic_keys: set = set()
     
     def generate_all_bypasses(self):
         """Generate bypasses for each discrepancy"""
         print("\n🛠️ Phase 4: Custom Bypass Generation")
         print("=" * 70)
-        
+
         if not self.discrepancies:
             print("  ⚠️ No discrepancies found - no bypasses to generate")
             return []
-        
+
+        # Reset semantic dedup set per ogni generazione
+        self._bypass_semantic_keys = set()
+
         print(f"  📊 Generating bypasses for {len(self.discrepancies)} discrepancies...")
         
         for discrepancy in self.discrepancies:
@@ -6119,10 +6299,101 @@ class BypassGenerator:
                 # Only generate actionable bypass entries for confirmed bypasses
                 if discrepancy.get('is_confirmed_bypass'):
                     self._generate_anchor_tag_bypass(discrepancy)
+            elif bypass_type == 'Advanced Statistical Bypass':
+                self._generate_advanced_statistical_bypass(discrepancy)
+            elif bypass_type == 'Semantic Evolutionary Bypass':
+                self._generate_semantic_evolutionary_bypass(discrepancy)
+            elif bypass_type == 'Graph Optimized Bypass':
+                self._generate_graph_optimized_bypass(discrepancy)
         
         print(f"\n  ✅ Generated {len(self.bypasses)} bypass techniques")
         return self.bypasses
     
+    # ------------------------------------------------------------------
+    # Deduplicazione semantica — TASK 2.5
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _canonicalize_path_transform(url: str) -> str:
+        """
+        Classifica la categoria di trasformazione applicata al path,
+        non il path risultante — per deduplicazione semantica.
+        """
+        path = urllib.parse.urlparse(url).path.lower()
+        if re.search(r'%[0-9a-f]{2}', path):
+            return 'encoding'
+        if '\u2215' in path or '\u29f8' in path or '%e2%80%8b' in path.lower():
+            return 'unicode'
+        if re.search(r'/\./|/\.\.$|/\.\.|\./', path):
+            return 'dot_segment'
+        if re.search(r'/[a-z]+[A-Z]|/[A-Z][a-z]', urllib.parse.urlparse(url).path):
+            return 'case'
+        if path.endswith('/') or path.endswith('/.') or path.endswith('/..'):
+            return 'trailing'
+        return 'other'
+
+    def _is_semantic_duplicate(self, bypass: dict) -> bool:
+        """
+        Ritorna True se un bypass semanticamente equivalente è già stato
+        aggiunto. Tra duplicati sopravvive quello con severity più alta
+        (gestito dal chiamante: non appendere se già presente).
+        """
+        btype = bypass.get('type', '')
+
+        if btype in ('Header Confusion', 'Advanced Statistical Bypass'):
+            key = (btype,
+                   frozenset(bypass.get('headers', {}).keys()),
+                   bypass.get('method', 'GET'))
+        elif btype in ('Path Normalization', 'Semantic Evolutionary Bypass',
+                       'Encoding Confusion'):
+            url = bypass.get('url', bypass.get('test_url', ''))
+            key = (btype, self._canonicalize_path_transform(url))
+        elif btype == 'Method Confusion':
+            key = (btype, bypass.get('method', ''))
+        else:
+            key = (btype,
+                   str(bypass.get('headers', {})),
+                   bypass.get('url', ''))
+
+        if key in self._bypass_semantic_keys:
+            return True
+        self._bypass_semantic_keys.add(key)
+        return False
+
+    # ------------------------------------------------------------------
+    # Causal trace — TASK 2.6
+    # ------------------------------------------------------------------
+
+    _LAYER_BY_TYPE = {
+        'Header Confusion': 'WAF/CDN',
+        'Advanced Statistical Bypass': 'WAF/CDN',
+        'Path Normalization': 'WAF/Proxy',
+        'Semantic Evolutionary Bypass': 'WAF/Proxy',
+        'Encoding Confusion': 'WAF/CDN',
+        'Method Confusion': 'WAF',
+        'Protocol Confusion': 'CDN/Proxy',
+        'Anchor Tag Mutation': 'WAF/Application',
+        'Graph Optimized Bypass': 'WAF/CDN',
+    }
+
+    def _identify_bypassed_layer(self, discrepancy: dict) -> str:
+        """
+        Determina il layer aggirato dal tipo di discrepancy.
+        Fallback: cerca nel stack_info se disponibile.
+        """
+        btype = discrepancy.get('type', '')
+        return self._LAYER_BY_TYPE.get(btype, 'Unknown')
+
+    def _make_causal_trace(self, discrepancy: dict) -> dict:
+        """Popola il causal_trace da propagare nel bypass dict."""
+        return {
+            'layer_bypassed': self._identify_bypassed_layer(discrepancy),
+            'primary_evidence': discrepancy.get('evidence', ''),
+            'discrepancy_type': discrepancy.get('type', ''),
+            'bayesian_probability': discrepancy.get('bayesian_probability'),
+            'source': discrepancy.get('source', 'classic'),
+        }
+
     def _generate_header_bypass(self, discrepancy: Dict):
         """Generate header-based bypass"""
         bypass = {
@@ -6134,9 +6405,11 @@ class BypassGenerator:
             'url': discrepancy['forbidden_url'],
             'headers': discrepancy['headers'],
             'description': f"Header confusion bypass: {discrepancy['test_name']}",
-            'curl_command': self._generate_curl(discrepancy['forbidden_url'], 'GET', discrepancy['headers'])
+            'curl_command': self._generate_curl(discrepancy['forbidden_url'], 'GET', discrepancy['headers']),
+            'causal_trace': self._make_causal_trace(discrepancy),
         }
-        self.bypasses.append(bypass)
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
 
     def _generate_method_bypass(self, discrepancy: Dict):
         """Generate method-based bypass"""
@@ -6149,9 +6422,11 @@ class BypassGenerator:
             'url': discrepancy['forbidden_url'],
             'headers': {},
             'description': f"HTTP method bypass using {discrepancy['method']}",
-            'curl_command': self._generate_curl(discrepancy['forbidden_url'], discrepancy['method'], {})
+            'curl_command': self._generate_curl(discrepancy['forbidden_url'], discrepancy['method'], {}),
+            'causal_trace': self._make_causal_trace(discrepancy),
         }
-        self.bypasses.append(bypass)
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
 
     def _generate_path_bypass(self, discrepancy: Dict):
         """Generate path-based bypass"""
@@ -6164,9 +6439,11 @@ class BypassGenerator:
             'url': discrepancy['test_url'],
             'headers': {},
             'description': f"Path normalization bypass: {discrepancy['variant']}",
-            'curl_command': self._generate_curl(discrepancy['test_url'], 'GET', {})
+            'curl_command': self._generate_curl(discrepancy['test_url'], 'GET', {}),
+            'causal_trace': self._make_causal_trace(discrepancy),
         }
-        self.bypasses.append(bypass)
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
 
     def _generate_protocol_bypass(self, discrepancy: Dict):
         """Generate protocol-based bypass"""
@@ -6179,9 +6456,11 @@ class BypassGenerator:
             'url': discrepancy['forbidden_url'],
             'headers': {},
             'description': f"Protocol confusion bypass: {discrepancy['test']}",
-            'curl_command': f"# Use HTTP/1.0: curl --http1.0 '{discrepancy['forbidden_url']}'"
+            'curl_command': f"# Use HTTP/1.0: curl --http1.0 '{discrepancy['forbidden_url']}'",
+            'causal_trace': self._make_causal_trace(discrepancy),
         }
-        self.bypasses.append(bypass)
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
 
     def _generate_encoding_bypass(self, discrepancy: Dict):
         """Generate encoding-based bypass"""
@@ -6194,9 +6473,11 @@ class BypassGenerator:
             'url': discrepancy['test_url'],
             'headers': {},
             'description': f"Encoding confusion bypass: {discrepancy['encoded_variant']}",
-            'curl_command': self._generate_curl(discrepancy['test_url'], 'GET', {})
+            'curl_command': self._generate_curl(discrepancy['test_url'], 'GET', {}),
+            'causal_trace': self._make_causal_trace(discrepancy),
         }
-        self.bypasses.append(bypass)
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
 
     def _generate_anchor_tag_bypass(self, discrepancy: Dict):
         """Generate anchor tag mutation bypass (only called for confirmed bypasses)."""
@@ -6234,8 +6515,83 @@ class BypassGenerator:
                             f"{discrepancy.get('description', '')}"),
             'curl_command': curl_cmd,
             'curl_data': curl_data,
+            'causal_trace': self._make_causal_trace(discrepancy),
         }
-        self.bypasses.append(bypass)
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
+
+    def _generate_advanced_statistical_bypass(self, discrepancy: Dict):
+        """Generate bypass from Advanced Statistical discrepancy."""
+        url = discrepancy.get('url', discrepancy.get('forbidden_url', ''))
+        headers = discrepancy.get('headers', {})
+        bypass = {
+            'id': f"bypass_{len(self.bypasses) + 1}",
+            'type': 'Advanced Statistical Bypass',
+            'discrepancy': discrepancy,
+            'severity': discrepancy.get('severity', 'HIGH'),
+            'method': discrepancy.get('method', 'GET'),
+            'url': url,
+            'headers': headers,
+            'source': 'advanced',
+            'description': (
+                f"Advanced statistical bypass: {discrepancy.get('evidence', '')}"
+            ),
+            'curl_command': self._generate_curl(
+                url, discrepancy.get('method', 'GET'), headers
+            ),
+            'causal_trace': self._make_causal_trace(discrepancy),
+        }
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
+
+    def _generate_semantic_evolutionary_bypass(self, discrepancy: Dict):
+        """Generate bypass from Semantic Evolutionary discrepancy."""
+        forbidden_url = discrepancy.get('forbidden_url', '')
+        evolved_payload = discrepancy.get('evolved_payload', '')
+        url = discrepancy.get('url', forbidden_url)
+        bypass = {
+            'id': f"bypass_{len(self.bypasses) + 1}",
+            'type': 'Semantic Evolutionary Bypass',
+            'discrepancy': discrepancy,
+            'severity': discrepancy.get('severity', 'HIGH'),
+            'method': 'GET',
+            'url': url,
+            'headers': {},
+            'payload': evolved_payload,
+            'source': 'advanced',
+            'description': (
+                f"Semantic evolutionary bypass via {discrepancy.get('mutation_operator', 'mutation')}: "
+                f"{evolved_payload[:60]}"
+            ),
+            'curl_command': self._generate_curl(url, 'GET', {}),
+            'causal_trace': self._make_causal_trace(discrepancy),
+        }
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
+
+    def _generate_graph_optimized_bypass(self, discrepancy: Dict):
+        """Generate bypass from Graph Optimized A* attack chain."""
+        url = discrepancy.get('url', discrepancy.get('forbidden_url', ''))
+        headers = discrepancy.get('headers', {})
+        bypass = {
+            'id': f"bypass_{len(self.bypasses) + 1}",
+            'type': 'Graph Optimized Bypass',
+            'discrepancy': discrepancy,
+            'severity': discrepancy.get('severity', 'HIGH'),
+            'method': discrepancy.get('method', 'GET'),
+            'url': url,
+            'headers': headers,
+            'source': 'advanced',
+            'description': (
+                f"Graph A* optimized bypass — technique: {discrepancy.get('technique', 'unknown')}"
+            ),
+            'curl_command': self._generate_curl(
+                url, discrepancy.get('method', 'GET'), headers
+            ),
+            'causal_trace': self._make_causal_trace(discrepancy),
+        }
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
 
     def _generate_curl(self, url: str, method: str, headers: Dict) -> str:
         """Generate curl command"""
@@ -6381,15 +6737,36 @@ class BypassGenerator:
         return chains
 
 
+_SOFT_BLOCK_PATTERNS = [
+    'just a moment',
+    'please verify you are human',
+    'checking your browser',
+    'ddos protection by',
+    'enable javascript and cookies',
+    'ray id',
+    'cf-mitigated',
+    'captcha',
+    'are you a robot',
+    'access denied',
+    'security check',
+    'attention required',
+    'please wait',
+    'bot protection',
+]
+
+
 class BypassValidator:
     """
     Validates generated bypasses to confirm they work.
     """
-    
+
     def __init__(self, bypasses: List[Dict], session: requests.Session):
         self.bypasses = bypasses
         self.session = session
         self.validated = []
+        # Iniettati opzionalmente dal chiamante per logging nel DB
+        self.learning_db = None
+        self.scan_id = None
     
     def validate_all(self):
         """Validate all generated bypasses"""
@@ -6412,48 +6789,119 @@ class BypassValidator:
         print(f"\n  📊 Validation complete: {len(self.validated)}/{len(self.bypasses)} bypasses confirmed")
         return self.validated
     
-    def _validate_bypass(self, bypass: Dict) -> bool:
-        """Validate a single bypass.
-
-        A bypass is confirmed only when the server returns a 2xx response.
-        Other non-block responses (3xx, 4xx different from 403/401) are
-        interesting discrepancies but do NOT constitute a confirmed bypass.
+    @staticmethod
+    def _is_soft_blocked(response) -> bool:
         """
+        Rileva soft-block WAF: risposta 200 con body challenge (Cloudflare JS,
+        CAPTCHA, redirect /cdn-cgi/challenge, ecc.).
+        Questi falsi 2xx vanno filtrati prima della conferma bypass.
+        """
+        # Controlla header Location per redirect challenge (allow_redirects=False)
+        location = response.headers.get('Location', '')
+        if '/cdn-cgi/challenge' in location or '/cdn-cgi/l/chk_jschl' in location:
+            return True
+        # Controlla header Cloudflare mitigation
+        if response.headers.get('cf-mitigated', '').lower() == 'challenge':
+            return True
+        # Controlla body per pattern challenge
         try:
-            response = self.session.request(
-                method=bypass['method'],
-                url=bypass['url'],
-                headers=bypass.get('headers', {}),
-                timeout=10
-            )
-
-            # Only 2xx confirms a real bypass
-            if response.status_code in [200, 201, 202, 203, 204, 205, 206]:
-                bypass['validation'] = {
-                    'status': 'CONFIRMED',
-                    'response_code': response.status_code,
-                    'validated_at': datetime.now().isoformat()
-                }
-                return True
-
-            # Different from baseline but not a bypass.
-            # 400/421 are correct server rejections of malformed/misdirected Host
-            # headers and should not be counted as exploitable discrepancies.
-            if response.status_code not in [400, 401, 403, 421, 429, 503]:
-                bypass['validation'] = {
-                    'status': 'DISCREPANCY',
-                    'response_code': response.status_code,
-                    'validated_at': datetime.now().isoformat(),
-                    'note': f'Response differs ({response.status_code}) but is not a confirmed bypass (requires 2xx)'
-                }
-
+            body_lower = response.text[:4000].lower()
+        except Exception:
             return False
-        except Exception as e:
+        return any(pattern in body_lower for pattern in _SOFT_BLOCK_PATTERNS)
+
+    def _validate_bypass(self, bypass: Dict) -> bool:
+        """Validate a single bypass con N=3 run e soft-block detection.
+
+        Un bypass è confermato solo se ≥ 2 run su 3 restituiscono 2xx
+        E non presentano soft-block (challenge WAF mimetizzato come 200).
+        Delay randomizzato tra run per ridurre hit su cache deterministico.
+        """
+        _2XX = {200, 201, 202, 203, 204, 205, 206}
+        n_runs = 3
+        run_results = []
+        confirmed_runs = 0
+
+        for run_idx in range(1, n_runs + 1):
+            # Delay randomizzato inter-run (primo run senza delay)
+            if run_idx > 1:
+                time.sleep(random.uniform(0.5, 2.0))
+            try:
+                response = self.session.request(
+                    method=bypass['method'],
+                    url=bypass['url'],
+                    headers=bypass.get('headers', {}),
+                    timeout=10,
+                    allow_redirects=False
+                )
+                sc = response.status_code
+                soft_blocked = self._is_soft_blocked(response)
+                run_ok = sc in _2XX and not soft_blocked
+
+                # Log soft-block nel DB se rilevato
+                if soft_blocked and self.learning_db and self.scan_id:
+                    self.learning_db.record_evidence_weight(
+                        scan_id=self.scan_id,
+                        evidence_type='soft_block.detected',
+                        tool='traceroute',
+                        lr=0.0,
+                        true_positive=False
+                    )
+
+                run_results.append({
+                    'run': run_idx,
+                    'status': sc,
+                    'soft_blocked': soft_blocked,
+                    'confirmed': run_ok
+                })
+                if run_ok:
+                    confirmed_runs += 1
+
+            except Exception as e:
+                run_results.append({
+                    'run': run_idx,
+                    'status': 0,
+                    'soft_blocked': False,
+                    'confirmed': False,
+                    'error': str(e)
+                })
+
+        success_rate = confirmed_runs / n_runs
+
+        if confirmed_runs >= 2:
             bypass['validation'] = {
-                'status': 'ERROR',
-                'error': str(e)
+                'status': 'CONFIRMED',
+                'response_code': next(
+                    (r['status'] for r in run_results if r.get('confirmed')), 200
+                ),
+                'run_results': run_results,
+                'success_rate': success_rate,
+                'validated_at': datetime.now().isoformat()
             }
-            return False
+            return True
+
+        # Almeno un run con status insolito (non blocco standard) → DISCREPANCY
+        unusual = any(
+            r['status'] not in {0, 400, 401, 403, 421, 429, 503}
+            and r['status'] != 0
+            for r in run_results
+        )
+        if unusual:
+            best_code = next(
+                (r['status'] for r in run_results
+                 if r['status'] not in {0, 400, 401, 403, 421, 429, 503}),
+                run_results[0]['status']
+            )
+            bypass['validation'] = {
+                'status': 'DISCREPANCY',
+                'response_code': best_code,
+                'run_results': run_results,
+                'success_rate': success_rate,
+                'validated_at': datetime.now().isoformat(),
+                'note': f'Response differs but not confirmed bypass (success_rate={success_rate:.0%})'
+            }
+
+        return False
 
 
 class ReportGenerator:
@@ -6522,11 +6970,19 @@ APPLICATION STACK TRACEROUTE v4.0.1 - INTELLIGENT RECONSTRUCTION
                 report += f"     Severity: {severity}\n"
                 report += f"     Description: {bypass['description']}\n"
                 report += f"     Command: {bypass['curl_command']}\n"
-                
+
+                ct = bypass.get('causal_trace')
+                if ct:
+                    report += f"     Layer aggirato: {ct.get('layer_bypassed', 'N/A')}\n"
+                    if ct.get('primary_evidence'):
+                        report += f"     Evidenza: {ct['primary_evidence']}\n"
+                    if ct.get('bayesian_probability') is not None:
+                        report += f"     Probabilità bayesiana: {ct['bayesian_probability']:.1%}\n"
+
                 if 'validation' in bypass:
                     status = bypass['validation']['status']
                     report += f"     Validation: {status}\n"
-                
+
                 report += "\n"
         else:
             report += "  ⚠️ No bypasses generated\n\n"
@@ -6701,6 +7157,10 @@ class ApplicationTraceroute:
         self.bypass_generator = None
         self.bypass_validator = None
         self.report_generator = None
+
+        # SQLite Learning System
+        self.learning_db = LearningDB() if LEARNING_DB_AVAILABLE else None
+        self.scan_id = None
     
     async def run_full_analysis(self):
         """Run complete analysis workflow"""
@@ -6709,7 +7169,14 @@ class ApplicationTraceroute:
         print("🎯 Intelligent Stack Reconstruction & Bypass Generation")
         print("=" * 80)
         print(f"\n🎯 Target: {self.target_url}\n")
-        
+
+        # Registra scan all'inizio — scan_id usato da tutti i record_* durante lo scan
+        if self.learning_db:
+            self.scan_id = self.learning_db.record_scan(
+                tool='traceroute',
+                target=self.target_url,
+            )
+
         # Phase 0: Find Forbidden Endpoint
         if not self.skip_forbidden_tests:
             self.forbidden_endpoint = self.forbidden_finder.find(self.forbidden_endpoint)
@@ -6737,11 +7204,20 @@ class ApplicationTraceroute:
         # Phase 3: Discrepancy Testing
         if self.forbidden_endpoint and not self.skip_forbidden_tests:
             self.discrepancy_tester = DiscrepancyTester(
-                self.target_url, 
-                self.forbidden_endpoint, 
+                self.target_url,
+                self.forbidden_endpoint,
                 self.session,
                 self.stack_analyzer
             )
+            # Inietta LearningDB in DiscrepancyTester e tutti i componenti avanzati
+            if self.learning_db and self.scan_id:
+                self.discrepancy_tester.inject_learning_db(
+                    self.learning_db, self.scan_id
+                )
+                # TASK 3.2 — inietta learning_db anche in stack_analyzer per z-score timing
+                self.stack_analyzer.learning_db = self.learning_db
+                self.stack_analyzer.scan_id = self.scan_id
+                self.stack_analyzer.target_url = self.target_url
             discrepancies = self.discrepancy_tester.test_all_discrepancies()
         else:
             print("\n⚠️ Phase 3: Skipping discrepancy testing (no forbidden endpoint)")
@@ -6793,7 +7269,22 @@ class ApplicationTraceroute:
         print(f"  Bypasses Generated: {len(bypasses)}")
         print(f"  Bypasses Validated: {len(validated_bypasses)}")
         print("\n" + "=" * 80)
-        
+
+        # Aggiorna record con dati finali e avvia update_priors in background
+        if self.learning_db and self.scan_id:
+            stack_sig = _build_stack_signature(self.stack_analyzer.stack.get('layers', []))
+            self.learning_db._update_scan_outcome(
+                scan_id=self.scan_id,
+                stack_signature=stack_sig,
+                outcome_summary={'bypasses_found': len(validated_bypasses)}
+            )
+            t = threading.Thread(
+                target=self.learning_db.update_priors,
+                args=('traceroute', _hash_target(self.target_url)),
+                daemon=True
+            )
+            t.start()
+
         return text_report
 
 

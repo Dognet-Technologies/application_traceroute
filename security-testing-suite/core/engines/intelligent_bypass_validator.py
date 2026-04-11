@@ -174,6 +174,10 @@ class IntelligentBypassValidator:
         self.baseline_established = False
         self.baseline_response = None
 
+        # Iniettati opzionalmente dal chiamante (DiscrepancyTester)
+        self.learning_db = None
+        self.scan_id = None
+
     def _rate_limit_wait(self):
         """Enforce rate limiting"""
         current_time = time.time()
@@ -370,8 +374,8 @@ class IntelligentBypassValidator:
                 response_size = len(response.content)
                 status_code = response.status_code
 
-                # Analyze response
-                success = self._is_successful_bypass(status_code)
+                # Analyze response (con soft-block detection)
+                success = self._is_successful_bypass(status_code, response)
 
                 # Collect evidence
                 evidence = ValidationEvidence(
@@ -470,15 +474,62 @@ class IntelligentBypassValidator:
             timestamp=datetime.now().isoformat()
         )
 
-    def _is_successful_bypass(self, status_code: int) -> bool:
+    _SOFT_BLOCK_PATTERNS = [
+        'just a moment',
+        'please verify you are human',
+        'checking your browser',
+        'ddos protection by',
+        'enable javascript and cookies',
+        'ray id',
+        'cf-mitigated',
+        'captcha',
+        'are you a robot',
+        'access denied',
+        'security check',
+        'attention required',
+        'please wait',
+        'bot protection',
+    ]
+
+    def _is_soft_blocked(self, response) -> bool:
+        """
+        Rileva soft-block WAF: risposta 200 con body challenge (Cloudflare JS,
+        CAPTCHA, redirect /cdn-cgi/challenge, ecc.).
+        """
+        location = response.headers.get('Location', '')
+        if '/cdn-cgi/challenge' in location or '/cdn-cgi/l/chk_jschl' in location:
+            return True
+        if response.headers.get('cf-mitigated', '').lower() == 'challenge':
+            return True
+        try:
+            body_lower = response.text[:4000].lower()
+        except Exception:
+            return False
+        detected = any(p in body_lower for p in self._SOFT_BLOCK_PATTERNS)
+        if detected and self.learning_db and self.scan_id:
+            self.learning_db.record_evidence_weight(
+                scan_id=self.scan_id,
+                evidence_type='soft_block.detected',
+                tool='traceroute',
+                lr=0.0,
+                true_positive=False
+            )
+        return detected
+
+    def _is_successful_bypass(self, status_code: int, response=None) -> bool:
         """Determine if status code indicates successful bypass.
 
         Only 2xx responses are confirmed bypasses - the WAF was bypassed and the
         backend responded successfully. Redirects (3xx) and other non-block codes
         are interesting discrepancies but do NOT confirm a bypass.
+        Soft-block check aggiuntivo se response è fornita.
         """
-        success_codes = [200, 201, 202, 203, 204, 205, 206]
-        return status_code in success_codes
+        success_codes = {200, 201, 202, 203, 204, 205, 206}
+        if status_code not in success_codes:
+            return False
+        if response is not None and self._is_soft_blocked(response):
+            return False
+        return True
 
     def _perform_differential_analysis(self, response, strategy: str) -> List[ValidationEvidence]:
         """Perform advanced differential analysis on response"""

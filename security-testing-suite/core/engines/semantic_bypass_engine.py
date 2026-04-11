@@ -508,7 +508,7 @@ class SemanticBypassEngine:
         confidence = min(primary.get('confidence', 0.5), 1.0)
 
         # Heuristic ceiling per error type (maximum achievable bypassability)
-        bypassability_ceiling = {
+        _STATIC_CEILING = {
             'waf_block': 0.70,          # WAF blocks often bypassable via encoding
             'authz_error': 0.65,        # Authorization checks can be bypassed
             'method_not_allowed': 0.60, # Method confusion possible
@@ -517,7 +517,15 @@ class SemanticBypassEngine:
             'backend_error': 0.80,      # Backend errors = already bypassed frontend!
             'routing_error': 0.50,      # Path issues may be bypassable
         }
-        ceiling = bypassability_ceiling.get(primary_type, 0.50)
+        # Leggi prior da SQLite se disponibile (TASK 4.2)
+        if hasattr(self, 'learning_db') and self.learning_db:
+            stack_sig = getattr(self, '_current_stack_sig', 'unknown')
+            ceiling = self.learning_db.get_prior(
+                f'traceroute.bypassability.{primary_type}.{stack_sig}',
+                static_fallback=_STATIC_CEILING.get(primary_type, 0.50)
+            )
+        else:
+            ceiling = _STATIC_CEILING.get(primary_type, 0.50)
 
         # Scale toward ceiling proportionally to classifier confidence.
         # At confidence=1.0 → score equals ceiling.

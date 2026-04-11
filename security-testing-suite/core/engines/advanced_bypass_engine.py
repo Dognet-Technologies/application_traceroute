@@ -57,17 +57,22 @@ class ResponseFingerprint:
     unique_header_ratio: float
     error_signature: str
     reflection_indicators: Set[str] = field(default_factory=set)
+    keyword_leak_score: float = 0.0  # 0.0-1.0, presenza keyword admin/internal nel body
 
     def to_feature_vector(self) -> List[float]:
-        """Convert fingerprint to normalized feature vector for ML-like analysis"""
+        """Convert fingerprint to normalized feature vector for ML-like analysis.
+        8 dimensioni: [status, size, timing, entropy, headers, header_ratio,
+                       reflections, keyword_leak]
+        """
         return [
-            float(self.status_code) / 599.0,  # Normalize status codes
-            math.log1p(self.size) / 20.0,     # Log-scale size
-            math.log1p(self.timing_ms) / 10.0,  # Log-scale timing
-            self.entropy,                      # Already 0-8 range
-            self.header_count / 50.0,         # Normalize header count
-            self.unique_header_ratio,          # Already 0-1
-            len(self.reflection_indicators) / 10.0  # Normalize reflection count
+            float(self.status_code) / 599.0,         # Normalize status codes
+            math.log1p(self.size) / 20.0,            # Log-scale size
+            math.log1p(self.timing_ms) / 10.0,       # Log-scale timing
+            self.entropy,                             # Already 0-8 range
+            self.header_count / 50.0,                # Normalize header count
+            self.unique_header_ratio,                 # Already 0-1
+            len(self.reflection_indicators) / 10.0,  # Normalize reflection count
+            self.keyword_leak_score,                  # 0-1, presenza keyword sensibili
         ]
 
     def distance(self, other: 'ResponseFingerprint') -> float:
@@ -76,7 +81,8 @@ class ResponseFingerprint:
         vec_b = other.to_feature_vector()
 
         # Weighted Euclidean distance (weights based on feature importance)
-        weights = [3.0, 2.0, 1.5, 2.5, 1.0, 1.5, 2.0]  # Domain knowledge weights
+        # keyword_leak_score = 3.0: alta importanza diagnostica (indica accesso reale)
+        weights = [3.0, 2.0, 1.5, 2.5, 1.0, 1.5, 2.0, 3.0]
 
         distance = sum(
             w * (a - b) ** 2
@@ -227,6 +233,22 @@ class ResponseDifferentialAnalyzer:
 
         return entropy
 
+    _LEAK_KEYWORDS = [
+        'dashboard', 'admin', 'internal', 'management', 'console',
+        'traceback', 'stack trace', 'exception', 'debug',
+        'unauthorized', 'forbidden',
+        'welcome', 'logged in', 'your account',
+    ]
+
+    def _calculate_keyword_leak_score(self, body: str) -> float:
+        """
+        Score 0.0-1.0: quante delle _LEAK_KEYWORDS compaiono nel body.
+        Presenza di keyword admin/internal indica accesso parziale o errore informativo.
+        """
+        body_lower = body[:8000].lower()
+        hits = sum(1 for kw in self._LEAK_KEYWORDS if kw in body_lower)
+        return hits / len(self._LEAK_KEYWORDS)
+
     def _extract_error_signature(self, body: str, headers: Dict[str, str]) -> str:
         """
         Extract semantic error signature using NLP-inspired techniques.
@@ -315,7 +337,8 @@ class ResponseDifferentialAnalyzer:
             header_count=len(response.headers),
             unique_header_ratio=len(set(response.headers.keys())) / max(len(response.headers), 1),
             error_signature=self._extract_error_signature(response.text, dict(response.headers)),
-            reflection_indicators=self._detect_reflection_indicators(request_data or {}, response.text)
+            reflection_indicators=self._detect_reflection_indicators(request_data or {}, response.text),
+            keyword_leak_score=self._calculate_keyword_leak_score(response.text)
         )
 
     def _establish_baseline(self, samples: int):
@@ -408,9 +431,17 @@ class ResponseDifferentialAnalyzer:
         baseline_sizes = [fp.size for fp in self.baseline_fingerprints]
         size_z_score = self._calculate_z_score(test_fingerprint.size, baseline_sizes)
 
+        # Dynamic likelihood ratio scalars from SQLite — TASK 4.6
+        # Initialised once; used across all evidence sections below.
+        _stack_sig = getattr(self, 'stack_sig', 'unknown')
+        _ldb = getattr(self, 'learning_db', None)
+
         if abs(size_z_score) > 2.0:  # >2 standard deviations
             # Strong evidence of different behavior
-            likelihood_ratio = min(abs(size_z_score) * 2, 50.0)  # Cap at 50
+            _size_scalar = _ldb.get_prior(
+                f'traceroute.lr_scalar.size_anomaly.{_stack_sig}', static_fallback=2.0
+            ) if _ldb else 2.0
+            likelihood_ratio = min(abs(size_z_score) * _size_scalar, 50.0)  # Cap at 50
 
             self.bayesian_engine.add_evidence(BypassEvidence(
                 evidence_type="Response Size Anomaly",
@@ -436,7 +467,10 @@ class ResponseDifferentialAnalyzer:
             # Timing anomaly suggests different code path
             interpretation = "Backend reached" if timing_z_score > 0 else "Fast rejection"
 
-            likelihood_ratio = min(abs(timing_z_score) * 3, 40.0)
+            _timing_scalar = _ldb.get_prior(
+                f'traceroute.lr_scalar.timing_anomaly.{_stack_sig}', static_fallback=3.0
+            ) if _ldb else 3.0
+            likelihood_ratio = min(abs(timing_z_score) * _timing_scalar, 40.0)
 
             self.bayesian_engine.add_evidence(BypassEvidence(
                 evidence_type="Timing Anomaly",
@@ -462,7 +496,10 @@ class ResponseDifferentialAnalyzer:
         if abs(entropy_diff) > 0.5:  # Significant entropy change
             interpretation = self._interpret_entropy_change(entropy_diff)
 
-            likelihood_ratio = min(abs(entropy_diff) * 5, 30.0)
+            _entropy_scalar = _ldb.get_prior(
+                f'traceroute.lr_scalar.entropy_diff.{_stack_sig}', static_fallback=5.0
+            ) if _ldb else 5.0
+            likelihood_ratio = min(abs(entropy_diff) * _entropy_scalar, 30.0)
 
             self.bayesian_engine.add_evidence(BypassEvidence(
                 evidence_type="Entropy Differential",
@@ -488,7 +525,10 @@ class ResponseDifferentialAnalyzer:
         missing_headers = common_baseline_headers - test_headers
 
         if new_headers:
-            likelihood_ratio = len(new_headers) * 15.0  # Each new header is strong evidence
+            _new_hdr_scalar = _ldb.get_prior(
+                f'traceroute.lr_scalar.new_headers.{_stack_sig}', static_fallback=15.0
+            ) if _ldb else 15.0
+            likelihood_ratio = len(new_headers) * _new_hdr_scalar
 
             self.bayesian_engine.add_evidence(BypassEvidence(
                 evidence_type="New Headers Appeared",
@@ -506,7 +546,10 @@ class ResponseDifferentialAnalyzer:
             })
 
         if missing_headers:
-            likelihood_ratio = len(missing_headers) * 8.0
+            _miss_hdr_scalar = _ldb.get_prior(
+                f'traceroute.lr_scalar.missing_headers.{_stack_sig}', static_fallback=8.0
+            ) if _ldb else 8.0
+            likelihood_ratio = len(missing_headers) * _miss_hdr_scalar
 
             self.bayesian_engine.add_evidence(BypassEvidence(
                 evidence_type="Headers Disappeared",
@@ -532,7 +575,9 @@ class ResponseDifferentialAnalyzer:
             )
 
             if signature_similarity < 0.7:  # <70% similar
-                likelihood_ratio = 25.0
+                likelihood_ratio = _ldb.get_prior(
+                    f'traceroute.lr.error_sig_changed.{_stack_sig}', static_fallback=25.0
+                ) if _ldb else 25.0
 
                 self.bayesian_engine.add_evidence(BypassEvidence(
                     evidence_type="Error Signature Changed",
@@ -552,7 +597,10 @@ class ResponseDifferentialAnalyzer:
 
         # === 7. REFLECTION ANALYSIS ===
         if test_fingerprint.reflection_indicators:
-            likelihood_ratio = len(test_fingerprint.reflection_indicators) * 20.0
+            _refl_scalar = _ldb.get_prior(
+                f'traceroute.lr_scalar.reflection.{_stack_sig}', static_fallback=20.0
+            ) if _ldb else 20.0
+            likelihood_ratio = len(test_fingerprint.reflection_indicators) * _refl_scalar
 
             self.bayesian_engine.add_evidence(BypassEvidence(
                 evidence_type="Content Reflection Detected",
@@ -574,7 +622,10 @@ class ResponseDifferentialAnalyzer:
         avg_distance = statistics.mean(distances)
 
         if avg_distance > 0.5:  # Threshold for "significantly different"
-            likelihood_ratio = min(avg_distance * 15, 45.0)
+            _multidim_scalar = _ldb.get_prior(
+                f'traceroute.lr_scalar.multi_dim.{_stack_sig}', static_fallback=15.0
+            ) if _ldb else 15.0
+            likelihood_ratio = min(avg_distance * _multidim_scalar, 45.0)
 
             self.bayesian_engine.add_evidence(BypassEvidence(
                 evidence_type="Multi-Dimensional Anomaly",

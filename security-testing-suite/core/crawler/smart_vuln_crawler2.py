@@ -67,6 +67,13 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     logger.warning("psutil not available - performance monitoring will be limited")
 
+# SQLite Learning System
+try:
+    from core.learning.learning_db import LearningDB, _hash_target
+    LEARNING_DB_AVAILABLE = True
+except ImportError:
+    LEARNING_DB_AVAILABLE = False
+
 # Optional import for debug logging
 try:
     from debug_logger import DebugLogger, DebugSession
@@ -4401,6 +4408,10 @@ class SmartCrawler:
             'vulnerability_test_results': [],  # Store immediate test results
             'behavioral_analysis_results': []  # Store behavioral analysis results
         }
+
+        # SQLite Learning System
+        self.learning_db = LearningDB() if LEARNING_DB_AVAILABLE else None
+        self.scan_id = None
     
     def _sigint_handler(self, signum, frame):
         """Handle Ctrl+C: first press skips current test, second press (within 2s) quits"""
@@ -4473,20 +4484,39 @@ class SmartCrawler:
         Returns:
             int: numero massimo di URL su cui testare questo param+vuln
         """
-        # Base limit dal tipo di vulnerabilità
-        base_limit = self.DYNAMIC_LIMITS_BY_VULN_TYPE.get(
+        # Base limit dal tipo di vulnerabilità — dinamico da SQLite se disponibile (TASK 4.4)
+        _static_base = self.DYNAMIC_LIMITS_BY_VULN_TYPE.get(
             vuln_type, self.DEFAULT_MAX_TESTS
         )
+        if self.learning_db:
+            base_limit = int(self.learning_db.get_prior(
+                f'crawler.vuln_limit.{vuln_type}.{_hash_target(self.target_url)}',
+                static_fallback=float(_static_base)
+            ))
+        else:
+            base_limit = _static_base
 
-        # Confidence boost: alta confidence → +30% test ammessi
+        # Confidence boost: alta confidence → più test — moltiplicatori dinamici (TASK 4.9)
         if confidence is not None:
+            if self.learning_db:
+                mult_high = self.learning_db.get_prior(
+                    f'crawler.confidence_mult.high.{vuln_type}', static_fallback=1.3
+                )
+                mult_mid = self.learning_db.get_prior(
+                    f'crawler.confidence_mult.mid.{vuln_type}', static_fallback=1.15
+                )
+                mult_low = self.learning_db.get_prior(
+                    f'crawler.confidence_mult.low.{vuln_type}', static_fallback=0.7
+                )
+            else:
+                mult_high, mult_mid, mult_low = 1.3, 1.15, 0.7
+
             if confidence >= 80:
-                base_limit = int(base_limit * 1.3)
+                base_limit = int(base_limit * mult_high)
             elif confidence >= 65:
-                base_limit = int(base_limit * 1.15)
+                base_limit = int(base_limit * mult_mid)
             elif confidence < 45:
-                # Bassa confidence → riduci per evitare spreco
-                base_limit = int(base_limit * 0.7)
+                base_limit = int(base_limit * mult_low)
 
         # Site size scaling: siti grandi hanno più endpoint da coprire
         total_endpoints = len(self.endpoints) if hasattr(self, 'endpoints') else 0
@@ -6194,7 +6224,11 @@ class SmartCrawler:
         url = endpoint['url']
         param_name = param['name']
         method = endpoint.get('method', 'GET')
-        time_threshold = 4.0  # Expect ~5s delay
+        # Threshold dinamico da SQLite (TASK 4.3) — in secondi
+        time_threshold = self.learning_db.get_prior(
+            f'crawler.timing.sqli.{_hash_target(url)}',
+            static_fallback=4000.0
+        ) / 1000.0 if self.learning_db else 4.0
 
         if self.verbose:
             print(f"    Testing time-based blind SQLi...")
@@ -6226,6 +6260,21 @@ class SmartCrawler:
                         confidence = 90
                         if self.verbose:
                             print(f"    CONFIRMED time-based SQLi (delay: {elapsed:.1f}s)")
+
+                        # Record timing observation for adaptive learning (TASK 5.2)
+                        if self.learning_db and self.scan_id is not None:
+                            try:
+                                self.learning_db.record_timing_threshold(
+                                    scan_id=self.scan_id,
+                                    threshold_id='sqli_time_based',
+                                    tool='crawler',
+                                    target=url,
+                                    baseline_ms=verify_elapsed * 1000,
+                                    triggered_ms=elapsed * 1000,
+                                    confirmed=True,
+                                )
+                            except Exception:
+                                pass
 
                         self.vuln_logger.log_vulnerability(
                             endpoint=url,
@@ -6393,7 +6442,11 @@ class SmartCrawler:
         """
         url = endpoint['url']
         param_name = param['name']
-        time_threshold = 4.0
+        # Threshold dinamico da SQLite (TASK 4.3) — in secondi
+        time_threshold = self.learning_db.get_prior(
+            f'crawler.timing.sqli.{_hash_target(url)}',
+            static_fallback=4000.0
+        ) / 1000.0 if self.learning_db else 4.0
 
         if self.verbose:
             print(f"    Testing time-based blind RCE...")
@@ -6432,6 +6485,21 @@ class SmartCrawler:
 
                         if self.verbose:
                             print(f"    CONFIRMED time-based RCE: {elapsed:.2f}s vs {verify_elapsed:.2f}s")
+
+                        # Record timing observation for adaptive learning (TASK 5.2)
+                        if self.learning_db and self.scan_id is not None:
+                            try:
+                                self.learning_db.record_timing_threshold(
+                                    scan_id=self.scan_id,
+                                    threshold_id='rce_time_based',
+                                    tool='crawler',
+                                    target=url,
+                                    baseline_ms=verify_elapsed * 1000,
+                                    triggered_ms=elapsed * 1000,
+                                    confirmed=True,
+                                )
+                            except Exception:
+                                pass
 
                         self.vuln_logger.log_vulnerability(
                             endpoint=url,
@@ -8249,6 +8317,13 @@ class SmartCrawler:
             self.max_runtime = max_runtime
         self._scan_start_time = time.time()
 
+        # Registra scan all'inizio — scan_id usato da tutti i record_* durante lo scan
+        if self.learning_db:
+            self.scan_id = self.learning_db.record_scan(
+                tool='crawler',
+                target=self.target_url,
+            )
+
         logger.info(f"Starting crawl of {self.target_url} (max_runtime={self.max_runtime}s)")
 
         # Resolve initial redirects
@@ -8557,6 +8632,22 @@ class SmartCrawler:
         with open(output_path, 'w') as f:
             json.dump(self.results, f, indent=2, default=str)
         logger.info(f"Results exported to {output_path}")
+
+        # Aggiorna record con dati finali e avvia update_priors in background
+        if self.learning_db and self.scan_id:
+            vulns_found = len(self.results.get('vulnerability_test_results', []))
+            self.learning_db._update_scan_outcome(
+                scan_id=self.scan_id,
+                stack_signature=None,  # crawler non fa stack fingerprinting
+                outcome_summary={'vulns_found': vulns_found}
+            )
+            t = threading.Thread(
+                target=self.learning_db.update_priors,
+                args=('crawler', _hash_target(self.target_url)),
+                daemon=True
+            )
+            t.start()
+
         return output_path
 
 
