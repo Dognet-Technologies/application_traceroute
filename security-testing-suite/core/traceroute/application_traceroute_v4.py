@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Application Stack Traceroute v4.0.1 | Intelligent Reconstruction
+Application Stack Traceroute v4.1.0 | Intelligent Reconstruction
 Next-Generation Infrastructure Analysis with Progressive Discovery
 
 FEATURES:
@@ -19,6 +19,7 @@ import requests
 import asyncio
 import aiohttp
 import json
+import math
 import time
 import base64
 import urllib.parse
@@ -6919,7 +6920,7 @@ class ReportGenerator:
         """Generate human-readable text report"""
         report = f"""
 {'=' * 80}
-APPLICATION STACK TRACEROUTE v4.0.1 - INTELLIGENT RECONSTRUCTION
+APPLICATION STACK TRACEROUTE v4.1.0 - INTELLIGENT RECONSTRUCTION
 {'=' * 80}
 
 🎯 TARGET: {self.target_url}
@@ -7164,7 +7165,7 @@ class ApplicationTraceroute:
     async def run_full_analysis(self):
         """Run complete analysis workflow"""
         print("\n" + "=" * 80)
-        print("🔬 APPLICATION STACK TRACEROUTE v4.0.1")
+        print("🔬 APPLICATION STACK TRACEROUTE v4.1.0")
         print("🎯 Intelligent Stack Reconstruction & Bypass Generation")
         print("=" * 80)
         print(f"\n🎯 Target: {self.target_url}\n")
@@ -7292,7 +7293,7 @@ def main():
     from core.license_manager import require_license, activate_license, deactivate_license, check_license
 
     parser = argparse.ArgumentParser(
-        description='Application Stack Traceroute v4.0.1 - Intelligent Stack Reconstruction',
+        description='Application Stack Traceroute v4.1.0 - Intelligent Stack Reconstruction',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -7321,7 +7322,7 @@ either tool is sufficient.
         """
     )
 
-    parser.add_argument('--version', action='version', version='security-traceroute 4.0.1')
+    parser.add_argument('--version', action='version', version='security-traceroute 4.1.0')
     parser.add_argument('target', nargs='?', help='Target URL to analyze')
     parser.add_argument(
         '--forbidden-endpoint',
