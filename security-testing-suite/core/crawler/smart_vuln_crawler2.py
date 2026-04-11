@@ -6225,8 +6225,9 @@ class SmartCrawler:
         param_name = param['name']
         method = endpoint.get('method', 'GET')
         # Threshold dinamico da SQLite (TASK 4.3) — in secondi
+        # Key: crawler.timing.sqli_sleep.{hash} — corrisponde a threshold_id in record e prior
         time_threshold = self.learning_db.get_prior(
-            f'crawler.timing.sqli.{_hash_target(url)}',
+            f'crawler.timing.sqli_sleep.{_hash_target(url)}',
             static_fallback=4000.0
         ) / 1000.0 if self.learning_db else 4.0
 
@@ -6266,7 +6267,7 @@ class SmartCrawler:
                             try:
                                 self.learning_db.record_timing_threshold(
                                     scan_id=self.scan_id,
-                                    threshold_id='sqli_time_based',
+                                    threshold_id='sqli_sleep',
                                     tool='crawler',
                                     target=url,
                                     baseline_ms=verify_elapsed * 1000,
@@ -6443,8 +6444,9 @@ class SmartCrawler:
         url = endpoint['url']
         param_name = param['name']
         # Threshold dinamico da SQLite (TASK 4.3) — in secondi
+        # Key: crawler.timing.rce_sleep.{hash} — corrisponde a threshold_id in record e prior
         time_threshold = self.learning_db.get_prior(
-            f'crawler.timing.sqli.{_hash_target(url)}',
+            f'crawler.timing.rce_sleep.{_hash_target(url)}',
             static_fallback=4000.0
         ) / 1000.0 if self.learning_db else 4.0
 
@@ -6491,7 +6493,7 @@ class SmartCrawler:
                             try:
                                 self.learning_db.record_timing_threshold(
                                     scan_id=self.scan_id,
-                                    threshold_id='rce_time_based',
+                                    threshold_id='rce_sleep',
                                     tool='crawler',
                                     target=url,
                                     baseline_ms=verify_elapsed * 1000,

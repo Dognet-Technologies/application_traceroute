@@ -5620,9 +5620,8 @@ class DiscrepancyTester:
         execution_feedback = {}
 
         # Pre-compute stack_sig once for outcome recording (TASK 5.1)
-        _exec_stack_sig = (
-            _build_stack_signature(self.discrepancies[0].get('stack', []))
-            if self.discrepancies else 'unknown'
+        _exec_stack_sig = _build_stack_signature(
+            self.stack_analyzer.stack.get('layers', [])
         )
 
         for technique_id in attack_plan['optimal_path'][1:-1]:  # Skip start and end nodes
