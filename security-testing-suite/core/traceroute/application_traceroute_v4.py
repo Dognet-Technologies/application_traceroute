@@ -6993,6 +6993,15 @@ class BypassGenerator:
             key = (btype, self._canonicalize_path_transform(url))
         elif btype == 'Method Confusion':
             key = (btype, bypass.get('method', ''))
+        elif btype == 'Nested Encoding':
+            # Due suffix che usano la stessa tecnica base (es. %2500.md e %2500.pdf)
+            # sono semanticamente identici: stessa trasformazione, estensione diversa.
+            # La chiave canonicalizza al pattern di tecnica ignorando l'estensione finale.
+            suffix = bypass.get('discrepancy', {}).get('encoded_path',
+                     bypass.get('discrepancy', {}).get('variant', ''))
+            # Estrai solo la parte di trasformazione prima del punto (es. '%2500' da '%2500.md')
+            technique = suffix.split('.')[0] if suffix else suffix
+            key = (btype, technique)
         else:
             key = (btype,
                    str(bypass.get('headers', {})),

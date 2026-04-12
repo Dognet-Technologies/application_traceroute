@@ -4101,21 +4101,64 @@ class BypassManager:
             logger.error(f"Failed to load bypasses from {filename}: {e}")
     
     def apply_bypass_to_request(self, url, bypass, payload="", method="GET"):
-        """Apply a specific bypass to a request"""
+        """Apply a specific bypass to a request.
+
+        Priority for URL/method resolution:
+        1. bypass['target']  — set by traceroute serializer, already contains the
+           transformed path (e.g. /ftp/eastere.gg%2500.md)
+        2. bypass['curl_data']['path'] — legacy format used by older handlers
+        3. The caller-supplied `url` — unmodified fallback
+
+        bypass['method'] always overrides the caller-supplied `method`.
+        """
         try:
             parsed = urlparse(url)
-            
+
+            # Resolve effective URL and method from bypass metadata first
+            effective_url = bypass.get('target') or url
+            effective_method = bypass.get('method') or method
+
             # Build request parameters
             request_params = {
-                'url': url,
-                'method': method,
+                'url': effective_url,
+                'method': effective_method,
                 'timeout': 10,
                 'verify': False,
                 'allow_redirects': True
             }
-            
+
             # Apply bypass based on type
-            if bypass['type'] == 'Unicode Bypass':
+            if bypass['type'] == 'Method Confusion':
+                # Method is already set via effective_method above.
+                # Keep the caller's URL (with its injected parameters) intact —
+                # the only change is the HTTP method.
+                request_params['url'] = url
+
+            elif bypass['type'] in ('Nested Encoding', 'Encoding Confusion'):
+                # The bypass suffix (e.g. %2500.md) must be inserted between the
+                # path and the query string of the caller's URL so that injected
+                # parameters are preserved.
+                #
+                # Two contexts:
+                # A) Crawl path (no query string on url): use bypass['target'] directly
+                # B) Vuln scanner (url already has ?param=payload): insert suffix
+                #    before the query string
+                parsed_caller = urlparse(url)
+                if parsed_caller.query:
+                    # Context B — extract suffix from bypass target
+                    bypass_target = bypass.get('target', '')
+                    parsed_bypass = urlparse(bypass_target)
+                    # suffix is the part appended to the original path in bypass target
+                    orig_path = parsed.path   # caller's clean path
+                    bypass_path = parsed_bypass.path
+                    suffix = bypass_path[len(orig_path):] if bypass_path.startswith(orig_path) else ''
+                    new_path = orig_path + suffix
+                    request_params['url'] = parsed_caller._replace(path=new_path).geturl()
+                else:
+                    # Context A — use the pre-built bypass target URL
+                    request_params['url'] = bypass.get('target') or url
+
+            elif bypass['type'] == 'Unicode Bypass':
                 # Unicode path bypass
                 if 'path' in bypass['curl_data']:
                     bypass_path = bypass['curl_data']['path']
@@ -4454,6 +4497,63 @@ class SmartCrawler:
         if self.verbose and bypass_manager and bypass_manager.validated_bypasses:
             print(f"🔧 Bypass Manager initialized with {len(bypass_manager.validated_bypasses)} validated bypasses")
             print(f"📊 Technology Stack: {bypass_manager.technology_stack}")
+
+    # Compatibilità bypass↔vuln_type per il vuln scanner.
+    # Usato SOLO nel payload injection path — il crawl path prova sempre tutti i bypass
+    # perché lì il bypass serve per superare un 403, non per iniettare payload.
+    #
+    # None  = compatibile con tutti i vuln type
+    # set() = solo access control (crawl path), skip nel vuln scanner
+    _BYPASS_VULN_COMPAT = {
+        'Method Confusion':           set(),        # solo accesso, non iniezione
+        'Protocol Confusion':         set(),        # solo accesso, non iniezione
+        'Nested Encoding':            {'lfi', 'rfi', 'path_traversal'},
+        'Encoding Confusion':         {'lfi', 'rfi', 'path_traversal'},
+        'Path Normalization':         {'lfi', 'rfi', 'path_traversal'},
+        'Header Confusion':           {'ssrf'},
+        'Anchor Tag Mutation':        {'xss'},
+        'Advanced Statistical Bypass': None,        # generico, prova su tutto
+        'Semantic Evolutionary Bypass': None,
+        'Graph Optimized Bypass':     None,
+    }
+
+    def _unique_bypasses_for_vuln(self, vuln_type: str) -> list:
+        """Return one bypass per technique type, filtered by vuln compatibility.
+
+        Multiple bypass objects of the same type (e.g. Nested Encoding with
+        %2500.md and %2500.pdf) represent the same underlying technique — if the
+        WAF blocks one it blocks all, so testing duplicates wastes requests.
+        We keep the first representative per type.
+        """
+        if not self.bypass_manager:
+            return []
+        seen_types: set = set()
+        result = []
+        for bypass in self.bypass_manager.validated_bypasses:
+            btype = bypass.get('type', '')
+            if btype in seen_types:
+                continue
+            if not self._bypass_compatible_with_vuln(bypass, vuln_type):
+                continue
+            seen_types.add(btype)
+            result.append(bypass)
+        return result
+
+    def _bypass_compatible_with_vuln(self, bypass: dict, vuln_type: str) -> bool:
+        """Return True if this bypass makes sense to apply when testing vuln_type.
+
+        Bypasses that only unlock access (Method Confusion, Protocol Confusion)
+        are not useful as payload injection vehicles — they don't transform the
+        request in a way that would evade a payload-level WAF rule.
+        Path-based bypasses (Nested Encoding, Path Normalization) are meaningful
+        only for path-traversal / file inclusion tests, not for XSS or SQLi.
+        """
+        compat = self._BYPASS_VULN_COMPAT.get(bypass.get('type', ''))
+        if compat is None:          # explicit None → compatible with all
+            return True
+        if not compat:              # empty set → access-only, skip in vuln scanner
+            return False
+        return vuln_type in compat
 
     # Limiti dinamici per tipo di vulnerabilità
     # Vuln critiche (RCE, SQLi) meritano più test su URL diversi
@@ -5956,9 +6056,9 @@ class SmartCrawler:
 
                     failed_payloads.append(payload)
 
-                    # If not successful, try with validated bypasses (capped)
+                    # If not successful, try with compatible validated bypasses (capped, deduplicated by type)
                     if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                        for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                        for bp_idx, bypass in enumerate(self._unique_bypasses_for_vuln(vuln_type)):
                             if bp_idx >= max_bypasses_per_payload:
                                 break
                             if self._skip_current_test:
@@ -6742,8 +6842,8 @@ class SmartCrawler:
                 success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
                 if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                    # Test with each validated bypass (capped to prevent explosion)
-                    for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                    # Test with each compatible, deduplicated bypass (capped to prevent explosion)
+                    for bp_idx, bypass in enumerate(self._unique_bypasses_for_vuln(vuln_type)):
                         if bp_idx >= 10:
                             break
                         if self._skip_current_test:
@@ -6790,9 +6890,9 @@ class SmartCrawler:
             # Test without bypass first
             success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
-            # Se non ha successo, prova con bypass (capped to prevent explosion)
+            # Se non ha successo, prova con bypass compatibili e deduplicati per tipo
             if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                for bp_idx, bypass in enumerate(self._unique_bypasses_for_vuln(vuln_type)):
                     if bp_idx >= 10:
                         break
                     self.rate_limiter.wait()
