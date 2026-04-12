@@ -4444,6 +4444,43 @@ class SmartCrawler:
             print(f"🔧 Bypass Manager initialized with {len(bypass_manager.validated_bypasses)} validated bypasses")
             print(f"📊 Technology Stack: {bypass_manager.technology_stack}")
 
+    _BYPASS_VULN_COMPAT = {
+        'Method Confusion':            set(),
+        'Protocol Confusion':          set(),
+        'Nested Encoding':             {'lfi', 'rfi', 'path_traversal'},
+        'Encoding Confusion':          {'lfi', 'rfi', 'path_traversal'},
+        'Path Normalization':          {'lfi', 'rfi', 'path_traversal'},
+        'Header Confusion':            {'ssrf'},
+        'Anchor Tag Mutation':         {'xss'},
+        'Advanced Statistical Bypass': None,
+        'Semantic Evolutionary Bypass': None,
+        'Graph Optimized Bypass':      None,
+    }
+
+    def _bypass_compatible_with_vuln(self, bypass: dict, vuln_type: str) -> bool:
+        compat = self._BYPASS_VULN_COMPAT.get(bypass.get('type', ''))
+        if compat is None:
+            return True
+        if not compat:
+            return False
+        return vuln_type in compat
+
+    def _unique_bypasses_for_vuln(self, vuln_type: str) -> list:
+        """Return one bypass per technique type, filtered by vuln compatibility."""
+        if not self.bypass_manager:
+            return []
+        seen_types: set = set()
+        result = []
+        for bypass in self.bypass_manager.validated_bypasses:
+            btype = bypass.get('type', '')
+            if btype in seen_types:
+                continue
+            if not self._bypass_compatible_with_vuln(bypass, vuln_type):
+                continue
+            seen_types.add(btype)
+            result.append(bypass)
+        return result
+
     # Limiti dinamici per tipo di vulnerabilità
     # Vuln critiche (RCE, SQLi) meritano più test su URL diversi
     DYNAMIC_LIMITS_BY_VULN_TYPE = {
@@ -5926,9 +5963,9 @@ class SmartCrawler:
 
                     failed_payloads.append(payload)
 
-                    # If not successful, try with validated bypasses (capped)
+                    # If not successful, try with compatible, deduplicated bypasses (capped)
                     if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                        for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                        for bp_idx, bypass in enumerate(self._unique_bypasses_for_vuln(vuln_type)):
                             if bp_idx >= max_bypasses_per_payload:
                                 break
                             if self._skip_current_test:
@@ -6672,8 +6709,8 @@ class SmartCrawler:
                 success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
                 if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                    # Test with each validated bypass (capped to prevent explosion)
-                    for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                    # Test with compatible, deduplicated bypasses (capped to prevent explosion)
+                    for bp_idx, bypass in enumerate(self._unique_bypasses_for_vuln(vuln_type)):
                         if bp_idx >= 10:
                             break
                         if self._skip_current_test:
@@ -6720,9 +6757,9 @@ class SmartCrawler:
             # Test without bypass first
             success = self.test_single_payload(endpoint, param, payload, vuln_type, None)
 
-            # Se non ha successo, prova con bypass (capped to prevent explosion)
+            # Se non ha successo, prova con bypass compatibili e deduplicati per tipo
             if not success and self.bypass_manager and self.bypass_manager.validated_bypasses:
-                for bp_idx, bypass in enumerate(self.bypass_manager.validated_bypasses):
+                for bp_idx, bypass in enumerate(self._unique_bypasses_for_vuln(vuln_type)):
                     if bp_idx >= 10:
                         break
                     self.rate_limiter.wait()

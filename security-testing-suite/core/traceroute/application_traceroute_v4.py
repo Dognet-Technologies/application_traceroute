@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Application Stack Traceroute v4.0.1 | Intelligent Reconstruction
+Application Stack Traceroute v4.0.9 | Intelligent Reconstruction
 Next-Generation Infrastructure Analysis with Progressive Discovery
 
 FEATURES:
@@ -6250,6 +6250,9 @@ class BypassGenerator:
           (e.g. https://target/ftp/eastere.gg%2500.md)
         - Path-relative encoding: discrepancy['encoded_path'] is a relative path
           appended to forbidden_endpoint (e.g. /%2561dmin)
+
+        Deduplication: varianti della stessa tecnica (es. %2500.md e %2500.pdf)
+        condividono lo stesso pattern base (%2500) — ne viene generata solo una.
         """
         test_url = discrepancy.get('test_url', '')
         suffix   = discrepancy.get('encoded_path', discrepancy.get('variant', ''))
@@ -6261,6 +6264,15 @@ class BypassGenerator:
 
         if not test_url:
             return
+
+        # Deduplica per tecnica: estrae la parte di trasformazione prima del punto
+        # (%2500.md → %2500, %2500.pdf → %2500) per trattarle come tecnica unica.
+        technique = suffix.split('.')[0] if suffix else suffix
+        if any(b.get('type') == 'Nested Encoding' and
+               b.get('discrepancy', {}).get('encoded_path', '').split('.')[0] == technique
+               for b in self.bypasses):
+            return
+
         bypass = {
             'id':          f"bypass_{len(self.bypasses) + 1}",
             'type':        'Nested Encoding',
@@ -6552,7 +6564,7 @@ class ReportGenerator:
         """Generate human-readable text report"""
         report = f"""
 {'=' * 80}
-APPLICATION STACK TRACEROUTE v4.0.1 - INTELLIGENT RECONSTRUCTION
+APPLICATION STACK TRACEROUTE v4.0.9 - INTELLIGENT RECONSTRUCTION
 {'=' * 80}
 
 🎯 TARGET: {self.target_url}
@@ -6795,7 +6807,7 @@ class ApplicationTraceroute:
     async def run_full_analysis(self):
         """Run complete analysis workflow"""
         print("\n" + "=" * 80)
-        print("🔬 APPLICATION STACK TRACEROUTE v4.0.1")
+        print("🔬 APPLICATION STACK TRACEROUTE v4.0.9")
         print("🎯 Intelligent Stack Reconstruction & Bypass Generation")
         print("=" * 80)
         print(f"\n🎯 Target: {self.target_url}\n")
@@ -6892,7 +6904,7 @@ def main():
     from core.license_manager import require_license, activate_license, deactivate_license, check_license
 
     parser = argparse.ArgumentParser(
-        description='Application Stack Traceroute v4.0.1 - Intelligent Stack Reconstruction',
+        description='Application Stack Traceroute v4.0.9 - Intelligent Stack Reconstruction',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -6921,7 +6933,7 @@ either tool is sufficient.
         """
     )
 
-    parser.add_argument('--version', action='version', version='security-traceroute 4.0.1')
+    parser.add_argument('--version', action='version', version='security-traceroute 4.0.9')
     parser.add_argument('target', nargs='?', help='Target URL to analyze')
     parser.add_argument(
         '--forbidden-endpoint',

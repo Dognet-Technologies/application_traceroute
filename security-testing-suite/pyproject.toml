@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "security-testing-suite"
-version = "4.0.1"
+version = "4.0.9"
 description = "Advanced Security Testing Suite with Causal Inference"
 readme = "README.md"
 requires-python = ">=3.10"
