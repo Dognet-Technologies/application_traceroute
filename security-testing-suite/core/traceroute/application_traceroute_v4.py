@@ -795,9 +795,13 @@ class ProgressiveStackAnalyzer:
             'api_gateway_detection': {
                 'kong': {
                     'headers': ['x-kong-proxy-latency', 'x-kong-upstream-latency',
-                                'x-kong-request-id'],  # via rimosso: non discriminante
+                                'x-kong-request-id'],
+                    # Via pattern: some kong setups expose "Via: 1.1 kong" (15 pts, not 40)
+                    'via_patterns': ['kong'],
                     'body_patterns': ['kong', 'kong gateway'],
-                    'behavioral_paths': ['/']
+                    # Multiple behavioral paths give more coverage;
+                    # /api /v1 /v2 are common API gateway entry points
+                    'behavioral_paths': ['/api', '/v1', '/v2', '/health', '/status', '/'],
                 },
                 'aws_api_gateway': {
                     'headers': ['x-amzn-requestid', 'x-amzn-trace-id', 'x-amz-apigw-id'],
@@ -2144,22 +2148,23 @@ class ProgressiveStackAnalyzer:
 
     def _deduplicate_layers(self):
         """
-        Remove duplicate layers for the same canonical technology family.
-        When duplicates exist (e.g. 'nodejs' BACKEND and 'nodejs_express' FRAMEWORK),
-        keep the layer with the highest confidence score.
-        Preserves insertion order of the first (or best-confidence) representative.
+        Remove duplicate layers for the same canonical technology family AND type.
+        Dedup key is (layer_type, family) so CDN:cloudflare, WAF:cloudflare, and
+        CACHE:cloudflare are kept as separate layers (different services, same vendor).
+        When true duplicates exist (same type+family), keep the highest-confidence one.
         """
-        # first pass: find the best-confidence index for each canonical family
-        best: Dict[str, int] = {}  # family → index in self.stack['layers']
+        best: Dict[tuple, int] = {}  # (type, family) → index in self.stack['layers']
         for i, layer in enumerate(self.stack['layers']):
             component = layer.get('component', '')
             family = self._TECH_FAMILY.get(component, component)
-            if family not in best:
-                best[family] = i
+            layer_type = layer.get('type', '')
+            key = (layer_type, family)
+            if key not in best:
+                best[key] = i
             else:
-                prev_conf = self.stack['layers'][best[family]].get('confidence', 0)
+                prev_conf = self.stack['layers'][best[key]].get('confidence', 0)
                 if layer.get('confidence', 0) > prev_conf:
-                    best[family] = i
+                    best[key] = i
 
         keep = set(best.values())
         self.stack['layers'] = [
@@ -2759,7 +2764,7 @@ class ProgressiveStackAnalyzer:
             confidence = 0
             evidence = []
 
-            # 1. Header matching (40 pts)
+            # 1. Header matching (40 pts — discriminative vendor headers)
             for h_pattern in fp.get('headers', []):
                 for h_name, h_val in response.headers.items():
                     if re.search(h_pattern, f"{h_name}: {h_val}", re.IGNORECASE):
@@ -2768,6 +2773,16 @@ class ProgressiveStackAnalyzer:
                         break
                 if confidence >= 40:
                     break
+
+            # 1b. Via header patterns (15 pts — weaker signal, CDN may pass or strip)
+            if confidence < 40:
+                via_val = (response.headers.get('via') or
+                           response.headers.get('Via') or '')
+                for via_pat in fp.get('via_patterns', []):
+                    if via_pat.lower() in via_val.lower():
+                        confidence += 15
+                        evidence.append(f"Via pattern: {via_pat!r}")
+                        break
 
             # 2. API behavioural paths (30 pts)
             for path in fp.get('behavioral_paths', []) or ['/api/', '/v1/', '/v2/', '/graphql']:
