@@ -1795,22 +1795,23 @@ class ProgressiveStackAnalyzer:
 
     def _deduplicate_layers(self):
         """
-        Remove duplicate layers for the same canonical technology family.
-        When duplicates exist (e.g. 'nodejs' BACKEND and 'nodejs_express' FRAMEWORK),
-        keep the layer with the highest confidence score.
-        Preserves insertion order of the first (or best-confidence) representative.
+        Remove duplicate layers for the same canonical technology family AND type.
+        Dedup key is (layer_type, family) so CDN:cloudflare, WAF:cloudflare, and
+        CACHE:cloudflare are kept as separate layers (different services, same vendor).
+        When true duplicates exist (same type+family), keep the highest-confidence one.
         """
-        # first pass: find the best-confidence index for each canonical family
-        best: Dict[str, int] = {}  # family → index in self.stack['layers']
+        best: Dict[tuple, int] = {}  # (type, family) → index in self.stack['layers']
         for i, layer in enumerate(self.stack['layers']):
             component = layer.get('component', '')
             family = self._TECH_FAMILY.get(component, component)
-            if family not in best:
-                best[family] = i
+            layer_type = layer.get('type', '')
+            key = (layer_type, family)
+            if key not in best:
+                best[key] = i
             else:
-                prev_conf = self.stack['layers'][best[family]].get('confidence', 0)
+                prev_conf = self.stack['layers'][best[key]].get('confidence', 0)
                 if layer.get('confidence', 0) > prev_conf:
-                    best[family] = i
+                    best[key] = i
 
         keep = set(best.values())
         self.stack['layers'] = [
