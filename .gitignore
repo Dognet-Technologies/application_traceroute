@@ -86,6 +86,6 @@ Thumbs.db
 # Temporary
 *.tmp
 .checkpoint.json
-security-testing-suite/tools/update_digest.py
+security-testing-suite/tools/*
 Immagini
 .claude/*/
